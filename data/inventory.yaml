@@ -25,10 +25,13 @@ items:
     category: usable_now
     priority: high
     path: GameData/Simulation/AI/*.csv
-    count: 7
+    count: 6
     format: csv
-    status: readable
-    notes: "Osobnosti soupeřů, gumička podle vzdálenosti, rozestupy v koloně, komentáře designérů. Každé CSV má binární dvojče .bin"
+    doc: docs/formats/ai-csv.md
+    tool: tools/ai_csv2json.py
+    output: decomposed/GameData/Simulation/AI/*.json
+    status: decoded
+    notes: "Osobnosti soupeřů, gumička podle vzdálenosti, rozestupy v koloně, komentáře designérů. Každé CSV má binární dvojče .bin (int32, 16.16), převod je proti němu ověřený; prsonal.bin je z jiné revize CSV. TRAFCFG.DAT/.DES zatím nepřevedeno"
     use: "Logika a výchozí čísla AI"
 
   - id: ai_car_profiles
@@ -66,14 +69,18 @@ items:
     format: crp
     doc: docs/formats/crp.md
     tool: tools/refpack.py
-    status: decompression_done
+    status: decoded_cars
 
   - id: car_geometry
     category: to_write
     priority: medium
     path: GameData/CarModel/*.crp
-    status: unknown
-    reference: "OpenNFS ~40 %"
+    count: 44
+    doc: docs/formats/crp.md
+    tool: tools/crp2gltf.py
+    output: "decomposed/GameData/CarModel/<auto>/<auto>.gltf"
+    status: decoded
+    reference: "CrpLib z LibOpenNFS"
     use: "glTF pro soukromou vizuální referenci"
 
   - id: track_geometry

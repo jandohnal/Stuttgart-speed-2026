@@ -40,8 +40,8 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
   - [x] Porovnání dvojic a hypotézy ([formats/sim.md](formats/sim.md#porovnání-dvojic))
   - [ ] Ověřit hypotézy v originále přes Wine
 - [x] Převod textur FSH → PNG ([tools/fsh2png.py](../tools/fsh2png.py))
-- [ ] Parser geometrie auta v CRP → glTF (podle OpenNFS), jedno auto
-- [ ] Převod CSV nastavení AI do JSON
+- [x] Parser geometrie auta v CRP → glTF (podle OpenNFS), všech 44 aut ([tools/crp2gltf.py](../tools/crp2gltf.py))
+- [x] Převod CSV nastavení AI do JSON ([tools/ai_csv2json.py](../tools/ai_csv2json.py))
 - [ ] Spustit originál na Macu přes Wine jako referenci
 
 ## Fáze 2 – Prototyp jízdy
