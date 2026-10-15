@@ -1,0 +1,134 @@
+# Inventura dat originální hry NFS5 (Porsche 2000), verze 3.5 (mod, nGlide, oficiální přídavná auta).
+# Cesty jsou relativní ke složce sources/ (kopie instalace hry). Rozbalené výstupy jdou do decomposed/ se stejnou strukturou.
+# Obě složky jsou v .gitignore, data existují jen lokálně.
+# category: usable_now | unpack | to_write
+# priority: high | medium | low | none (podle docs/decisions.md)
+schema_version: 1
+updated: 2026-10-15
+install_size_mb: 540
+tracks: [alps, autobahn, canyon, castle, coastal, farmland, foothills, forest, industrial, monaco1, monaco2, monaco3, monaco4, monaco5, skidpad]
+
+items:
+  - id: car_physics
+    category: usable_now
+    priority: high
+    path: GameData/Simulation/CarData/*.sim
+    count: 86
+    format: sim
+    doc: docs/formats/sim.md
+    tool: tools/sim_dump.py
+    output: decomposed/GameData/Simulation/cars.json
+    status: partial_decoded
+    use: "Referenční hodnoty pro jízdní model fiktivních aut podle éry"
+
+  - id: ai_config
+    category: usable_now
+    priority: high
+    path: GameData/Simulation/AI/*.csv
+    count: 7
+    format: csv
+    status: readable
+    notes: "Osobnosti soupeřů, gumička podle vzdálenosti, rozestupy v koloně, komentáře designérů. Každé CSV má binární dvojče .bin"
+    use: "Logika a výchozí čísla AI"
+
+  - id: ai_car_profiles
+    category: to_write
+    priority: medium
+    path: GameData/Simulation/AICarData/*.ais
+    count: 22
+    format: ais
+    status: unknown
+
+  - id: car_text_config
+    category: usable_now
+    priority: low
+    path: ["GameData/CarModel/*.tpg", "GameData/CarModel/*.clr"]
+    count: 73
+    format: ini
+    status: readable
+    notes: "Seznam textur, pozice kamery řidiče, barvy laku v HSV"
+
+  - id: track_text_config
+    category: usable_now
+    priority: medium
+    path: ["GameData/Track/*.map", "GameData/Track/*.scn", "GameData/Track/animdefs.txt"]
+    count: 94
+    format: ini/text
+    status: readable
+    notes: "Tónování, zvukové prvky, kamery, startovní pozice, vlastnosti objektů (hmotnost, průjezdnost)"
+    use: "Předloha atmosféry a interakce s objekty"
+
+  - id: crp_container
+    category: unpack
+    priority: medium
+    path: ["GameData/CarModel/*.crp", "GameData/Track/*.crp", "FEData/Models/*.crp"]
+    count: {cars: 44, tracks: 15, menu: 8}
+    format: crp
+    doc: docs/formats/crp.md
+    tool: tools/refpack.py
+    status: decompression_done
+
+  - id: car_geometry
+    category: to_write
+    priority: medium
+    path: GameData/CarModel/*.crp
+    status: unknown
+    reference: "OpenNFS ~40 %"
+    use: "glTF pro soukromou vizuální referenci"
+
+  - id: track_geometry
+    category: to_write
+    priority: low
+    path: GameData/Track/*.crp
+    status: unknown
+    reference: "OpenNFS ~5 %"
+    use: "Jen náhled pro inspiraci stylem (D-005)"
+
+  - id: track_binary_data
+    category: to_write
+    priority: low
+    path: ["GameData/Track/*.key", "*.edg", "*.jnc", "*.lsp", "*.rho", "Cops/*.cop"]
+    status: unknown
+    notes: "Podle názvů: ideální stopa vpřed/vzad (.key), okraje (.edg), rozcestí (.jnc), policie (.cop)"
+
+  - id: textures
+    category: unpack
+    priority: medium
+    path: ["GameData/CarModel/*.fsh", "FEData/**/*.fsh", "GameData/DashHud/*.fsh", "GameData/Track/*.fsh", "GameData/Track/Sky/*.fsh", "GameData/Render/*.fsh"]
+    count: 553
+    format: fsh
+    doc: docs/formats/fsh.md
+    tool: tools/fsh2png.py
+    output: "decomposed/<cesta bez přípony>/*.png + index.json"
+    status: decoded
+    notes: "SHPI, 10 425 obrázků. 8bitové (0x7B) s paletou 0x2A/0x29, 16/24/32bitové. 15 souborů celých v RefPack, 222 obrázků s pixely v RefPack"
+
+  - id: sounds
+    category: unpack
+    priority: low
+    path: ["GameData/Sounds/*.viv", "GameData/Sounds/*.bnk"]
+    count: {viv: 42, bnk_inside: 698}
+    format: viv/bnk
+    status: known_format
+    notes: "BIGF archivy, EA zvukové banky (vgmstream). Jen reference, do hry vlastní samply (D-007)"
+
+  - id: engine_sound_params
+    category: to_write
+    priority: low
+    path: GameData/Sounds/*.spl
+    count: 86
+    status: unknown
+
+  - id: music
+    category: unpack
+    priority: none
+    path: GameData/Music/zzzymus.viv
+    count: 28
+    notes: "Nepoužije se (D-006)"
+
+  - id: movies
+    category: unpack
+    priority: none
+    path: FEData/Movies/*.mad
+    count: 12
+    notes: "ffmpeg je otevře přímo (192x144)"

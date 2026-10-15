@@ -1,0 +1,21 @@
+# Assety z originální hry a vše z nich rozbalené – jen lokálně, nikdy do gitu
+/sources/
+/decomposed/
+
+# Lokální nastavení
+.env
+.env.local
+CLAUDE.local.md
+
+# Godot
+.godot/
+*.import
+export_presets.cfg
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# macOS
+.DS_Store
