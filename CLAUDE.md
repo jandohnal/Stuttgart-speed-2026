@@ -26,6 +26,7 @@ Duchovní nástupce NFS: Porsche 2000. Kontext: `README.md`, rozhodnutí: `docs/
 - `python3 tools/fsh2png.py sources decomposed` – všechny textury FSH do PNG (+ `index.json` pro každý archiv).
 - `python3 tools/crp2gltf.py sources/GameData/CarModel/356a.crp decomposed/GameData/CarModel/356a/356a.gltf` – model auta do glTF (+ atlasy textur).
 - `python3 tools/ai_csv2json.py sources/GameData/Simulation/AI decomposed/GameData/Simulation/AI` – nastavení AI do JSON, ověřené proti `.bin`.
+- `python3 tools/track2gltf.py sources/GameData/Track/skidpad.crp decomposed/GameData/Track/skidpad/skidpad.gltf` – trať do glTF + data silnice (`_road.json`). Společný parser CRP je v `tools/crp.py`.
 - `python3 tools/sim_dump.py sources/GameData/Simulation/CarData > decomposed/GameData/Simulation/cars.json` – fyzika aut do JSON.
 
 ## Stack

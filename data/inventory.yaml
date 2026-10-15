@@ -87,8 +87,12 @@ items:
     category: to_write
     priority: low
     path: GameData/Track/*.crp
-    status: unknown
-    reference: "OpenNFS ~5 %"
+    count: 15
+    doc: docs/formats/crp.md
+    tool: tools/track2gltf.py
+    output: "decomposed/GameData/Track/<trať>/<trať>.gltf + <trať>_road.json"
+    status: partial
+    notes: "Ověřeno jen na skidpad. SimD = řezy silnice (pozice, vektory, šířky)"
     use: "Jen náhled pro inspiraci stylem (D-005)"
 
   - id: track_binary_data

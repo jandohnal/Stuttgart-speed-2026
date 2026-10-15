@@ -20,5 +20,5 @@ Nejcennější data jsou čitelná hned: fyzika 86 verzí aut a nastavení AI so
 | rozbalit | Zvuky `.viv`/`.bnk` | 42 archivů | známý formát | Jen reference |
 | rozbalit | Hudba, videa | 28 skladeb, 12 videí | známý formát | Nepoužije se |
 | hotovo | Geometrie aut | `.crp`, 44 | převedeno do glTF ([crp.md](formats/crp.md)) | Vizuální reference |
-| dopsat | Geometrie tratí | `.crp` | neznámé | Nízká priorita |
+| částečně | Geometrie tratí | `.crp`, 15 | skidpad převeden do glTF + data silnice ([crp.md](formats/crp.md)) | Reference stylu, předloha silnice |
 | dopsat | `.key`, `.edg`, `.jnc`, `.lsp`, `.rho`, `.cop`, `.ais`, `.spl` | trati, AI, zvuk | neznámé | Vzory pro AI a zvuk |

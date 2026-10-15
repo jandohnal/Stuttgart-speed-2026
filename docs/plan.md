@@ -42,6 +42,8 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Převod textur FSH → PNG ([tools/fsh2png.py](../tools/fsh2png.py))
 - [x] Parser geometrie auta v CRP → glTF (podle OpenNFS), všech 44 aut ([tools/crp2gltf.py](../tools/crp2gltf.py))
 - [x] Převod CSV nastavení AI do JSON ([tools/ai_csv2json.py](../tools/ai_csv2json.py))
+- [x] Exportér tratí CRP → glTF + data silnice `SimD`, zatím skidpad ([tools/track2gltf.py](../tools/track2gltf.py))
+- [ ] Exportér tratí: ostatních 14 tratí, význam šířek `SimD`
 - [ ] Spustit originál na Macu přes Wine jako referenci
 
 ## Fáze 2 – Prototyp jízdy

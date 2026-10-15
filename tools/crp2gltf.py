@@ -9,57 +9,18 @@ Usage:
     python3 tools/crp2gltf.py ... --all          # also variant parts (styles, driver)
 """
 import argparse
-import json
 import os
 import re
 import struct
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from refpack import decompress  # noqa: E402
 import fsh2png  # noqa: E402
+from crp import article_mesh, entry_text, find, parse_crp, write_gltf  # noqa: E402
 
 # Detail levels: 1-2 showroom ("fe"), 3-7 in-game LODs ("ig"); 0x8000 = damaged copy.
 DAMAGED = 0x8000
 BIL_DRIVER = 8
-
-
-class Entry:
-    __slots__ = ("tag", "index", "count", "length", "data", "sub")
-
-
-def read_entry(d, o):
-    t1, t2, count, off = struct.unpack_from("<IIiI", d, o)
-    flags, length = t2 & 0xFF, t2 >> 8
-    e = Entry()
-    if flags & 1:
-        e.index, eid = t1 & 0xFFFF, t1 >> 16
-    else:
-        e.index, eid = 0, t1
-    e.tag = struct.pack(">I", eid).lstrip(b"\0").decode("latin1")
-    e.count, e.length = count, length
-    if length == 0:
-        base = o + (off << 4)
-        e.sub, e.data = [read_entry(d, base + 16 * i) for i in range(count)], None
-    else:
-        e.sub, e.data = [], o + off
-    return e
-
-
-def find(entries, tag, index=None):
-    return next((e for e in entries if e.tag == tag and (index is None or e.index == index)), None)
-
-
-def parse_crp(d):
-    if d[:2] == b"\x10\xfb":
-        d = decompress(d)[0]
-    magic, info, misc_count, offs = struct.unpack_from("<4sIII", d, 0)
-    if magic not in (b" raC", b"karT"):
-        raise ValueError("not a CRP file")
-    arti_count, start = info >> 5, offs << 4
-    arts = [read_entry(d, start + 16 * i) for i in range(arti_count)]
-    misc = [read_entry(d, start + 16 * (arti_count + i)) for i in range(misc_count)]
-    return d, arts, misc
 
 
 def parse_base(d, e):
@@ -68,29 +29,6 @@ def parse_base(d, e):
     info = d[o + 0x44:o + 0x54]
     levels = [struct.unpack_from("<ihhhh", d, o + 0x64 + 12 * i)[3] for i in range(level_count)]
     return {"geom_index": info[0], "type_index": info[1], "level_index": info[10], "levels": levels}
-
-
-def parse_part(d, e):
-    o = e.data
-    mat = struct.unpack_from("<h", d, o + 4)[0]
-    info_count, index_count = struct.unpack_from("<ii", d, o + 0x28)
-    p = o + 0x30
-    infos = {}
-    for _ in range(info_count):
-        rm, off, length, iid, level, ref = struct.unpack_from("<iihhhh", d, p)
-        infos[iid] = off // (8 if iid == 2 else 16)
-        p += 16
-    rows = {}
-    for _ in range(index_count):
-        idx, iid, off = struct.unpack_from("<hHi", d, p)
-        rows[iid] = off
-        p += 8
-    raw = d[p:p + index_count * e.count]
-    return mat, infos, rows, raw
-
-
-def vectors(d, e, n):
-    return [struct.unpack_from(f"<{n}f", d, e.data + 4 * n * i) for i in range(e.count)]
 
 
 def read_tpg(path):
@@ -174,107 +112,6 @@ def load_textures(d, misc, tpg_path, out_dir, stem):
     return pngs
 
 
-def article_mesh(d, art, level, materials):
-    """Return (name, translation, {material: (positions, normals, uvs, indices)}) or None."""
-    vt = find(art.sub, "vt", level)
-    if vt is None:
-        return None
-    verts = vectors(d, vt, 4)
-    nm = find(art.sub, "nm", level)
-    norms = vectors(d, nm, 4) if nm is not None and nm.count == vt.count else None
-    uv_e = find(art.sub, "uv", level)
-    uvs = vectors(d, uv_e, 2) if uv_e is not None else None
-    tr = find(art.sub, "tr", level)
-    offset = struct.unpack_from("<3f", d, tr.data + 48) if tr is not None else (0.0, 0.0, 0.0)
-    prims = {}
-    part_no = 0
-    while True:
-        pe = find(art.sub, "pr", (level << 12) | part_no)
-        if pe is None:
-            break
-        part_no += 1
-        mat, infos, rows, raw = parse_part(d, pe)
-        if 0x4976 not in rows:
-            continue
-        vt_off, vt_adj = rows[0x4976], infos.get(0, 0)
-        uv_off, uv_adj = rows.get(0x4975), infos.get(2, 0)
-        key = materials.get(mat, -1)
-        pos, nrm, tex, idx, seen = prims.setdefault(key, ([], [], [], [], {}))
-        for k in range(pe.count):
-            vi = raw[vt_off + k] + vt_adj
-            ui = raw[uv_off + k] + uv_adj if uvs is not None and uv_off is not None else -1
-            if vi >= len(verts):
-                continue
-            if (vi, ui) not in seen:
-                seen[(vi, ui)] = len(pos)
-                pos.append(verts[vi][:3])
-                nrm.append(norms[vi][:3] if norms else (0.0, 1.0, 0.0))
-                tex.append(uvs[ui] if 0 <= ui < len(uvs) else (0.0, 0.0))
-            idx.append(seen[(vi, ui)])
-    return offset, {k: v[:4] for k, v in prims.items() if len(v[3]) >= 3}
-
-
-def write_gltf(out_path, nodes_data, pngs):
-    stem = os.path.splitext(os.path.basename(out_path))[0]
-    buf = bytearray()
-    gl = {"asset": {"version": "2.0", "generator": "stuttgart-speed crp2gltf"},
-          "scene": 0, "scenes": [{"nodes": []}], "nodes": [], "meshes": [], "materials": [],
-          "accessors": [], "bufferViews": [], "buffers": [], "textures": [], "images": [], "samplers": [{}]}
-    mat_index = {}
-
-    def material(tpage):
-        if tpage not in mat_index:
-            m = {"name": f"tpage{tpage + 1}" if tpage >= 0 else "untextured",
-                 "pbrMetallicRoughness": {"metallicFactor": 0.0, "roughnessFactor": 0.8}, "doubleSided": True}
-            if tpage in pngs:
-                gl["images"].append({"uri": pngs[tpage]})
-                gl["textures"].append({"source": len(gl["images"]) - 1, "sampler": 0})
-                m["pbrMetallicRoughness"]["baseColorTexture"] = {"index": len(gl["textures"]) - 1}
-                m["alphaMode"] = "MASK"
-            mat_index[tpage] = len(gl["materials"])
-            gl["materials"].append(m)
-        return mat_index[tpage]
-
-    def add(fmt, rows, comp, target, minmax=False):
-        while len(buf) % 4:
-            buf.append(0)
-        start = len(buf)
-        for r in rows:
-            buf.extend(struct.pack(fmt, *r) if isinstance(r, tuple) else struct.pack(fmt, r))
-        gl["bufferViews"].append({"buffer": 0, "byteOffset": start, "byteLength": len(buf) - start, "target": target})
-        acc = {"bufferView": len(gl["bufferViews"]) - 1, "componentType": 5126 if "f" in fmt else 5125,
-               "count": len(rows), "type": comp}
-        if minmax:
-            acc["min"] = [min(r[i] for r in rows) for i in range(3)]
-            acc["max"] = [max(r[i] for r in rows) for i in range(3)]
-        gl["accessors"].append(acc)
-        return len(gl["accessors"]) - 1
-
-    for name, offset, prims in nodes_data:
-        mesh = {"name": name, "primitives": []}
-        for tpage, (pos, nrm, tex, idx) in sorted(prims.items()):
-            mesh["primitives"].append({
-                "attributes": {"POSITION": add("<3f", [tuple(p) for p in pos], "VEC3", 34962, True),
-                               "NORMAL": add("<3f", [tuple(n) for n in nrm], "VEC3", 34962),
-                               "TEXCOORD_0": add("<2f", [tuple(t) for t in tex], "VEC2", 34962)},
-                "indices": add("<I", idx, "SCALAR", 34963),
-                "material": material(tpage)})
-        gl["meshes"].append(mesh)
-        node = {"name": name, "mesh": len(gl["meshes"]) - 1}
-        if any(offset):
-            node["translation"] = list(offset)
-        gl["nodes"].append(node)
-        gl["scenes"][0]["nodes"].append(len(gl["nodes"]) - 1)
-    gl["buffers"].append({"uri": stem + ".bin", "byteLength": len(buf)})
-    with open(os.path.join(os.path.dirname(out_path), stem + ".bin"), "wb") as fh:
-        fh.write(buf)
-    for k in ("textures", "images"):
-        if not gl[k]:
-            del gl[k]
-    with open(out_path, "w") as fh:
-        json.dump(gl, fh, indent=1)
-
-
 def convert(src, out_path, level=1, include_all=False, tpg=None):
     d, arts, misc = parse_crp(open(src, "rb").read())
     out_dir = os.path.dirname(os.path.abspath(out_path))
@@ -288,7 +125,7 @@ def convert(src, out_path, level=1, include_all=False, tpg=None):
         name_e, base_e = find(art.sub, "Name"), find(art.sub, "Base")
         if name_e is None or base_e is None or find(art.sub, "ef") is not None:
             continue
-        name = d[name_e.data:name_e.data + name_e.length].split(b"\0")[0].decode("latin1")
+        name = entry_text(d, name_e)
         base = parse_base(d, base_e)
         if not include_all and (base["type_index"] != 0 or (base["level_index"] >> 4) & BIL_DRIVER):
             skipped += 1
@@ -297,11 +134,16 @@ def convert(src, out_path, level=1, include_all=False, tpg=None):
         lev = level if level in base["levels"] else min((l for l in base["levels"] if l > level), default=None)
         if lev is None:
             continue
-        mesh = article_mesh(d, art, lev, materials)
+        mesh = article_mesh(d, art, lev, lev, materials)
         if mesh and mesh[1]:
-            nodes.append((f"{name}_{base['geom_index']}_{base['type_index']}", *mesh))
-    write_gltf(out_path, nodes, pngs)
-    tris = sum(len(p[3]) // 3 for _, _, prims in nodes for p in prims.values())
+            nodes.append({"name": f"{name}_{base['geom_index']}_{base['type_index']}",
+                          "offset": mesh[0], "prims": mesh[1]})
+
+    def material_spec(tpage):
+        return {"name": f"tpage{tpage + 1}" if tpage >= 0 else "untextured", "uri": pngs.get(tpage), "alpha": "MASK"}
+
+    write_gltf(out_path, nodes, material_spec, "stuttgart-speed crp2gltf")
+    tris = sum(len(p[3]) // 3 for n in nodes for p in n["prims"].values())
     print(f"{src}: {len(nodes)} parts, {tris} triangles, {len(pngs)} texture pages, {skipped} variant parts skipped")
 
 
