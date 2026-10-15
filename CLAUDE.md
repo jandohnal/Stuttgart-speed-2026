@@ -15,9 +15,10 @@ Duchovní nástupce NFS: Porsche 2000. Kontext: `README.md`, rozhodnutí: `docs/
 
 ## Pravidla
 
-- Ve hře žádné názvy, loga ani tvary vozů Porsche. Auta jsou fiktivní (D-004), tratě vlastní (D-005). Data originálu slouží jako reference.
+- Cílová auta jsou fiktivní (D-004) a tratě vlastní (D-005), bez názvů, log a tvarů vozů Porsche. Výjimka: prototyp (fáze 2) používá jedno původní auto na jedné původní trati z `decomposed/` (D-009). Tyto assety se nikdy necommitují.
 - Při rozluštění dalšího formátu aktualizovat `docs/formats/<formát>.md` a `data/inventory.yaml`.
 - Nová rozhodnutí zapisovat do `docs/decisions.md` jako D-xxx, hotové úkoly odškrtávat v `docs/plan.md`.
+- Nápady, o kterých se zatím nerozhodlo, ukládat do `ideas/` jako samostatný soubor s hlavičkou `type: idea`, `id: IDEA-xxx`, `status`. Po přijetí nápadu z něj udělat rozhodnutí D-xxx a změnit `status` na `accepted`.
 - Dokumentace je česky, kód a komentáře v kódu anglicky.
 
 ## Nástroje

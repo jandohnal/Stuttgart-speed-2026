@@ -10,7 +10,7 @@ phases:
   - id: 2
     name: "Prototyp jízdy"
     status: todo
-    gate: "Fiktivní auto na testovací trati, jízdní pocit srovnatelný s originálem spuštěným přes Wine"
+    gate: "Jedno původní auto na jedné původní trati (D-009), jízdní pocit, kolize a poškození srovnatelné s originálem spuštěným přes Wine"
   - id: 3
     name: "První vlastní trať"
     status: todo
@@ -28,6 +28,8 @@ phases:
 # Plán
 
 Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví obsah.
+
+**Pořadí (D-009):** fáze 2 ověří na jednom původním autě a jedné původní trati, že migrovaná hra funguje a je hratelná. Vlastní tratě a vlastní auta (fáze 3 a 5) začínají až po splnění milníku fáze 2.
 
 ## Fáze 1 – Data z originálu
 
@@ -49,10 +51,12 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 ## Fáze 2 – Prototyp jízdy
 
 - [ ] Godot 4.6 projekt, Jolt
-- [ ] Fiktivní vzorové auto (jednoduchý model)
+- [ ] Vybrat původní auto a původní trať pro prototyp (D-009)
+- [ ] Import auta z `decomposed/` (glTF) a parametrů z `cars.json`
+- [ ] Import vybrané trati z `decomposed/` (glTF + data silnice `SimD`)
 - [ ] Raycast podvozek, model pneumatik, motor a převodovka z dat JSON
 - [ ] Kolize a zóny poškození, deformace meshe
-- [ ] Testovací trať (skidpad, slalom)
+- [ ] Srovnávací jízdy s originálem přes Wine: zrychlení, brzdná dráha, rychlost v zatáčkách
 - [ ] Rozhodnout definitivně o enginu (D-002)
 
 ## Fáze 3 – První vlastní trať

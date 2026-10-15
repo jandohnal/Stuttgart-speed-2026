@@ -24,13 +24,13 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
 
 ## D-004 Fiktivní auta
 - **Stav:** accepted
-- **Rozhodnutí:** Všechna auta ve veřejném repozitáři jsou fiktivní designy inspirované érami (zadní motor 50. let, klínové tvary 70. let...). První vzorové auto je fiktivní.
-- **Důsledky:** Fyzikální parametry originálu slouží jen jako reference pro realistické hodnoty dané éry.
+- **Rozhodnutí:** Cílová auta hry jsou fiktivní designy inspirované érami (zadní motor 50. let, klínové tvary 70. let...).
+- **Důsledky:** Fyzikální parametry originálu slouží jako reference pro realistické hodnoty dané éry. Výjimka pro první krok: viz D-009.
 
 ## D-005 Vlastní tratě ve stylu originálu
 - **Stav:** accepted
 - **Rozhodnutí:** Tratě se nekopírují. Zachovává se styl: evropská krajina, světlo, otevřené silnice, alternativní cesty. Silnice budou užší než v originálu.
-- **Důsledky:** Parser geometrie tratí z originálu má nízkou prioritu (jen náhled pro inspiraci).
+- **Důsledky:** Cílové tratě jsou vlastní. Výjimka pro první krok: viz D-009, kvůli které je exportér alespoň jedné původní trati potřeba.
 
 ## D-006 Bez hudby
 - **Stav:** accepted
@@ -45,3 +45,14 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
 - **Stav:** accepted
 - **Rozhodnutí:** Repozitář je privátní. Veškeré assety z originální hry (a licencované modely) leží v `sources/`, vše rozbalené a převedené v `decomposed/`. Obě složky jsou v `.gitignore` a existují jen lokálně.
 - **Důsledky:** Do gitu jde jen kód, nástroje, dokumentace a vlastní obsah. Nástroje čtou ze `sources/` a zapisují do `decomposed/` se stejnou strukturou podsložek.
+
+## D-009 První krok s původním autem na původní trati
+- **Stav:** accepted
+- **Rozhodnutí:** Prototyp (fáze 2) se staví s jedním původním autem a na jedné původní trati z originální hry, převedenými do glTF ze `sources/` do `decomposed/`.
+- **Cíl:** Ověřit, že migrovaná hra funguje a je hratelná. Teprve po splnění tohoto cíle se začne s vlastními tratěmi a vlastními auty.
+- **Důvod:** Přímé srovnání s originálem. Stejné auto se stejnými parametry `.sim` na stejné trati umožní objektivně ladit jízdní model, kolize a poškození proti originálu spuštěnému přes Wine. Odpadá také tvorba vlastních assetů před ověřením hratelnosti.
+- **Důsledky:**
+  - Assety zůstávají jen lokálně v `decomposed/` (D-008). Godot projekt je načítá odtud a nic z nich necommituje.
+  - Exportér auta (CRP → glTF) a exportér vybrané trati mají vysokou prioritu.
+  - Fiktivní auta (D-004) a vlastní tratě (D-005) zůstávají cílem, ale práce na nich začne až po splnění milníku fáze 2 (hratelný prototyp s původním obsahem).
+  - Volba konkrétního auta a trati: viz otevřená otázka v `docs/plan.md`.

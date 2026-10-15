@@ -26,6 +26,7 @@ Fáze 1: analýza dat originálu a příprava nástrojů. Podrobnosti najdeš v 
 | `docs/legal.md` | Právní mantinely: co smí a nesmí do repozitáře |
 | `docs/data-inventory.md` | Inventura dat originální hry |
 | `docs/formats/` | Popis rozluštěných formátů souborů |
+| `ideas/` | Nápady k případnému budoucímu využití (zatím nepřijaté) |
 | `data/inventory.yaml` | Strojově čitelná inventura dat |
 | `tools/` | Nástroje pro čtení dat z vlastní kopie hry |
 | `sources/` | Assety z originální hry, jen lokálně (v `.gitignore`) |
