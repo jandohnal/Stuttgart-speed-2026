@@ -1,10 +1,10 @@
 extends Node3D
-## Phase 2 prototype (D-009): the original 356 A on the original skidpad, both loaded at run
-## time from decomposed/. F2 records telemetry to user://telemetry_*.csv for comparing with
-## the original game.
+## Phase 2 prototype (D-009): the original 356 A on an original track (farmland = Normandie by
+## default, or skidpad), both loaded at run time from decomposed/. Track: project setting
+## stuttgart/track, overridden by the user argument --track=<name>. F2 records telemetry to
+## user://telemetry_*.csv for comparing with the original game.
 
-const TRACK := "GameData/Track/skidpad/skidpad.gltf"
-const ROAD := "GameData/Track/skidpad/skidpad_road.json"
+const DEFAULT_TRACK := "farmland"
 const CAR_MODEL := "GameData/CarModel/356a/356a.gltf"
 const CAR_PHYSICS := "GameData/Simulation/cars.json"
 const CAR_KEY := "356Acoupe16"
@@ -22,29 +22,46 @@ const LOG_FIELDS := ["time", "speed_kmh", "rpm", "gear", "throttle", "brake", "s
 
 @onready var car: Car = $Car
 
+## Track name in decomposed/GameData/Track/; empty = --track argument or project setting.
+var track_name := ""
 var road_slices: Array = []
+var road_segments: Array = []
+var start_slice := 0
 var _log: FileAccess
 var _log_time := 0.0
 
 
 func _ready() -> void:
 	_setup_input()
-	var track := OriginalAssets.load_gltf(TRACK)
+	if track_name.is_empty():
+		track_name = _track_from_args()
+	var folder := "GameData/Track/%s/" % track_name
+	var track := OriginalAssets.load_gltf(folder + track_name + ".gltf")
 	if track != null:
 		add_child(track)
 		_add_track_collision(track)
 		var simd := track.find_child("simd", true, false) as Node3D
 		if simd != null:
 			simd.visible = false  # road data overlay from track2gltf, only for checking
-	var road: Variant = OriginalAssets.load_json(ROAD)
+	var road: Variant = OriginalAssets.load_json(folder + track_name + "_road.json")
 	if road is Dictionary:
 		road_slices = road["slices"]
+		road_segments = road.get("segments", [])
+		if road.has("start"):
+			start_slice = int(road["start"]["slice"])
 	var cars: Variant = OriginalAssets.load_json(CAR_PHYSICS)
 	if cars is Dictionary and cars.has(CAR_KEY):
 		car.setup(OriginalAssets.load_gltf(CAR_MODEL), cars[CAR_KEY])
 	else:
 		push_error("Car %s not found in %s" % [CAR_KEY, CAR_PHYSICS])
-	_reset_car(0)
+	_reset_car(start_slice)
+
+
+func _track_from_args() -> String:
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--track="):
+			return arg.trim_prefix("--track=")
+	return ProjectSettings.get_setting("stuttgart/track", DEFAULT_TRACK)
 
 
 func _setup_input() -> void:
@@ -87,6 +104,20 @@ func _nearest_slice() -> int:
 			best_dist = d
 			best = i
 	return best
+
+
+## Index of the slice `ahead` slices after `index`, staying on the same road segment (alternative
+## routes are separate segments): wraps on closed segments, stops at the end of open ones.
+func slice_ahead(index: int, ahead: int) -> int:
+	for seg: Dictionary in road_segments:
+		var first := int(seg["first"])
+		var last := int(seg["last"])
+		if index < first or index > last:
+			continue
+		if seg["closed"]:
+			return first + (index - first + ahead) % (last - first + 1)
+		return mini(index + ahead, last)
+	return (index + ahead) % road_slices.size()
 
 
 func _vec(a: Array) -> Vector3:

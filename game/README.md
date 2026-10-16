@@ -1,6 +1,6 @@
 # Prototyp jízdy (fáze 2)
 
-Godot 4.7 projekt pro milník fáze 2 (D-009): původní **356 A coupe 1.6** na původní trati **skidpad**.
+Godot 4.7 projekt pro milník fáze 2 (D-009): původní **356 A coupe 1.6** na původní trati **farmland** (Normandie), případně na **skidpadu**.
 
 ## Data originálu
 
@@ -17,12 +17,18 @@ python3 tools/crp2gltf.py sources/GameData/CarModel/356a.crp decomposed/GameData
 ```
 
 ```bash
+python3 tools/track2gltf.py sources/GameData/Track/farmland.crp decomposed/GameData/Track/farmland/farmland.gltf
+```
+
+```bash
 python3 tools/track2gltf.py sources/GameData/Track/skidpad.crp decomposed/GameData/Track/skidpad/skidpad.gltf
 ```
 
 ## Spuštění
 
 Otevřít `game/project.godot` v Godotu 4.7 a spustit (F5). Fyzika Jolt, 120 Hz, renderer Forward+ přes Metal.
+
+Trať určuje nastavení projektu `stuttgart/track` (výchozí `farmland`), z příkazové řádky přepíše argument `-- --track=skidpad`. Auto startuje na startovní čáře originálu (`start` v `_road.json`), na skidpadu na řezu 0.
 
 | Klávesa | Akce |
 | --- | --- |
@@ -44,7 +50,7 @@ Otevřít `game/project.godot` v Godotu 4.7 a spustit (F5). Fyzika Jolt, 120 Hz,
 
 ## Testy
 
-Automatický jízdní test (bez okna): auto plným plynem objíždí skidpad podle řezů `SimD`, změří 0–100 km/h, rychlost po 40 s, brzdnou dráhu ze 100 km/h a vypíše kontakty karoserie.
+Automatický jízdní test (bez okna): auto plným plynem jede po skidpadu (nebo po trati z `-- --track=farmland`) podle řezů `SimD`, změří 0–100 km/h, rychlost po 40 s, brzdnou dráhu ze 100 km/h a vypíše kontakty karoserie.
 
 ```bash
 ~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/drive_test.tscn
@@ -65,3 +71,5 @@ Výsledek 15. 10. 2026 (Godot 4.7.2, Apple M1 Pro): auto stojí na všech 4 kole
 - Vestavěné tlumení `RigidBody3D` je vypnuté (výchozích 0,1 bralo autu ~1 600 N), odpory se modelují explicitně.
 - Kolizní box karoserie začíná 1,1 × poloměr kola nad zemí, aby při náklonu nedrhl o silnici; při prudkém brzdění se ještě krátce dotkne předkem.
 - Bez kolizí s objekty knihovny, bez poškození, bez zvuku.
+
+Farmland 16. 10. 2026 (`-- --track=farmland`): auto ze startu sjede za 40 s asi 1,2 km z kopce, drží se 1–3 m od osy silnice (jednou 9,5 m), 0–100 km/h 13,2 s. Při 130 km/h karoserie několikrát dosedne na silnici (horizonty) a jednou se dotkne terénu. Na skutečné trati se tedy ukazuje, že podvozek a pneumatiky ještě potřebují práci.

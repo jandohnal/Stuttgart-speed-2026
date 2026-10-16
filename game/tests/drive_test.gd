@@ -1,8 +1,8 @@
 extends Node
 ## Headless drive test for the phase 2 prototype:
-##   godot --headless --path game res://tests/drive_test.tscn
-## Loads the main scene, lets the car settle, then drives flat out around the skidpad
-## (steering towards road slices ahead), measures 0-100 km/h, speed after ACCEL_TIME and the
+##   godot --headless --path game res://tests/drive_test.tscn [-- --track=farmland]
+## Loads the main scene, lets the car settle, then drives flat out along the road (skidpad unless
+## --track is given; steering towards road slices ahead), measures 0-100 km/h, speed after ACCEL_TIME and the
 ## braking distance from 100 km/h, prints a report and quits.
 
 const SETTLE_TIME := 1.5
@@ -26,6 +26,7 @@ var collisions := PackedStringArray()
 
 func _ready() -> void:
 	main = preload("res://scenes/main.tscn").instantiate() as Node3D
+	main.track_name = main._track_from_args() if _has_track_arg() else "skidpad"
 	add_child(main)
 	car = main.get_node("Car") as Car
 	car.contact_monitor = true
@@ -82,11 +83,18 @@ func _physics_process(delta: float) -> void:
 				_finish()
 
 
+func _has_track_arg() -> bool:
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--track="):
+			return true
+	return false
+
+
 func _steer_along_road() -> void:
 	var slices: Array = main.road_slices
 	if slices.is_empty():
 		return
-	var target_i: int = (main._nearest_slice() + LOOKAHEAD) % slices.size()
+	var target_i: int = main.slice_ahead(main._nearest_slice(), LOOKAHEAD)
 	var p: Array = slices[target_i]["position"]
 	var to_target := car.to_local(Vector3(p[0], p[1], p[2]))
 	var angle := atan2(-to_target.x, -to_target.z)  # positive = target on the left
@@ -117,7 +125,8 @@ func _finish() -> void:
 			track_parts += child.get_child_count()
 	print("DRIVE TEST")
 	print("  car: %s, %.0f kg, wheel radius %.3f m" % [car.params.get("name", "?"), car.mass, car.wheel_radius])
-	print("  track groups loaded: %d, road slices: %d" % [track_parts, main.road_slices.size()])
+	print("  track %s: groups loaded %d, road slices %d, start slice %d" % [
+		main.track_name, track_parts, main.road_slices.size(), main.start_slice])
 	print("  settle: ", settle_report)
 	print("  0-100 km/h: %s" % ("%.1f s" % t_100 if t_100 >= 0.0 else "not reached"))
 	print("  speed after %.0f s: %.0f km/h (max %.0f), max lateral %.2f g" % [ACCEL_TIME, end_speed, top_speed, max_lat_g])

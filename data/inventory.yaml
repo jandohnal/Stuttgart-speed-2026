@@ -92,7 +92,7 @@ items:
     tool: tools/track2gltf.py
     output: "decomposed/GameData/Track/<trať>/<trať>.gltf + <trať>_road.json"
     status: partial
-    notes: "Ověřeno jen na skidpad. SimD = řezy silnice (pozice, vektory, šířky)"
+    notes: "Ověřeno na skidpad a farmland (Normandie). SimD = řezy silnice (pozice, vektory, šířky) v úsecích, start/cíl z *_fstart.scn"
     use: "Jen náhled pro inspiraci stylem (D-005)"
 
   - id: track_binary_data

@@ -146,7 +146,23 @@ Podle jména: `RD…` silnice, `CNK…` krajina po úsecích (v závorce obsah, 
 | 0x34 | i32[3] | příznaky | 98304, 1, 1 |
 | 0x40 | f32[4] | šířky (m) | 10, 10, 10, 10 |
 
-Ověřeno na skidpadu: střed řezů leží na středu asfaltu (geometrie `RD` má poloměr 215–232 m, tedy 17 m široký asfalt se středem 223 m), délka 234 řezů = 1 398 m = 2π · 223 m. Čtyři šířky jsou na skidpadu stejné (±10 m = sjízdná plocha včetně krajnic?); jejich rozlišení vyžaduje trať s nesymetrickou silnicí.
+**Úseky:** `SimD` není vždy jedna souvislá silnice. Na farmlandu (Normandie) je nejdřív hlavní trasa (řezy 0–1671, 10,0 km), za ní 9 krátkých úseků (48–810 m), nejspíš alternativní cesty a zkratky. Hranici poznáme podle skoku mezi sousedními řezy (> 30 m, běžně ~6 m). Jak se úseky napojují, nejspíš popisuje `.jnc` (zatím nerozluštěno).
+
+Ověřeno na skidpadu: střed řezů leží na středu asfaltu (geometrie `RD` má poloměr 215–232 m, tedy 17 m široký asfalt se středem 223 m), délka 234 řezů = 1 398 m = 2π · 223 m. Čtyři šířky jsou na skidpadu stejné (±10 m = sjízdná plocha včetně krajnic?), na farmlandu většinou 6 m, místy nesymetrické (např. 6; 6,29; 6; 3,15). Význam zatím neurčen.
+
+### Start a cíl – `<trať>_fstart.scn`, `<trať>_bstart.scn`
+
+Textové soubory s bloky `TRIGGER_ELEMENT` (a `GEOM_ELEMENT`, např. startovní brána). `fstart` platí pro jízdu dopředu, `bstart` pro jízdu pozpátku (start a cíl prohozené). Blok `TRIGGER_ELEMENT 5` má řádky:
+
+| Řádek | Obsah |
+| --- | --- |
+| 1 | pozice (x, y, z) |
+| 2 | báze, 9 čísel: dopředu, nahoru, doprava |
+| 3 | parametry, první číslo je typ: 2 = start, 1 = cíl; čtvrté číslo je polovina šířky čáry? (farmland 19,2 / 23,9) |
+| 4 | dva krajní body čáry (6 čísel) |
+| 5 | ? (nuly) |
+
+Farmland dopředu: start u řezu 56, cíl u řezu 1601, závod tedy vede po hlavní trase ve směru řezů (~9,3 km). Skidpad soubor `fstart` nemá.
 
 ### Převod do glTF
 
@@ -154,9 +170,10 @@ Ověřeno na skidpadu: střed řezů leží na středu asfaltu (geometrie `RD` m
 python3 tools/track2gltf.py sources/GameData/Track/skidpad.crp decomposed/GameData/Track/skidpad/skidpad.gltf
 ```
 
-- Výstup: `.gltf` + `.bin` + `<trať>_road.json` (všechny řezy `SimD`); textury jsou PNG z `fsh2png` ve stejné složce (chybí-li `index.json`, převedou se).
+- Výstup: `.gltf` + `.bin` + `<trať>_road.json` (všechny řezy `SimD`, `segments` = úseky `{first, last, length_m, closed}`, `start`/`finish` z `_fstart.scn` s nejbližším řezem); textury jsou PNG z `fsh2png` ve stejné složce (chybí-li `index.json`, převedou se).
 - Uzly ve skupinách `road`, `terrain`, `vegetation`, `objects`, `simd` (červený poloprůhledný pás podle `SimD` pro kontrolu), s `--library` i `library` (objekty v řadě na z = −60 m).
 - `--level` 0–3 (skidpad: 7 314 / 2 636 trojúhelníků pro úroveň 0 / 2).
 - Metry, osa Y nahoru, osa X zrcadlená z levotočivých dat (viz výše, týká se i vektorů `SimD`). `Opaque` → neprůhledné, ostatní render metody → alpha MASK.
 - Zkontrolováno renderem v Blenderu (pohled shora a zblízka): trať, pneumatikové zdi, pole, stromy, budovy i textury sedí.
-- Zbývá: ostatních 14 tratí, význam `df`, šířek a příznaků `SimD`, rozmístění knihovny objektů, animace, `Vis`, `CmAn`.
+- Farmland (Normandie, „French Farmland“): 997 článků (silnice 239, terén 367, vegetace 216, objekty 174), 64 887 trojúhelníků, 244/245 textur, 1 995 řezů v 10 úsecích, knihovna 142 článků. Ve hře (Godot) ověřeno jízdou a snímky.
+- Zbývá: ostatních 13 tratí, význam `df`, šířek a příznaků `SimD`, rozmístění knihovny objektů, animace, `Vis`, `CmAn`.

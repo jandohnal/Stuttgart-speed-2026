@@ -1,6 +1,6 @@
 ---
 type: plan
-updated: 2026-10-15
+updated: 2026-10-16
 current_phase: 1
 phases:
   - id: 1
@@ -45,7 +45,8 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Parser geometrie auta v CRP → glTF (podle OpenNFS), všech 44 aut ([tools/crp2gltf.py](../tools/crp2gltf.py))
 - [x] Převod CSV nastavení AI do JSON ([tools/ai_csv2json.py](../tools/ai_csv2json.py))
 - [x] Exportér tratí CRP → glTF + data silnice `SimD`, zatím skidpad ([tools/track2gltf.py](../tools/track2gltf.py))
-- [ ] Exportér tratí: ostatních 14 tratí, význam šířek `SimD`
+- [x] Exportér tratí: farmland (Normandie), úseky `SimD` a start/cíl z `_fstart.scn`
+- [ ] Exportér tratí: ostatních 13 tratí, význam šířek `SimD`, spojení úseků (`.jnc`), rozmístění knihovny objektů
 - [ ] Spustit originál na Macu přes Wine jako referenci
 
 ## Fáze 2 – Prototyp jízdy
@@ -54,6 +55,7 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Vybrat původní auto a původní trať pro prototyp (D-009): 356 A coupe 1.6 na skidpadu
 - [x] Import auta z `decomposed/` (glTF) a parametrů z `cars.json` (načítání za běhu)
 - [x] Import vybrané trati z `decomposed/` (glTF + data silnice `SimD`), kolize z geometrie
+- [x] Skutečná trať pro jízdní pocit: farmland (Normandie), start na startovní čáře originálu
 - [ ] Raycast podvozek, model pneumatik, motor a převodovka z dat JSON – podvozek (stabilizátory, dorazy), motor a převodovka hotové, pneumatiky zatím zástupné
 - [ ] Kolize a zóny poškození, deformace meshe
 - [ ] Srovnávací jízdy s originálem přes Wine: zrychlení, brzdná dráha, rychlost v zatáčkách

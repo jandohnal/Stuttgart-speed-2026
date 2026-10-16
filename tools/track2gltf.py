@@ -1,7 +1,8 @@
 """Convert an NFS5 track (.crp) to glTF 2.0 plus road data JSON, as a private style reference.
 
-Format: docs/formats/crp.md (chapter "Tratě"). Verified on skidpad so far.
-Writes next to <out>.gltf: <out>.bin, <stem>_road.json (SimD road slices) and uses the
+Format: docs/formats/crp.md (chapter "Tratě"). Verified on skidpad and farmland (Normandie).
+Writes next to <out>.gltf: <out>.bin, <stem>_road.json (SimD road slices split into segments,
+start/finish from <track>_fstart.scn) and uses the
 track textures converted by tools/fsh2png.py (converted on the fly if missing).
 
 Usage:
@@ -27,6 +28,7 @@ GROUPS = [
     ("terrain", r"^(CNK|MESH|FARM|HILL|TOPOF|SECONDARY|CLIF)"),
 ]
 SIMD_SIZE = 80
+SEGMENT_GAP = 30.0  # m; slices are ~6 m apart, a bigger jump starts the next road segment (alternative routes)
 CENTERLINE = "__road_centerline"
 
 
@@ -70,18 +72,61 @@ def road_slices(d, misc):
     return out
 
 
-def centerline_prims(slices, lift=0.05):
+def road_segments(slices):
+    """Split SimD into continuous segments: [{first, last, length_m, closed}]. The first one is the
+    main road, the others are short alternative routes appended after it."""
+    starts = [0] + [i + 1 for i, (a, b) in enumerate(zip(slices, slices[1:]))
+                    if math.dist(a["position"], b["position"]) > SEGMENT_GAP]
+    out = []
+    for first, end in zip(starts, starts[1:] + [len(slices)]):
+        last = end - 1
+        length = sum(math.dist(slices[i]["position"], slices[i + 1]["position"]) for i in range(first, last))
+        closed = last > first and math.dist(slices[first]["position"], slices[last]["position"]) <= SEGMENT_GAP
+        out.append({"first": first, "last": last, "length_m": round(length, 1), "closed": closed})
+    return out
+
+
+def race_gates(src, slices):
+    """Start and finish lines from <track>_fstart.scn (TRIGGER_ELEMENT type 2 = start, 1 = finish).
+
+    Block lines: position; basis (forward, up, right: 9 floats); parameters (first int = type);
+    the two end points of the line (6 floats). Returns {"start": {...}, "finish": {...}} with the
+    nearest road slice."""
+    path = os.path.splitext(src)[0] + "_fstart.scn"
+    if not os.path.exists(path):
+        return {}
+    lines = [ln.split() for ln in open(path, encoding="latin1") if ln.strip()]
+    gates = {}
+    for i, ln in enumerate(lines):
+        if ln[0] != "TRIGGER_ELEMENT":
+            continue
+        kind = {"2": "start", "1": "finish"}.get(lines[i + 3][0])
+        if kind is None or kind in gates:
+            continue
+        pos = to_gltf([float(x) for x in lines[i + 1]])
+        basis = [float(x) for x in lines[i + 2]]
+        ends = [float(x) for x in lines[i + 4]]
+        nearest = min(range(len(slices)), key=lambda k: math.dist(slices[k]["position"], pos), default=-1)
+        gates[kind] = {"slice": nearest, "position": [round(x, 4) for x in pos],
+                       "forward": [round(x, 4) for x in to_gltf(basis[0:3])],
+                       "line": [[round(x, 4) for x in to_gltf(ends[k:k + 3])] for k in (0, 3)]}
+    return gates
+
+
+def centerline_prims(slices, segments, lift=0.05):
     """Ribbon spanning -widths[0] .. +widths[1] along the 'right' vector, for visual checks."""
     pos, nrm, tex, idx = [], [], [], []
-    for i, s in enumerate(slices):
-        p, r, u = s["position"], s["right"], s["up"]
-        for side in (-s["widths"][0], s["widths"][1]):
-            pos.append(tuple(p[k] + r[k] * side + u[k] * lift for k in range(3)))
-            nrm.append(tuple(u))
-            tex.append((0.0, float(i)))
-        if i:
-            a = 2 * (i - 1)
-            idx += [a, a + 1, a + 2, a + 1, a + 3, a + 2]
+    for seg in segments:
+        for i in range(seg["first"], seg["last"] + 1):
+            s = slices[i]
+            p, r, u = s["position"], s["right"], s["up"]
+            for side in (-s["widths"][0], s["widths"][1]):
+                pos.append(tuple(p[k] + r[k] * side + u[k] * lift for k in range(3)))
+                nrm.append(tuple(u))
+                tex.append((0.0, float(i)))
+            if i > seg["first"]:
+                a = len(pos) - 4
+                idx += [a, a + 1, a + 2, a + 1, a + 3, a + 2]
     return {CENTERLINE: (pos, nrm, tex, idx)} if idx else {}
 
 
@@ -129,8 +174,9 @@ def convert(src, out_path, level=0, library=False):
                       "group": "library" if is_library else group_of(name)})
 
     slices = road_slices(d, misc)
+    segments = road_segments(slices)
     if slices:
-        nodes.append({"name": "road_centerline", "offset": (0.0, 0.0, 0.0), "prims": centerline_prims(slices),
+        nodes.append({"name": "road_centerline", "offset": (0.0, 0.0, 0.0), "prims": centerline_prims(slices, segments),
                       "group": "simd"})
 
     found = sum(1 for tex, _ in mat_info.values() if tex in textures)
@@ -144,10 +190,12 @@ def convert(src, out_path, level=0, library=False):
 
     write_gltf(out_path, nodes, material_spec, "stuttgart-speed track2gltf")
 
-    length = sum(math.dist(a["position"], b["position"]) for a, b in zip(slices, slices[1:]))
+    length = sum(seg["length_m"] for seg in segments)
+    gates = race_gates(src, slices)
     with open(os.path.join(out_dir, stem + "_road.json"), "w") as fh:
         json.dump({"source": os.path.basename(src), "slice_count": len(slices), "length_m": round(length, 1),
                    "fields": "position, up, forward, right (unit vectors), flags [int0, int13..15], widths [4] m",
+                   "segments": segments, **gates,
                    "slices": [{k: [round(x, 4) if isinstance(x, float) else x for x in v] for k, v in s.items()}
                               for s in slices]}, fh)
 
@@ -156,7 +204,9 @@ def convert(src, out_path, level=0, library=False):
     for n in nodes:
         groups[n["group"]] = groups.get(n["group"], 0) + 1
     print(f"{src}: {len(nodes)} parts {groups}, {tris} triangles, textures {found}/{len(mat_info)}, "
-          f"road {len(slices)} slices {length:.0f} m, library skipped {stats['library_skipped']}")
+          f"road {len(slices)} slices in {len(segments)} segments {length:.0f} m, "
+          f"start/finish slice {gates.get('start', {}).get('slice', '-')}/{gates.get('finish', {}).get('slice', '-')}, "
+          f"library skipped {stats['library_skipped']}")
 
 
 def main():
