@@ -28,7 +28,7 @@ python3 tools/track2gltf.py sources/GameData/Track/skidpad.crp decomposed/GameDa
 
 Otevřít `game/project.godot` v Godotu 4.7 a spustit (F5). Fyzika Jolt, 120 Hz, renderer Forward+ přes Metal.
 
-Trať určuje nastavení projektu `stuttgart/track` (výchozí `farmland`), z příkazové řádky přepíše argument `-- --track=skidpad`. Auto startuje na startovní čáře originálu (`start` v `_road.json`), na skidpadu na řezu 0.
+Trať určuje nastavení projektu `stuttgart/track` (výchozí `farmland`), z příkazové řádky přepíše argument `-- --track=skidpad`. Argument `--slice=<n>` postaví auto na řez silnice n (kontrola konkrétního místa trati). Auto startuje na startovní čáře originálu (`start` v `_road.json`), na skidpadu na řezu 0.
 
 | Klávesa | Akce |
 | --- | --- |
@@ -59,7 +59,7 @@ Automatický jízdní test (bez okna): auto plným plynem jede po skidpadu (nebo
 Snímky obrazovky (otevře okno na pár sekund, PNG uloží do zadané složky):
 
 ```bash
-~/Downloads/Godot.app/Contents/MacOS/Godot --path game res://tests/screenshot.tscn -- /tmp
+~/Downloads/Godot.app/Contents/MacOS/Godot --path game res://tests/screenshot.tscn -- /tmp --track=farmland --slice=1284
 ```
 
 Výsledek 15. 10. 2026 (Godot 4.7.2, Apple M1 Pro): auto stojí na všech 4 kolech (zatížení 8 125 N ≈ hmotnost), 0–100 km/h 12,7 s, po 40 s na kruhu 139 km/h při 0,67 g, brzdná dráha 100–0 km/h 49 m. Reálná 356 A 1600: 0–100 asi 16 s, maximum 160 km/h – zrychlení je zatím příliš dobré (zástupné pneumatiky, bez valivého odporu a setrvačnosti motoru).

@@ -61,7 +61,7 @@ Za tabulkou článků následují rovnou položky misc.
 
 | Offset | Typ | Význam |
 | --- | --- | --- |
-| 0x00 | i16 | fill mode (3) |
+| 0x00 | u16 | typ primitivy: 3 = seznam trojúhelníků, 1 = pruh (triangle strip), 4 = bez indexů (zatím nečteno) |
 | 0x02 | i16 | 0x200 textura, \| 1 okno |
 | 0x04 | i16 | index materiálu (`mt` v misc) |
 | 0x08 | f32[4] | obalová koule |
@@ -70,7 +70,7 @@ Za tabulkou článků následují rovnou položky misc.
 | … | 8 B × m | indexový řádek: index, typ (`vI` 0x4976 vrcholy, `uI` 0x4975 UV), offset do pole indexů |
 | … | u8 × m × počet | indexy (1 bajt!) |
 
-Index vrcholu = bajt + (offset info řádku typu 0) / 16, index UV = bajt + (offset typu 2) / 8. Každé 3 indexy tvoří trojúhelník. Levá a pravá polovina dílu bývají dva díly se stejnými UV, ale jiným materiálem.
+Index vrcholu = bajt + (offset info řádku typu 0) / 16, index UV = bajt + (offset typu 2) / 8. U typu 3 tvoří každé 3 indexy trojúhelník. U pruhu (typ 1) tvoří trojúhelník každá trojice sousedních indexů, liché trojúhelníky mají prohozené první dva vrcholy (stejné pořadí oběhu) a trojúhelníky s opakovaným vrcholem se zahazují. Auta mají jen typ 3. Tratě mají pruhy v terénu: farmland 72 dílů, skidpad 13, často s počtem indexů nedělitelným třemi. Dokud se četly jako seznam, posunuly všechny další trojúhelníky téhož materiálu a v terénu byly díry a rubové plochy (ověřeno snímkem u řezu 1284). Pruh potvrzuje orientace: 91 % jeho trojúhelníků míří nahoru, při čtení jako seznam 50 %. Typ 4 mají hlavně objekty knihovny (cedule, krabice, postava), 28 dílů. Levá a pravá polovina dílu bývají dva díly se stejnými UV, ale jiným materiálem.
 
 ### Misc
 
@@ -175,5 +175,6 @@ python3 tools/track2gltf.py sources/GameData/Track/skidpad.crp decomposed/GameDa
 - `--level` 0–3 (skidpad: 7 314 / 2 636 trojúhelníků pro úroveň 0 / 2).
 - Metry, osa Y nahoru, osa X zrcadlená z levotočivých dat (viz výše, týká se i vektorů `SimD`). `Opaque` → neprůhledné, ostatní render metody → alpha MASK.
 - Zkontrolováno renderem v Blenderu (pohled shora a zblízka): trať, pneumatikové zdi, pole, stromy, budovy i textury sedí.
-- Farmland (Normandie, „French Farmland“): 997 článků (silnice 239, terén 367, vegetace 216, objekty 174), 64 887 trojúhelníků, 244/245 textur, 1 995 řezů v 10 úsecích, knihovna 142 článků. Ve hře (Godot) ověřeno jízdou a snímky.
-- Zbývá: ostatních 13 tratí, význam `df`, šířek a příznaků `SimD`, rozmístění knihovny objektů, animace, `Vis`, `CmAn`.
+- Farmland (Normandie, „French Farmland“): 997 článků (silnice 239, terén 367, vegetace 216, objekty 174), 65 664 trojúhelníků, 244/245 textur, 1 995 řezů v 10 úsecích, knihovna 142 článků. Ve hře (Godot) ověřeno jízdou a snímky.
+- Trojúhelníky otočené dolů (18 % vodorovných v terénu) jsou koruny stromů nad silnicí a střechy (materiály `cbb`, `shrb`, 3 m a víc nad silnicí), jsou tedy správně. Materiály jsou oboustranné.
+- Zbývá: díly typu 4, ostatních 13 tratí, význam `df`, šířek a příznaků `SimD`, rozmístění knihovny objektů, animace, `Vis`, `CmAn`.

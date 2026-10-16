@@ -13,6 +13,7 @@ from refpack import decompress  # noqa: E402
 
 INDEX_VERTEX = 0x4976  # "vI"
 INDEX_UV = 0x4975  # "uI"
+PRIM_STRIP = 1  # pr header u16 at 0x00: 3 = triangle list, 1 = triangle strip, 4 = unindexed (not read)
 
 
 class Entry:
@@ -58,8 +59,21 @@ def entry_text(d, e):
     return d[e.data:e.data + e.length].split(b"\0")[0].decode("latin1")
 
 
+def strip_to_list(corners):
+    """Triangle strip -> list of corner triples; odd triangles swap their first two corners so
+    all keep the same winding, degenerate ones (repeated vertex) are dropped."""
+    out = []
+    for i in range(len(corners) - 2):
+        a, b, c = corners[i:i + 3]
+        if a[0] == b[0] or b[0] == c[0] or a[0] == c[0]:
+            continue
+        out += [a, b, c] if i % 2 == 0 else [b, a, c]
+    return out
+
+
 def parse_part(d, e):
     o = e.data
+    prim = struct.unpack_from("<H", d, o)[0]
     mat = struct.unpack_from("<h", d, o + 4)[0]
     info_count, index_count = struct.unpack_from("<ii", d, o + 0x28)
     p = o + 0x30
@@ -74,7 +88,7 @@ def parse_part(d, e):
         rows[iid] = off
         p += 8
     raw = d[p:p + index_count * e.count]
-    return mat, infos, rows, raw
+    return prim, mat, infos, rows, raw
 
 
 def vectors(d, e, n):
@@ -110,27 +124,33 @@ def article_mesh(d, art, level, part_level, materials):
         if pe is None:
             break
         part_no += 1
-        mat, infos, rows, raw = parse_part(d, pe)
+        prim, mat, infos, rows, raw = parse_part(d, pe)
         if INDEX_VERTEX not in rows:
             continue
         vt_off, vt_adj = rows[INDEX_VERTEX], infos.get(0, 0)
         uv_off, uv_adj = rows.get(INDEX_UV), infos.get(2, 0)
         key = materials.get(mat, -1)
         pos, nrm, tex, idx, seen = prims.setdefault(key, ([], [], [], [], {}))
-        for k in range(pe.count):
-            vi = raw[vt_off + k] + vt_adj
-            ui = raw[uv_off + k] + uv_adj if uvs is not None and uv_off is not None else -1
-            if vi >= len(verts):
-                continue
-            if (vi, ui) not in seen:
-                seen[(vi, ui)] = len(pos)
-                pos.append(verts[vi][:3])
-                nrm.append(norms[vi][:3] if norms else None)
-                tex.append(uvs[ui] if 0 <= ui < len(uvs) else (0.0, 0.0))
-            idx.append(seen[(vi, ui)])
+        corners = [(raw[vt_off + k] + vt_adj,
+                    raw[uv_off + k] + uv_adj if uvs is not None and uv_off is not None else -1)
+                   for k in range(pe.count)]
+        if prim == PRIM_STRIP:
+            corners = strip_to_list(corners)
+        else:
+            corners = corners[:len(corners) - len(corners) % 3]
+        for t in range(0, len(corners), 3):
+            tri = corners[t:t + 3]
+            if any(vi >= len(verts) for vi, _ in tri):
+                continue  # drop the whole triangle, never shift the following ones
+            for vi, ui in tri:
+                if (vi, ui) not in seen:
+                    seen[(vi, ui)] = len(pos)
+                    pos.append(verts[vi][:3])
+                    nrm.append(norms[vi][:3] if norms else None)
+                    tex.append(uvs[ui] if 0 <= ui < len(uvs) else (0.0, 0.0))
+                idx.append(seen[(vi, ui)])
     out = {}
     for k, (pos, nrm, tex, idx, _) in prims.items():
-        idx = idx[:len(idx) - len(idx) % 3]
         if len(idx) >= 3:
             if any(n is None for n in nrm):
                 nrm = smooth_normals(pos, idx)

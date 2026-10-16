@@ -1,6 +1,6 @@
 extends Node
 ## Renders the prototype and saves screenshots (needs a window, not --headless):
-##   godot --path game res://tests/screenshot.tscn -- <output folder>
+##   godot --path game res://tests/screenshot.tscn -- <output folder> [--track=<name>] [--slice=<n>]
 ## Drives for a few seconds with the chase camera, saves shot_0.png .. shot_2.png and quits.
 
 const SHOT_TIMES := [1.0, 4.0, 8.0]
@@ -13,7 +13,7 @@ var shot := 0
 
 func _ready() -> void:
 	var args := OS.get_cmdline_user_args()
-	if not args.is_empty():
+	if not args.is_empty() and not args[0].begins_with("--"):
 		out_dir = args[0]
 	main = preload("res://scenes/main.tscn").instantiate() as Node3D
 	add_child(main)

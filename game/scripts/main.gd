@@ -1,7 +1,8 @@
 extends Node3D
 ## Phase 2 prototype (D-009): the original 356 A on an original track (farmland = Normandie by
 ## default, or skidpad), both loaded at run time from decomposed/. Track: project setting
-## stuttgart/track, overridden by the user argument --track=<name>. F2 records telemetry to
+## stuttgart/track, overridden by the user argument --track=<name>; --slice=<n> starts on road
+## slice n instead of the start line. F2 records telemetry to
 ## user://telemetry_*.csv for comparing with the original game.
 
 const DEFAULT_TRACK := "farmland"
@@ -49,6 +50,9 @@ func _ready() -> void:
 		road_segments = road.get("segments", [])
 		if road.has("start"):
 			start_slice = int(road["start"]["slice"])
+		var arg := _user_arg("slice")
+		if arg.is_valid_int():
+			start_slice = clampi(arg.to_int(), 0, road_slices.size() - 1)
 	var cars: Variant = OriginalAssets.load_json(CAR_PHYSICS)
 	if cars is Dictionary and cars.has(CAR_KEY):
 		car.setup(OriginalAssets.load_gltf(CAR_MODEL), cars[CAR_KEY])
@@ -58,10 +62,16 @@ func _ready() -> void:
 
 
 func _track_from_args() -> String:
+	var arg := _user_arg("track")
+	return arg if not arg.is_empty() else ProjectSettings.get_setting("stuttgart/track", DEFAULT_TRACK)
+
+
+## Value of the user argument --<name>=<value> (after "--" on the command line), or "".
+func _user_arg(name: String) -> String:
 	for arg in OS.get_cmdline_user_args():
-		if arg.begins_with("--track="):
-			return arg.trim_prefix("--track=")
-	return ProjectSettings.get_setting("stuttgart/track", DEFAULT_TRACK)
+		if arg.begins_with("--%s=" % name):
+			return arg.trim_prefix("--%s=" % name)
+	return ""
 
 
 func _setup_input() -> void:
