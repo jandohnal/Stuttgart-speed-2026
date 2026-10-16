@@ -53,6 +53,7 @@ Samostatně spuštěná hra běží přes celou obrazovku (ne v náhledu editoru
 | `scripts/main.gd` | načtení trati (kolize z mesh skupin `road`, `terrain`, `objects`), auta, start na řezu silnice, ovládání, záznam telemetrie |
 | `scripts/car.gd` | auto: raycast podvozek nad `RigidBody3D` (D-003), motor a automatická převodovka z `cars.json`, model pneumatik (skluz, rotace kol, setrvačnost motoru) |
 | `scripts/follow_camera.gd`, `scripts/hud.gd` | kamera za autem, údaje o jízdě |
+| `scripts/gauge.gd` | kulatý budík (otáčkoměr, rychloměr) kreslený v `_draw()`; stupnice nastaví `hud.gd` podle redline a převodů auta |
 
 ## Testy
 
@@ -74,6 +75,8 @@ Výsledky (Godot 4.7.2, Apple M1 Pro), reálná 356 A 1600 pro srovnání: 0–1
 | --- | --- | --- | --- | --- | --- |
 | 15. 10. 2026 | zástupné pneumatiky | skidpad | 12,7 s | 139 km/h, 0,67 g | 49 m |
 | 16. 10. 2026 | pneumatiky, asistent, brzdy 0,8 g, stabilizátor hlavně vpředu | skidpad | 15,9 s | 133 km/h, 0,67 g | 51,0 m |
+| 16. 10. 2026 | + pérování s předpětím, aktuální paprsky, obal karoserie | skidpad | 15,8 s | 126 km/h (řidič brzdí na 0,55 g), 0,64 g | 56,6 m |
+| 16. 10. 2026 | totéž | farmland | 26,5 s | 71 km/h, max 0,94 g, karoserie bez kontaktu se silnicí | – |
 | 16. 10. 2026 | totéž | farmland | 26,6 s (zatáčky) | 61 km/h, brzdění v zatáčkách 11,9 s, max 0,83 g | – |
 
 Na farmlandu auto 40 s jede po silnici z kopce bez kolize. Odvážnější řidič (0,7 g / 0,6 g) se ale ve 37. s roztočí. Brzdí na horizontu v klesající zatáčce, kde auto nese jen asi 60 % váhy a zadní vnitřní kolo skoro nic (46–122 N), takže záď se zadním motorem uteče. Je to typická přetáčivost 356 při brzdění. Míru je potřeba porovnat s originálem.
@@ -83,7 +86,9 @@ Na farmlandu auto 40 s jede po silnici z kopce bez kolize. Odvážnější řidi
 - Model pneumatik (`car.gd`): každé kolo má vlastní rotaci se setrvačností 1,2 kg·m², poháněná kola navíc setrvačnost motoru přes převod (0x058 / 1000 kg·m², hypotéza). Podélný skluz a úhel skluzu tvoří jeden normovaný vektor skluzu. Síla roste k vrcholu (délka 1), pak klesá na 75 % (smyk). Vrchol: skluz 0,12, úhel 3° + 0,08° × profilové číslo (356: 8,6°). Přilnavost μ = 0,444 + 0,353 × `.sim` 0x0F4 (356: 0,85, hypotéza), citlivost na zatížení 10 %, valivý odpor 0,015. Kola se integrují v 8 podkrocích. Brzdy působí momentem (max. 0,8 g jako bubnové brzdy, 58 % vpředu) a mohou kola zablokovat, motor brzdí 12 % maximálního momentu. Převodovka řadí nahoru, když vyšší stupeň dá na kolech víc síly. Ladění proti originálu přes Wine zbývá.
 - Stabilizátory: vpředu 1,0 × tuhost pružiny, vzadu 0,3 (356 měla stabilizátor jen vpředu). Se stejně tuhým vzadu se zadní vnitřní kolo při brzdění v zatáčce odlehčovalo a auto se roztáčelo.
 - Kamera je 6 m za autem a 2,4 m nad ním.
-- Parametry z `.sim`: hmotnost, převody, stálý převod, křivka momentu, otáčky omezovače, rozměr pneumatik, rozdělení pohonu, poloha motoru (posun těžiště). Hypotézy: přilnavost (0x0F4), setrvačnost motoru (0x058). Odhadem: odpor vzduchu (Cd·A 0,6), tuhost pérování (vlastní frekvence 1,44 Hz), stabilizátory, dorazy.
+- Parametry z `.sim`: hmotnost, převody, stálý převod, křivka momentu, otáčky omezovače, rozměr pneumatik, rozdělení pohonu, poloha motoru (posun těžiště). Hypotézy: přilnavost (0x0F4), setrvačnost motoru (0x058). Odhadem: odpor vzduchu (Cd·A 0,6), pérování (vlastní frekvence 1,7 Hz, zdvih 8 cm nahoru a 10 cm dolů od výšky modelu), stabilizátory, dorazy.
 - Vestavěné tlumení `RigidBody3D` je vypnuté (výchozích 0,1 bralo autu ~1 600 N), odpory se modelují explicitně.
-- Kolizní box karoserie začíná 1,1 × poloměr kola nad zemí, aby při náklonu nedrhl o silnici; při prudkém brzdění se ještě krátce dotkne předkem.
+- Pružiny mají předpětí: v klidu nesou čtvrtinu váhy přesně ve výšce modelu (spodek karoserie 0,19 m nad silnicí, kola v podbězích jako v originálu). Dřív byla pružina v klidu stlačená o celý zdvih 12 cm a karoserie si sedala.
+- Paprsky kol se počítají v každém kroku znovu (`force_raycast_update`). Výsledek uzlu `RayCast3D` byl o dva kroky fyziky starý: při 120 km/h ležel bod dotyku 0,57 m za kolem, podvozek se zdál natažený a karoserie klesala až k silnici, kola mizela v podbězích.
+- Kolize karoserie je konvexní obal jejích meshů bez kol (zaoblené rohy, skutečný práh 0,19 m). Box přes celou šířku zavadil předním rohem o klopenou silnici.
 - Bez kolizí s objekty knihovny, bez poškození, bez zvuku.

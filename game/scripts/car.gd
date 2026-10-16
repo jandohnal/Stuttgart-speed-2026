@@ -12,11 +12,13 @@ const IDLE_RPM := 900.0
 const GRAVITY := 9.81
 const AIR_DENSITY := 1.225
 
-@export var suspension_travel := 0.12  ## m up and down from the design ride height
+@export var bump_travel := 0.08  ## m the wheel can move up from the model's ride height
+@export var droop_travel := 0.10  ## m the wheel can drop below it
+@export var ride_frequency := 1.7  ## Hz, sets the spring rate; springs are preloaded to the model's ride height
 @export var damping_ratio := 0.35
 @export var anti_roll_front := 1.0  ## anti-roll bar stiffness relative to the spring rate
 @export var anti_roll_rear := 0.3  ## 356: front bar only, rear swing axle without one
-@export var bump_stop_rate := 10.0  ## stiffness multiplier in the last 10 % of travel
+@export var bump_stop_rate := 10.0  ## stiffness multiplier in the last 25 % of bump travel
 @export var grip := 1.0  ## multiplier on the friction coefficient derived from .sim 0x0F4
 @export var grip_base := 0.444  ## mu = grip_base + grip_per_sim * 0x0F4 (356 A 1.15 -> 0.85, 2.0 -> 1.15)
 @export var grip_per_sim := 0.353
@@ -36,6 +38,9 @@ const AIR_DENSITY := 1.225
 @export var drivetrain_efficiency := 0.85
 @export var drag_area := 0.6  ## Cd * frontal area, m2 (356: ~0.37 * 1.6)
 @export var shift_time := 0.35  ## s without drive while shifting
+@export var rev_drop_rate := 2500.0  ## rpm/s, engine falling off throttle with the clutch open
+@export var rev_rise_rate := 6000.0  ## rpm/s, throttle blip on a downshift
+@export var clutch_sync_rate := 6000.0  ## rpm/s, engine pulled to the new gear as the clutch closes
 
 var params: Dictionary = {}
 var wheels: Array[Wheel] = []
@@ -64,6 +69,7 @@ var telemetry: Dictionary = {}
 
 var _shift_timer := 0.0
 var _since_shift := 10.0
+var _clutch_slipping := false  ## engine still being pulled to the new gear after a shift
 var _last_velocity := Vector3.ZERO
 
 
@@ -112,7 +118,7 @@ func setup(model: Node3D, car_params: Dictionary) -> void:
 	var unknown: Dictionary = params.get("unknown", {})
 	mu = (grip_base + grip_per_sim * float(unknown.get("0x0F4", 1.15))) * grip
 	engine_inertia = float(unknown.get("0x058", 90.0)) / 1000.0
-	spring_rate = mass * GRAVITY / 4.0 / suspension_travel
+	spring_rate = mass / 4.0 * pow(TAU * ride_frequency, 2.0)
 	damper_rate = 2.0 * damping_ratio * sqrt(spring_rate * mass / 4.0)
 	if model != null:
 		add_child(model)
@@ -134,6 +140,8 @@ func reset_to(xf: Transform3D) -> void:
 	global_transform = xf
 	gear = 1
 	steer = 0.0
+	_shift_timer = 0.0
+	_clutch_slipping = false
 	for w in wheels:
 		w.omega = 0.0
 
@@ -150,25 +158,37 @@ func _relative_transform(node: Node, root: Node) -> Transform3D:
 	return xf
 
 
+## Body collision: convex hull of the body meshes (wheels excluded, they are rays), so the
+## rounded corners and the real sill height (356: 0.19 m) are kept.
 func _build_collision(model: Node3D) -> void:
-	var box := AABB()
-	var first := true
+	var points := PackedVector3Array()
 	for child in model.find_children("*", "MeshInstance3D", true, false):
 		var mi := child as MeshInstance3D
-		var b := _relative_transform(mi, model) * mi.get_aabb()
-		box = b if first else box.merge(b)
-		first = false
-	if first:
-		box = AABB(Vector3(-0.8, 0.0, -2.0), Vector3(1.6, 1.3, 4.0))
-	# Keep the body box above the wheels' contact patch so only the rays touch the road.
-	var bottom := maxf(box.position.y, wheel_radius * 1.1)
-	var top := box.end.y
-	var shape := BoxShape3D.new()
-	shape.size = Vector3(box.size.x, top - bottom, box.size.z)
+		if _is_wheel_part(mi.name) or mi.mesh == null:
+			continue
+		var xf := _relative_transform(mi, model)
+		for surface in mi.mesh.get_surface_count():
+			var arrays := mi.mesh.surface_get_arrays(surface)
+			for p: Vector3 in arrays[Mesh.ARRAY_VERTEX]:
+				points.append(xf * p)
 	var col := CollisionShape3D.new()
-	col.shape = shape
-	col.position = Vector3(box.get_center().x, (top + bottom) / 2.0, box.get_center().z)
+	if points.is_empty():
+		var box := BoxShape3D.new()
+		box.size = Vector3(1.6, 1.0, 4.0)
+		col.shape = box
+		col.position = Vector3(0.0, 0.7, 0.0)
+	else:
+		var hull := ConvexPolygonShape3D.new()
+		hull.points = points
+		col.shape = hull
 	add_child(col)
+
+
+func _is_wheel_part(node_name: String) -> bool:
+	for prefix in ["WheelFront", "WheelRear", "WheelShadow", "Tread"]:
+		if node_name.begins_with(prefix):
+			return true
+	return false
 
 
 func _find_wheels(model: Node3D) -> void:
@@ -200,8 +220,8 @@ func _add_wheel(center: Vector3, front: bool) -> Wheel:
 	w.center = center
 	w.front = front
 	w.ray = RayCast3D.new()
-	w.ray.position = center + Vector3.UP * suspension_travel
-	w.ray.target_position = Vector3.DOWN * (2.0 * suspension_travel + wheel_radius)
+	w.ray.position = center + Vector3.UP * bump_travel
+	w.ray.target_position = Vector3.DOWN * (bump_travel + droop_travel + wheel_radius)
 	add_child(w.ray)
 	wheels.append(w)
 	return w
@@ -323,25 +343,42 @@ func _update_gearbox(delta: float) -> void:
 			driven += 1
 	if driven > 0:
 		omega /= driven
-	rpm = absf(omega * _gear_ratio() * final_drive) * 60.0 / TAU
+	var wheel_rpm := absf(omega * _gear_ratio() * final_drive) * 60.0 / TAU
 	_since_shift += delta
 	if gear > 0 and _shift_timer <= 0.0 and _since_shift > 1.0:
 		var ratio := gear_ratios[gear - 1]
 		if gear < gear_ratios.size():
 			# Up when the next gear gives at least as much wheel torque (or at the limiter).
 			var next := gear_ratios[gear]
-			if rpm > redline * 0.95 or (rpm > redline * 0.6 and throttle > 0.5
-					and _torque_at(rpm * next / ratio) * next >= _torque_at(rpm) * ratio):
+			if wheel_rpm > redline * 0.95 or (wheel_rpm > redline * 0.6 and throttle > 0.5
+					and _torque_at(wheel_rpm * next / ratio) * next >= _torque_at(wheel_rpm) * ratio):
 				_shift(gear + 1)
-		if gear > 1 and _shift_timer <= 0.0 and rpm < redline * 0.5 \
-				and rpm * gear_ratios[gear - 2] / ratio < redline * 0.8:
+		if gear > 1 and _shift_timer <= 0.0 and wheel_rpm < redline * 0.5 \
+				and wheel_rpm * gear_ratios[gear - 2] / ratio < redline * 0.8:
 			_shift(gear - 1)
-	rpm = clampf(rpm, IDLE_RPM, redline)
+		if _shift_timer > 0.0:
+			wheel_rpm *= _gear_ratio() / ratio  # the gear just selected
+	_update_engine_speed(delta, clampf(wheel_rpm, IDLE_RPM, redline))
+
+
+## Engine speed. Locked to the driven wheels while the clutch is engaged; during a shift the
+## clutch is open and the engine falls off throttle (upshift) or is blipped up (downshift)
+## towards the new gear's speed, then the closing clutch pulls it the rest of the way.
+func _update_engine_speed(delta: float, target: float) -> void:
+	if _shift_timer > 0.0:
+		var rate := rev_drop_rate if target < rpm else rev_rise_rate
+		rpm = move_toward(rpm, target, rate * delta)
+	elif _clutch_slipping:
+		rpm = move_toward(rpm, target, clutch_sync_rate * delta)
+		_clutch_slipping = absf(rpm - target) > 1.0
+	else:
+		rpm = target
 
 
 func _shift(to: int) -> void:
 	gear = to
 	_shift_timer = shift_time
+	_clutch_slipping = true
 	_since_shift = 0.0
 
 
@@ -362,6 +399,9 @@ func _torque_at(r: float) -> float:
 
 
 func _update_contact(w: Wheel, delta: float) -> void:
+	# Cast now, from the current body transform: the node's own result is a couple of physics
+	# ticks old, which at speed put the contact behind the wheel and let the body sink.
+	w.ray.force_raycast_update()
 	w.contact = w.ray.is_colliding()
 	if not w.contact:
 		w.compression = 0.0
@@ -369,7 +409,7 @@ func _update_contact(w: Wheel, delta: float) -> void:
 		return
 	w.point = w.ray.get_collision_point()
 	w.normal = w.ray.get_collision_normal()
-	var compression := 2.0 * suspension_travel + wheel_radius - w.ray.global_position.distance_to(w.point)
+	var compression := bump_travel + droop_travel + wheel_radius - w.ray.global_position.distance_to(w.point)
 	w.compression_speed = (compression - w.compression) / delta
 	w.compression = compression
 
@@ -390,10 +430,12 @@ func _apply_wheel(w: Wheel, delta: float, drive_torque: float, inertia: float) -
 		w.spin = fmod(w.spin + w.omega * delta, TAU)
 		_update_visual(w)
 		return
-	var wheel_load := spring_rate * w.compression + damper_rate * w.compression_speed
-	var stop_start := 2.0 * suspension_travel * 0.9
-	if w.compression > stop_start:
-		wheel_load += spring_rate * bump_stop_rate * (w.compression - stop_start)
+	# Preloaded spring: carries a quarter of the weight at the model's ride height (lift 0).
+	var lift := w.compression - droop_travel
+	var wheel_load := mass * GRAVITY / 4.0 + spring_rate * lift + damper_rate * w.compression_speed
+	var stop_start := bump_travel * 0.75
+	if lift > stop_start:
+		wheel_load += spring_rate * bump_stop_rate * (lift - stop_start)
 	if w.partner != null:
 		var bar := anti_roll_front if w.front else anti_roll_rear
 		wheel_load += spring_rate * bar * (w.compression - w.partner.compression)
@@ -453,7 +495,7 @@ func _spin_wheel(omega: float, torque: float, brake_torque: float, inertia: floa
 
 
 func _update_visual(w: Wheel) -> void:
-	var lift := w.compression - suspension_travel
+	var lift := w.compression - droop_travel
 	var steer_basis := Basis(Vector3.UP, steer if w.front else 0.0)
 	var spin_basis := Basis(Vector3.RIGHT, -w.spin)
 	for i in w.visuals.size():

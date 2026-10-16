@@ -27,6 +27,12 @@ var prev_speed := 0.0
 var end_speed := 0.0
 var collisions := PackedStringArray()
 var corner_brakes := 0  ## physics ticks spent braking for corners
+var bump_stop_ticks := 0  ## physics ticks with any wheel in the bump stop
+var max_lift := -1.0  ## highest wheel position relative to the model's ride height, m
+var prev_rpm := -1.0
+var max_rpm_step := 0.0  ## largest engine speed change in one physics tick while accelerating, rpm
+var shifts := 0
+var prev_gear := 1
 
 
 func _ready() -> void:
@@ -48,6 +54,14 @@ func _physics_process(delta: float) -> void:
 		var entry := "%s at %.1f s (%s, %s), %.0f km/h" % [what, t, phase, car.global_position.snapped(Vector3.ONE * 0.1), speed]
 		if collisions.size() < 10 and not collisions.has(entry) and not ",".join(collisions).contains(what):
 			collisions.append(entry)
+	if phase != "settle":
+		var on_stop := false
+		for w in car.wheels:
+			var lift: float = w.compression - car.droop_travel
+			max_lift = maxf(max_lift, lift)
+			on_stop = on_stop or lift > car.bump_travel * 0.75
+		if on_stop:
+			bump_stop_ticks += 1
 	match phase:
 		"settle":
 			if t >= SETTLE_TIME:
@@ -56,6 +70,12 @@ func _physics_process(delta: float) -> void:
 				t = 0.0
 		"accelerate":
 			_steer_along_road()
+			if prev_rpm >= 0.0:
+				max_rpm_step = maxf(max_rpm_step, absf(car.rpm - prev_rpm))
+			prev_rpm = car.rpm
+			if car.gear != prev_gear:
+				shifts += 1
+				prev_gear = car.gear
 			var over := car.forward_speed - _safe_speed()
 			if over > 0.5:
 				Input.action_release("accelerate")
@@ -70,7 +90,7 @@ func _physics_process(delta: float) -> void:
 					_distance_from_road(), car.global_position.y])
 				var forces := PackedStringArray()
 				for w in car.wheels:
-					forces.append("%s load %d long %d lat %d slip %.3f/%.1f°" % ["F" if w.front else "R", roundi(w.normal_load), roundi(w.force.x), roundi(w.force.y), w.slip_ratio, rad_to_deg(w.slip_angle)])
+					forces.append("%s load %d long %d lat %d slip %.3f/%.1f° lift %+.3f" % ["F" if w.front else "R", roundi(w.normal_load), roundi(w.force.x), roundi(w.force.y), w.slip_ratio, rad_to_deg(w.slip_angle), w.compression - car.droop_travel])
 				print("      ", " | ".join(forces), " | body contacts ", car.get_colliding_bodies().map(func(b): return b.get_parent().name))
 			top_speed = maxf(top_speed, speed)
 			max_lat_g = maxf(max_lat_g, absf(float(car.telemetry.get("lat_g", 0.0))))
@@ -156,8 +176,11 @@ func _settle_report() -> String:
 		if w.ray.is_colliding():
 			contacts += 1
 		loads.append("%d" % roundi(w.normal_load))
-	return "wheels %d, in contact %d, loads N [%s] (weight/4 = %d), height %.3f m" % [
-		car.wheels.size(), contacts, ", ".join(loads), roundi(car.mass * 9.81 / 4.0), car.global_position.y]
+	var lifts := PackedStringArray()
+	for w in car.wheels:
+		lifts.append("%+.3f" % (w.compression - car.droop_travel))
+	return "wheels %d, in contact %d, loads N [%s] (weight/4 = %d), wheel lift m [%s]" % [
+		car.wheels.size(), contacts, ", ".join(loads), roundi(car.mass * 9.81 / 4.0), ", ".join(lifts)]
 
 
 func _finish() -> void:
@@ -172,7 +195,10 @@ func _finish() -> void:
 	print("  settle: ", settle_report)
 	print("  0-100 km/h: %s" % ("%.1f s" % t_100 if t_100 >= 0.0 else "not reached"))
 	print("  speed after %.0f s: %.0f km/h (max %.0f), max lateral %.2f g" % [ACCEL_TIME, end_speed, top_speed, max_lat_g])
+	print("  gear shifts: %d, max engine speed change per tick %.0f rpm" % [shifts, max_rpm_step])
 	print("  braking for corners: %.1f s" % (corner_brakes / float(Engine.physics_ticks_per_second)))
+	print("  suspension: max wheel lift %.3f m of %.2f, bump stop %.1f s" % [
+		max_lift, car.bump_travel, bump_stop_ticks / float(Engine.physics_ticks_per_second)])
 	print("  body collisions: ", collisions if not collisions.is_empty() else "none")
 	print("  braking 100-0 km/h: %s" % ("%.1f m" % brake_distance if brake_distance >= 0.0 else "n/a"))
 	print("  distance from road at end: %.1f m" % _distance_from_road())

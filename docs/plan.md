@@ -58,6 +58,7 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Skutečná trať pro jízdní pocit: farmland (Normandie), start na startovní čáře originálu
 - [x] Raycast podvozek, model pneumatik, motor a převodovka z dat JSON (pneumatiky: skluz, rotace kol, setrvačnost motoru; 0–100 km/h 15,8 s proti reálným ~16 s)
 - [ ] Doladit pneumatiky a řízení proti originálu přes Wine (přilnavost 0x0F4 a setrvačnost 0x058 jsou hypotézy), asistent řízení pro klávesnici hotový (F3)
+- [x] HUD: kulatý rychloměr (s počítadlem km) a otáčkoměr v klasickém stylu (kreslené procedurálně, stupnice z dat auta, ručička s tlumenou setrvačností); otáčky motoru při řazení klesají a stoupají plynule (spojka)
 - [ ] Kolize a zóny poškození, deformace meshe
 - [ ] Srovnávací jízdy s originálem přes Wine: zrychlení, brzdná dráha, rychlost v zatáčkách
 - [ ] Rozhodnout definitivně o enginu (D-002)
