@@ -11,9 +11,9 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
 - **Rozhodnutí:** Hra bude mít vlastní název (Stuttgart Speed). Zachovává hratelnost a atmosféru originálu, nekopíruje jeho obsah.
 - **Důsledky:** Nepoužívají se loga, názvy ani tvary vozů Porsche. Mechaniky (kariéra napříč érami, mise testovacího jezdce) se přebírají jako nápad.
 
-## D-002 Engine Godot 4.6
+## D-002 Engine Godot 4.7
 - **Stav:** proposed (potvrdit po prototypu jízdy, fáze 2)
-- **Rozhodnutí:** Godot 4.6, fyzika Jolt, renderer Forward+ přes Metal.
+- **Rozhodnutí:** Godot 4.7 (původně 4.6, 15. 10. 2026 přechod na tehdy aktuální 4.7.2), fyzika Jolt, renderer Forward+ přes Metal.
 - **Důvod:** zdarma (MIT), nativní na Apple Silicon, nejrychlejší vývoj pro jednoho autora.
 - **Alternativa:** Unity 6. Unreal 5 zamítnut kvůli náročnosti a slabší podpoře Macu.
 

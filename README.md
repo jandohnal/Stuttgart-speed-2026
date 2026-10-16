@@ -6,7 +6,7 @@ Cílem není kopie originálu, ale zachování toho, co ho dělalo výjimečným
 
 ## Hlavní body
 
-- **Engine:** Godot 4.6, fyzika Jolt, renderer Metal (Apple Silicon).
+- **Engine:** Godot 4.7, fyzika Jolt, renderer Metal (Apple Silicon).
 - **Jízdní model:** vlastní raycast podvozek, model pneumatik, přenos hmotnosti, nastavitelné asistenty.
 - **Poškození:** zóny, deformace meshe, odpadávající díly a dopad na mechaniku.
 - **Obsah:** fiktivní auta inspirovaná érami, vlastní tratě ve stylu originálu (užší silnice), vlastní nasamplované zvuky, bez hudby.

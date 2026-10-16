@@ -19,7 +19,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import fsh2png  # noqa: E402
-from crp import article_mesh, entry_text, find, parse_crp, write_gltf  # noqa: E402
+from crp import article_mesh, entry_text, find, parse_crp, to_gltf, write_gltf  # noqa: E402
 
 GROUPS = [
     ("road", r"^RD"),
@@ -64,7 +64,8 @@ def road_slices(d, misc):
         o = sd.data + SIMD_SIZE * i
         f = struct.unpack_from("<20f", d, o)
         ints = struct.unpack_from("<20i", d, o)
-        out.append({"position": f[1:4], "up": f[4:7], "forward": f[7:10], "right": f[10:13],
+        out.append({"position": to_gltf(f[1:4]), "up": to_gltf(f[4:7]), "forward": to_gltf(f[7:10]),
+                    "right": to_gltf(f[10:13]),
                     "flags": [ints[0]] + list(ints[13:16]), "widths": f[16:20]})
     return out
 

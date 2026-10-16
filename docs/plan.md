@@ -50,11 +50,11 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 
 ## Fáze 2 – Prototyp jízdy
 
-- [ ] Godot 4.6 projekt, Jolt
-- [ ] Vybrat původní auto a původní trať pro prototyp (D-009)
-- [ ] Import auta z `decomposed/` (glTF) a parametrů z `cars.json`
-- [ ] Import vybrané trati z `decomposed/` (glTF + data silnice `SimD`)
-- [ ] Raycast podvozek, model pneumatik, motor a převodovka z dat JSON
+- [x] Godot 4.7 projekt, Jolt ([game/](../game/README.md)), běží na Metalu, automatický jízdní test
+- [x] Vybrat původní auto a původní trať pro prototyp (D-009): 356 A coupe 1.6 na skidpadu
+- [x] Import auta z `decomposed/` (glTF) a parametrů z `cars.json` (načítání za běhu)
+- [x] Import vybrané trati z `decomposed/` (glTF + data silnice `SimD`), kolize z geometrie
+- [ ] Raycast podvozek, model pneumatik, motor a převodovka z dat JSON – podvozek (stabilizátory, dorazy), motor a převodovka hotové, pneumatiky zatím zástupné
 - [ ] Kolize a zóny poškození, deformace meshe
 - [ ] Srovnávací jízdy s originálem přes Wine: zrychlení, brzdná dráha, rychlost v zatáčkách
 - [ ] Rozhodnout definitivně o enginu (D-002)

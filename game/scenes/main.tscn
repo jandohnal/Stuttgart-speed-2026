@@ -1,0 +1,53 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/car.gd" id="2_car"]
+[ext_resource type="Script" path="res://scripts/follow_camera.gd" id="3_camera"]
+[ext_resource type="Script" path="res://scripts/hud.gd" id="4_hud"]
+
+[sub_resource type="ProceduralSkyMaterial" id="sky_material"]
+sky_top_color = Color(0.36, 0.52, 0.74, 1)
+sky_horizon_color = Color(0.7, 0.76, 0.82, 1)
+ground_horizon_color = Color(0.7, 0.76, 0.82, 1)
+
+[sub_resource type="Sky" id="sky"]
+sky_material = SubResource("sky_material")
+
+[sub_resource type="Environment" id="environment"]
+background_mode = 2
+sky = SubResource("sky")
+ambient_light_source = 3
+tonemap_mode = 2
+fog_enabled = true
+fog_density = 0.0008
+
+[node name="Main" type="Node3D"]
+script = ExtResource("1_main")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("environment")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+rotation = Vector3(-0.872665, 0.610865, 0)
+shadow_enabled = true
+directional_shadow_max_distance = 250.0
+
+[node name="Car" type="RigidBody3D" parent="."]
+script = ExtResource("2_car")
+
+[node name="Camera" type="Camera3D" parent="."]
+far = 4000.0
+current = true
+script = ExtResource("3_camera")
+target_path = NodePath("../Car")
+
+[node name="HUD" type="CanvasLayer" parent="."]
+script = ExtResource("4_hud")
+car_path = NodePath("../Car")
+
+[node name="Label" type="Label" parent="HUD"]
+offset_left = 16.0
+offset_top = 12.0
+offset_right = 520.0
+offset_bottom = 140.0
+theme_override_font_sizes/font_size = 18

@@ -81,6 +81,12 @@ def vectors(d, e, n):
     return [struct.unpack_from(f"<{n}f", d, e.data + 4 * n * i) for i in range(e.count)]
 
 
+def to_gltf(v):
+    """Original data is left-handed (Direct3D); glTF is right-handed. Mirroring X converts it
+    (front stays -Z) and also turns the original clockwise triangles into glTF front faces."""
+    return (-v[0], v[1], v[2])
+
+
 def article_mesh(d, art, level, part_level, materials):
     """Return (translation, {material key: (positions, normals, uvs, indices)}) or None.
 
@@ -90,13 +96,13 @@ def article_mesh(d, art, level, part_level, materials):
     vt = find(art.sub, "vt", level)
     if vt is None:
         return None
-    verts = vectors(d, vt, 4)
+    verts = [to_gltf(v) for v in vectors(d, vt, 4)]
     nm = find(art.sub, "nm", level)
-    norms = vectors(d, nm, 4) if nm is not None and nm.count == vt.count else None
+    norms = [to_gltf(n) for n in vectors(d, nm, 4)] if nm is not None and nm.count == vt.count else None
     uv_e = find(art.sub, "uv", level)
     uvs = vectors(d, uv_e, 2) if uv_e is not None else None
     tr = find(art.sub, "tr", level)
-    offset = struct.unpack_from("<3f", d, tr.data + 48) if tr is not None else (0.0, 0.0, 0.0)
+    offset = to_gltf(struct.unpack_from("<3f", d, tr.data + 48)) if tr is not None else (0.0, 0.0, 0.0)
     prims = {}
     part_no = 0
     while True:

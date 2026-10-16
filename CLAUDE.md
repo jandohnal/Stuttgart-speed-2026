@@ -30,7 +30,11 @@ Duchovní nástupce NFS: Porsche 2000. Kontext: `README.md`, rozhodnutí: `docs/
 - `python3 tools/track2gltf.py sources/GameData/Track/skidpad.crp decomposed/GameData/Track/skidpad/skidpad.gltf` – trať do glTF + data silnice (`_road.json`). Společný parser CRP je v `tools/crp.py`.
 - `python3 tools/sim_dump.py sources/GameData/Simulation/CarData > decomposed/GameData/Simulation/cars.json` – fyzika aut do JSON.
 
+## Hra
+
+- Godot projekt je v `game/` (popis a testy v `game/README.md`). Godot je zatím v `~/Downloads/Godot.app`. Jízdní test: `~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/drive_test.tscn`. Data originálu načítá **za běhu** z `../decomposed` (nastavení `stuttgart/data_root`), nikdy je neimportuje do `res://` ani nekopíruje do `game/`.
+
 ## Stack
 
-- Godot 4.6, Jolt, Metal (macOS, Apple Silicon). Rozhodnutí D-002 se potvrdí po prototypu jízdy.
+- Godot 4.7 (4.7.2), Jolt, Metal (macOS, Apple Silicon). Rozhodnutí D-002 se potvrdí po prototypu jízdy.
 - Nástroje pro data: Python 3, jen standardní knihovna, pokud to jde.

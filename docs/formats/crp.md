@@ -95,7 +95,8 @@ python3 tools/crp2gltf.py sources/GameData/CarModel/356a.crp decomposed/GameData
 ```
 
 - Výstup: `.gltf` + `.bin` + `<auto>_tpageN.png`, jeden uzel na část, primitiva podle texturové stránky.
-- Jednotky jsou metry, osa Y nahoru, **předek auta je −Z** (glTF předpokládá +Z, v Godotu stačí otočit o 180°).
+- Jednotky jsou metry, osa Y nahoru, **předek auta je −Z** (stejně jako „dopředu“ v Godotu).
+- **Souřadnice originálu jsou levotočivé (Direct3D).** Převod do glTF zrcadlí osu X (`crp.to_gltf`), tím se zároveň otočí pořadí vrcholů trojúhelníků na správnou stranu. Ověřeno: 96–99 % trojúhelníků aut souhlasí s uloženými normálami (před opravou 4 %), volant 356 A je vlevo (−0,29 m), všechny normály silnice skidpadu míří nahoru, vektor „doprava“ v `SimD` = dopředu × nahoru. Bez opravy byly modely zrcadlené (pravostranné řízení) a kolize trati v Godotu nefungovala (paprsek trefil rub trojúhelníku).
 - Výchozí úroveň 1 (model do menu, cca 3 000 trojúhelníků), `--level 3` herní LOD, `--all` i varianty a řidič.
 - Ověřeno: všech 44 aut se převede bez chyby; 356 A a 996 zkontrolované vizuálně v three.js (tvar, kola, světla, textury vlevo i vpravo sedí).
 - Známé nedostatky: lak bez barvy (`.clr` se nepoužívá), u decalů může být zvolená jiná alternativní textura (tenké světlé pruhy na kapotě), poškozené vrcholy (0x8000) a animace se neexportují.
@@ -156,6 +157,6 @@ python3 tools/track2gltf.py sources/GameData/Track/skidpad.crp decomposed/GameDa
 - Výstup: `.gltf` + `.bin` + `<trať>_road.json` (všechny řezy `SimD`); textury jsou PNG z `fsh2png` ve stejné složce (chybí-li `index.json`, převedou se).
 - Uzly ve skupinách `road`, `terrain`, `vegetation`, `objects`, `simd` (červený poloprůhledný pás podle `SimD` pro kontrolu), s `--library` i `library` (objekty v řadě na z = −60 m).
 - `--level` 0–3 (skidpad: 7 314 / 2 636 trojúhelníků pro úroveň 0 / 2).
-- Metry, osa Y nahoru. `Opaque` → neprůhledné, ostatní render metody → alpha MASK.
+- Metry, osa Y nahoru, osa X zrcadlená z levotočivých dat (viz výše, týká se i vektorů `SimD`). `Opaque` → neprůhledné, ostatní render metody → alpha MASK.
 - Zkontrolováno renderem v Blenderu (pohled shora a zblízka): trať, pneumatikové zdi, pole, stromy, budovy i textury sedí.
 - Zbývá: ostatních 14 tratí, význam `df`, šířek a příznaků `SimD`, rozmístění knihovny objektů, animace, `Vis`, `CmAn`.
