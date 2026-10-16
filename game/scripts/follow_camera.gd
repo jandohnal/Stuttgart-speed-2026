@@ -2,9 +2,9 @@ extends Camera3D
 ## Chase camera behind the car (car front is -Z).
 
 @export var target_path: NodePath
-@export var distance := 5.5
-@export var height := 1.7
-@export var look_height := 0.8
+@export var distance := 6.0
+@export var height := 2.4
+@export var look_height := 1.0
 @export var smoothing := 6.0
 
 var target: Node3D

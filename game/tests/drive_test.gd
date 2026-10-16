@@ -2,12 +2,16 @@ extends Node
 ## Headless drive test for the phase 2 prototype:
 ##   godot --headless --path game res://tests/drive_test.tscn [-- --track=farmland]
 ## Loads the main scene, lets the car settle, then drives flat out along the road (skidpad unless
-## --track is given; steering towards road slices ahead), measures 0-100 km/h, speed after ACCEL_TIME and the
+## --track is given; steering towards road slices ahead, braking only for corners ahead that
+## need more than CORNER_G at the current speed), measures 0-100 km/h, speed after ACCEL_TIME and the
 ## braking distance from 100 km/h, prints a report and quits.
 
 const SETTLE_TIME := 1.5
 const ACCEL_TIME := 40.0
 const LOOKAHEAD := 5  # road slices (~6 m each)
+const CORNER_G := 0.55  # lateral acceleration the driver plans corners for
+const BRAKE_G := 0.45  # deceleration the driver plans with
+const PLAN_SLICES := 40  # how far ahead the driver looks for corners (~240 m)
 
 var main: Node3D
 var car: Car
@@ -22,6 +26,7 @@ var max_lat_g := 0.0
 var prev_speed := 0.0
 var end_speed := 0.0
 var collisions := PackedStringArray()
+var corner_brakes := 0  ## physics ticks spent braking for corners
 
 
 func _ready() -> void:
@@ -51,14 +56,21 @@ func _physics_process(delta: float) -> void:
 				t = 0.0
 		"accelerate":
 			_steer_along_road()
-			Input.action_press("accelerate")
+			var over := car.forward_speed - _safe_speed()
+			if over > 0.5:
+				Input.action_release("accelerate")
+				Input.action_press("brake", clampf(over / 6.0, 0.2, 1.0))  # modulated, like a driver
+				corner_brakes += 1
+			else:
+				Input.action_release("brake")
+				Input.action_press("accelerate")
 			if fmod(t, 2.0) < delta:
-				print("  t %4.1f  %5.1f km/h  gear %d  %4d rpm  steer %5.1f°  lat %.2f g  off-road %.1f m  y %.2f" % [
-					t, speed, car.gear, roundi(car.rpm), rad_to_deg(car.steer), float(car.telemetry.get("lat_g", 0.0)),
+				print("  t %4.1f  %5.1f km/h  gear %d  %4d rpm  steer %5.1f° yaw %5.1f°/s brk %.2f thr %.2f  lat %.2f g  off-road %.1f m  y %.2f" % [
+					t, speed, car.gear, roundi(car.rpm), rad_to_deg(car.steer), rad_to_deg(car.angular_velocity.y), car.brake, car.throttle, float(car.telemetry.get("lat_g", 0.0)),
 					_distance_from_road(), car.global_position.y])
 				var forces := PackedStringArray()
 				for w in car.wheels:
-					forces.append("%s load %d long %d lat %d comp %.3f" % ["F" if w.front else "R", roundi(w.normal_load), roundi(w.force.x), roundi(w.force.y), w.compression])
+					forces.append("%s load %d long %d lat %d slip %.3f/%.1f°" % ["F" if w.front else "R", roundi(w.normal_load), roundi(w.force.x), roundi(w.force.y), w.slip_ratio, rad_to_deg(w.slip_angle)])
 				print("      ", " | ".join(forces), " | body contacts ", car.get_colliding_bodies().map(func(b): return b.get_parent().name))
 			top_speed = maxf(top_speed, speed)
 			max_lat_g = maxf(max_lat_g, absf(float(car.telemetry.get("lat_g", 0.0))))
@@ -67,6 +79,7 @@ func _physics_process(delta: float) -> void:
 			if t >= ACCEL_TIME:
 				end_speed = speed
 				Input.action_release("accelerate")
+				Input.action_release("brake")
 				phase = "brake"
 				t = 0.0
 		"brake":
@@ -81,6 +94,35 @@ func _physics_process(delta: float) -> void:
 				_finish()
 			elif t > 30.0:
 				_finish()
+
+
+## Highest speed (m/s) from which every corner in the next PLAN_SLICES can still be taken at
+## CORNER_G after braking at BRAKE_G.
+func _safe_speed() -> float:
+	var slices: Array = main.road_slices
+	if slices.is_empty():
+		return INF
+	var i: int = main._nearest_slice()
+	var dist := 0.0
+	var best := INF
+	for k in PLAN_SLICES:
+		var j: int = main.slice_ahead(i, 1)
+		if j == i:
+			break
+		var a: Dictionary = slices[i]
+		var b: Dictionary = slices[j]
+		var step := _v(a["position"]).distance_to(_v(b["position"]))
+		var turn := _v(a["forward"]).angle_to(_v(b["forward"]))
+		if step > 0.01 and turn > 1e-4:
+			var corner := sqrt(CORNER_G * 9.81 * step / turn)  # v^2 = a * radius
+			best = minf(best, sqrt(corner * corner + 2.0 * BRAKE_G * 9.81 * dist))
+		dist += step
+		i = j
+	return best
+
+
+func _v(a: Array) -> Vector3:
+	return Vector3(a[0], a[1], a[2])
 
 
 func _has_track_arg() -> bool:
@@ -130,6 +172,7 @@ func _finish() -> void:
 	print("  settle: ", settle_report)
 	print("  0-100 km/h: %s" % ("%.1f s" % t_100 if t_100 >= 0.0 else "not reached"))
 	print("  speed after %.0f s: %.0f km/h (max %.0f), max lateral %.2f g" % [ACCEL_TIME, end_speed, top_speed, max_lat_g])
+	print("  braking for corners: %.1f s" % (corner_brakes / float(Engine.physics_ticks_per_second)))
 	print("  body collisions: ", collisions if not collisions.is_empty() else "none")
 	print("  braking 100-0 km/h: %s" % ("%.1f m" % brake_distance if brake_distance >= 0.0 else "n/a"))
 	print("  distance from road at end: %.1f m" % _distance_from_road())

@@ -2,7 +2,8 @@ extends Node3D
 ## Phase 2 prototype (D-009): the original 356 A on an original track (farmland = Normandie by
 ## default, or skidpad), both loaded at run time from decomposed/. Track: project setting
 ## stuttgart/track, overridden by the user argument --track=<name>; --slice=<n> starts on road
-## slice n instead of the start line. F2 records telemetry to
+## slice n instead of the start line; --windowed=1 keeps a window. F3 toggles the steering assist,
+## F11 full screen. F2 records telemetry to
 ## user://telemetry_*.csv for comparing with the original game.
 
 const DEFAULT_TRACK := "farmland"
@@ -18,6 +19,8 @@ const ACTIONS := {
 	"handbrake": [KEY_SPACE],
 	"reset_car": [KEY_R],
 	"telemetry": [KEY_F2],
+	"steering_assist": [KEY_F3],
+	"fullscreen": [KEY_F11],
 }
 const LOG_FIELDS := ["time", "speed_kmh", "rpm", "gear", "throttle", "brake", "steer_deg", "lat_g", "long_g"]
 
@@ -34,6 +37,13 @@ var _log_time := 0.0
 
 func _ready() -> void:
 	_setup_input()
+	# HUD scales with the window (2D only; 3D renders at full resolution).
+	get_window().content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
+	get_window().content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
+	get_window().content_scale_size = Vector2i(1152, 648)
+	# Full screen when run on its own (not in the editor's embedded view, not headless tests).
+	if DisplayServer.get_name() != "headless" and not Engine.is_embedded_in_editor() and _user_arg("windowed").is_empty():
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 	if track_name.is_empty():
 		track_name = _track_from_args()
 	var folder := "GameData/Track/%s/" % track_name
@@ -139,6 +149,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		_reset_car(_nearest_slice())
 	elif event.is_action_pressed("telemetry"):
 		_toggle_log()
+	elif event.is_action_pressed("steering_assist"):
+		car.steering_assist = not car.steering_assist
+	elif event.is_action_pressed("fullscreen"):
+		var full := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if full else DisplayServer.WINDOW_MODE_FULLSCREEN)
 
 
 func _toggle_log() -> void:

@@ -56,7 +56,8 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Import auta z `decomposed/` (glTF) a parametrů z `cars.json` (načítání za běhu)
 - [x] Import vybrané trati z `decomposed/` (glTF + data silnice `SimD`), kolize z geometrie
 - [x] Skutečná trať pro jízdní pocit: farmland (Normandie), start na startovní čáře originálu
-- [ ] Raycast podvozek, model pneumatik, motor a převodovka z dat JSON – podvozek (stabilizátory, dorazy), motor a převodovka hotové, pneumatiky zatím zástupné
+- [x] Raycast podvozek, model pneumatik, motor a převodovka z dat JSON (pneumatiky: skluz, rotace kol, setrvačnost motoru; 0–100 km/h 15,8 s proti reálným ~16 s)
+- [ ] Doladit pneumatiky a řízení proti originálu přes Wine (přilnavost 0x0F4 a setrvačnost 0x058 jsou hypotézy), asistent řízení pro klávesnici hotový (F3)
 - [ ] Kolize a zóny poškození, deformace meshe
 - [ ] Srovnávací jízdy s originálem přes Wine: zrychlení, brzdná dráha, rychlost v zatáčkách
 - [ ] Rozhodnout definitivně o enginu (D-002)

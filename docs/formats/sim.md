@@ -114,4 +114,5 @@ Závěry:
 ## Další kroky
 
 - Ověřit hypotézy proti chování v originále (Wine): změnit jedno pole v kopii `.sim` a sledovat jízdu.
+- Prototyp (`game/scripts/car.gd`) zatím používá dvě hypotézy: 0x0F4 → součinitel tření μ = 0,444 + 0,353 × hodnota (356 A 1,15 → 0,85, 2,0 → 1,15, GT1 2,75 → 1,42) a 0x058 → setrvačnost motoru hodnota / 1000 kg·m² (356 A 0,09). S nimi vychází 0–100 km/h 356 A 15,8 s (reálně asi 16 s).
 - Až bude pole potvrzené, přidat ho do `tools/sim_dump.py` pod vlastním názvem; do té doby zůstává v `unknown`.
