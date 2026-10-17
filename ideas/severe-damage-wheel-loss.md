@@ -2,9 +2,9 @@
 type: idea
 id: IDEA-006
 title: "Vážné následky poškození: utržení kola a další"
-status: idea            # idea | accepted | rejected | done
+status: accepted        # idea | accepted | rejected | done
 created: 2026-10-17
-related: ["docs/plan.md#fáze-2--prototyp-jízdy", "game/scripts/car_damage.gd"]
+related: [D-010, "docs/plan.md#fáze-2--prototyp-jízdy", "game/scripts/car_damage.gd"]
 tags: [damage, physics, gameplay]
 ---
 
@@ -12,9 +12,15 @@ tags: [damage, physics, gameplay]
 
 První verze poškození (fáze 2) má mírné následky: sbíhavost a přilnavost kola na poškozeném rohu, ztrátu výkonu motoru, větší odpor vzduchu a menší rejstřík řízení. Uživatel chce následky realističtější než v originále a postupně je zesilovat.
 
+## Hotovo (17. 10. 2026, `car_damage.gd`, `car.gd`)
+
+- **Odpadající díly původního modelu**: kapota, víko motoru, dveře se zrcátkem, světla, blinkry, zadní světla, zástěry, výfuk a značka odpadnou při 100 % své zóny.
+- **Kola**: házení od 50 % poškození rohu, upadnutí při 100 % rohu i příslušného boku.
+
 ## Návrhy
 
-- **Utržení kola**: roh s poškozením 1,0 a další náraz nad mezí kolo odpojí. Paprsek kola se vypne, vizuál kola se převede na `RigidBody3D` (jako sražitelné objekty v `track_props.gd`) a auto si sedne na roh karoserie (kolize obalem karoserie už existuje).
+- **Nárazníky a blatníky**: v modelech originálu jsou součástí meshe karoserie a pod nimi nic není. Pro vlastní auta (D-004) modelovat od začátku jako oddělené díly s kotevními body, vnitřními plochami a mezí utržení.
+- **Postupné uvolnění**: díl nejdřív visí (kapota se otevře a klape, dveře se pootevřou) a odpadne až dalším nárazem nebo rychlostí.
 - **Ohnutá náprava**: kromě sbíhavosti i odklon a vibrace řízení podle rychlosti.
 - **Motor**: prasklé chlazení (u 356 vzduchem, tedy spíš poškozené dmychadlo) → přehřívání, pokles výkonu v čase, nakonec zhasnutí.
 - **Převodovka**: po nárazu zezadu (motor vzadu) zaseknutý nebo vypadávající převod.

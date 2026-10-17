@@ -2,8 +2,11 @@
 
 Format: docs/formats/crp.md. Structure follows CrpLib from LibOpenNFS (MIT).
 Writes <out>.gltf, <out>.bin and one PNG atlas per texture page next to it, plus
-<out>_damage.json (damage zones). Damage: every part carries one glTF morph target per damage
-zone it belongs to ("dz0" .. "dz9"), the original's offsets for a fully damaged car.
+<out>_damage.json (damage zones and detachable parts). Damage: every part carries one glTF morph
+target per damage zone it belongs to ("dz0" .. "dz9"), the original's offsets for a fully damaged
+car. Detachable parts (hood, engine lid, doors, lights ...) come off when their zone is fully
+damaged; parts the original models as one mesh for both sides (lights, aprons, exhaust) are split
+into _L / _R nodes so each side comes off on its own.
 
 Usage:
     python3 tools/crp2gltf.py sources/GameData/CarModel/356a.crp decomposed/GameData/CarModel/356a/356a.gltf
@@ -14,6 +17,7 @@ import argparse
 import json
 import math
 import os
+from collections import Counter
 import re
 import struct
 import sys
@@ -36,6 +40,39 @@ def parse_base(d, e):
     info = d[o + 0x44:o + 0x54]
     levels = [struct.unpack_from("<ihhhh", d, o + 0x64 + 12 * i)[3] for i in range(level_count)]
     return {"geom_index": info[0], "type_index": info[1], "level_index": info[10], "levels": levels}
+
+
+# Parts that can come off: name -> kind; doors are grouped per side by their pivot (tr).
+DETACHABLE = {"HoodOut": "hood", "HoodIn": "hood", "DecalHood": "hood",
+              "TrunkOut": "engine_lid", "TrunkIn": "engine_lid", "DecalTrunk": "engine_lid",
+              "DoorOut": "door", "DoorIn": "door", "DoorWindow": "door", "Handle": "door",
+              "InteriorDoorGlass": "door", "SideMirrorLeft": "door", "License": "license",
+              "Light1": "headlight", "Light3": "front_light", "Light2": "tail_light",
+              "SkirtF": "front_apron", "SkirtR": "rear_apron", "Exhaust": "exhaust"}
+SPLIT_SIDES = {"Light1", "Light2", "Light3", "SkirtF", "SkirtR", "Exhaust"}  # one mesh for both sides
+DETACH_MASS = {"hood": 12.0, "engine_lid": 10.0, "door": 25.0, "license": 0.5, "headlight": 1.5,
+               "front_light": 1.0, "tail_light": 1.0, "front_apron": 4.0, "rear_apron": 4.0, "exhaust": 4.0}
+
+
+def split_sides(prims, sources):
+    """Split a part's primitives by the side of each triangle's centre: {"L"|"R": (prims, sources)}."""
+    out = {}
+    for key, (pos, nrm, tex, idx) in prims.items():
+        for t in range(0, len(idx), 3):
+            tri = idx[t:t + 3]
+            side = "L" if sum(pos[i][0] for i in tri) < 0.0 else "R"
+            sp, ss = out.setdefault(side, ({}, {}))
+            p2, n2, t2, i2, remap = sp.setdefault(key, ([], [], [], [], {}))
+            s2 = ss.setdefault(key, [])
+            for i in tri:
+                if i not in remap:
+                    remap[i] = len(p2)
+                    p2.append(pos[i])
+                    n2.append(nrm[i])
+                    t2.append(tex[i])
+                    s2.append(sources[key][i])
+                i2.append(remap[i])
+    return {side: ({k: v[:4] for k, v in sp.items()}, ss) for side, (sp, ss) in out.items()}
 
 
 def damage_zones(d, art, level):
@@ -159,7 +196,7 @@ def convert(src, out_path, level=1, include_all=False, tpg=None):
     tpg = tpg or os.path.splitext(src)[0] + ".tpg"
     pngs = load_textures(d, misc, tpg, out_dir, stem)
     materials = {e.index: struct.unpack_from("<i", d, e.data + 0x28)[0] for e in misc if e.tag == "mt"}
-    nodes, skipped, zone_acc = [], 0, {}
+    nodes, skipped, zone_acc, detach = [], 0, {}, {}
     for art in arts:
         name_e, base_e = find(art.sub, "Name"), find(art.sub, "Base")
         if name_e is None or base_e is None or find(art.sub, "ef") is not None:
@@ -176,35 +213,69 @@ def convert(src, out_path, level=1, include_all=False, tpg=None):
         mesh = article_mesh(d, art, lev, lev, materials, sources=True)
         if mesh and mesh[1]:
             offset, prims, vertex_sources = mesh
-            targets, stats = damage_targets(d, art, lev, vertex_sources)
+            zones = damage_zones(d, art, lev)
             verts = [to_gltf(v[:3]) for v in vectors(d, find(art.sub, "vt", lev), 4)]
-            for z, vis in damage_zones(d, art, lev).items():
+            node_name = f"{name}_{base['geom_index']}_{base['type_index']}"
+            kind = DETACHABLE.get(name.strip())
+            parts = split_sides(prims, vertex_sources) if name.strip() in SPLIT_SIDES else {"": (prims, vertex_sources)}
+            for side, (side_prims, side_sources) in sorted(parts.items()):
+                targets, stats = damage_targets(d, art, lev, side_sources)
+                for z, offs in stats.items():
+                    acc = zone_acc.setdefault(z, [0.0, 0.0, 0.0, 0, 0.0])
+                    acc[4] = max([acc[4]] + [math.hypot(*o) for o in offs])
+                full_name = f"{node_name}_{side}" if side else node_name
+                nodes.append({"name": full_name, "offset": offset, "prims": side_prims, "targets": targets})
+                if kind:
+                    group = kind
+                    if kind == "door":
+                        group += "_left" if offset[0] < 0.0 else "_right"
+                    elif side:
+                        group += "_left" if side == "L" else "_right"
+                    entry = detach.setdefault(group, {"kind": kind, "nodes": [], "zones": Counter()})
+                    entry["nodes"].append(full_name)
+                    used = {vi for src_list in side_sources.values() for vi in src_list}
+                    for z, vis in zones.items():
+                        entry["zones"][z] += len(used & vis)
+            for z, vis in zones.items():
                 acc = zone_acc.setdefault(z, [0.0, 0.0, 0.0, 0, 0.0])
                 for vi in vis:
                     if vi < len(verts):
                         for k in range(3):
                             acc[k] += verts[vi][k] + offset[k]
                         acc[3] += 1
-                acc[4] = max([acc[4]] + [math.hypot(*o) for o in stats.get(z, [])])
-            nodes.append({"name": f"{name}_{base['geom_index']}_{base['type_index']}",
-                          "offset": offset, "prims": prims, "targets": targets})
 
     def material_spec(tpage):
         return {"name": f"tpage{tpage + 1}" if tpage >= 0 else "untextured", "uri": pngs.get(tpage), "alpha": "MASK"}
 
+    # Left and right copies of a part (doors, wheels) share a name: suffix the side so every node is unique.
+    counts = Counter(n["name"] for n in nodes)
+    renamed = {}
+    for n in nodes:
+        if counts[n["name"]] > 1:
+            new = f"{n['name']}_{'L' if n['offset'][0] < 0.0 else 'R'}"
+            renamed[(n["name"], n["offset"][0] < 0.0)] = new
+            n["name"] = new
+    for g, e in detach.items():
+        left = g.endswith("_left")
+        e["nodes"] = [renamed.get((name, left), name) for name in e["nodes"]]
     write_gltf(out_path, nodes, material_spec, "stuttgart-speed crp2gltf")
     zones = [{"zone": z, "name": ZONE_NAMES.get(z, f"zone{z}"), "blend_shape": f"dz{z}",
               "centroid": [round(acc[k] / acc[3], 3) for k in range(3)], "vertices": acc[3],
               "max_offset_m": round(acc[4], 3)} for z, acc in sorted(zone_acc.items()) if acc[3]]
+    detachable = [{"group": g, "kind": e["kind"], "nodes": e["nodes"],
+                   "zone": max(sorted(e["zones"]), key=lambda z: e["zones"][z]) if e["zones"] else -1,
+                   "mass_kg": DETACH_MASS.get(e["kind"], 3.0)} for g, e in sorted(detach.items())]
     with open(os.path.join(out_dir, stem + "_damage.json"), "w") as fh:
         json.dump({"source": os.path.basename(src),
-                   "fields": "zone id, name (as seen on the 356 A), blend shape on every part in it, "
-                             "centroid of its vertices (glTF, m), max dent of a fully damaged car (m)",
-                   "zones": zones}, fh, indent=1)
+                   "fields": "zones: id, name (as seen on the 356 A), blend shape on every part in it, centroid "
+                             "of its vertices (glTF, m), max dent of a fully damaged car (m); detachable: group "
+                             "of nodes that comes off when its zone (most of its vertices) is fully damaged, "
+                             "estimated mass",
+                   "zones": zones, "detachable": detachable}, fh, indent=1)
     tris = sum(len(p[3]) // 3 for n in nodes for p in n["prims"].values())
     morphed = sum(1 for n in nodes if n.get("targets"))
     print(f"{src}: {len(nodes)} parts ({morphed} with damage targets), {tris} triangles, {len(pngs)} texture pages, "
-          f"{len(zones)} damage zones, {skipped} variant parts skipped")
+          f"{len(zones)} damage zones, {len(detachable)} detachable groups, {skipped} variant parts skipped")
 
 
 def main():

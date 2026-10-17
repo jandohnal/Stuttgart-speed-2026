@@ -20,6 +20,8 @@ const AIR_DENSITY := 1.225
 @export var damage_power_loss := 0.35  ## engine torque, from the zones around the engine
 @export var damage_drag_gain := 0.15  ## drag area, from the average damage
 @export var damage_steer_loss := 0.2  ## steering lock, from the front centre zone
+@export var damage_wobble_deg := 8.0  ## wheel on a corner damaged past 50 % wobbles, this much at 100 %
+@export var wheel_mass := 15.0  ## kg of a wheel that comes off (corner and its side both at 100 %)
 @export_group("")
 @export var bump_travel := 0.08  ## m the wheel can move up from the model's ride height
 @export var droop_travel := 0.10  ## m the wheel can drop below it
@@ -125,6 +127,10 @@ class Wheel:
 	var zone := -1  ## damage corner zone (CarDamage.CORNER_ZONES)
 	var toe := 0.0  ## rad, from damage, positive = to the left
 	var grip_factor := 1.0  ## from damage
+	var wobble := 0.0  ## rad, eccentric run of a damaged wheel
+	var detached := false  ## came off: no ray, no forces
+	var debris: RigidBody3D  ## the wheel flying off
+	var visual_parents: Array[Node] = []
 
 
 func setup(model: Node3D, car_params: Dictionary) -> void:
@@ -168,9 +174,9 @@ func setup(model: Node3D, car_params: Dictionary) -> void:
 	_set_center_of_mass()
 
 
-## Enables damage from the zones in <car>_damage.json (tools/crp2gltf.py).
-func setup_damage(zones: Array) -> void:
-	damage = CarDamage.new(_model, zones)
+## Enables damage from <car>_damage.json (tools/crp2gltf.py): zones and detachable parts.
+func setup_damage(info: Dictionary) -> void:
+	damage = CarDamage.new(self, _model, info)
 	contact_monitor = true
 	max_contacts_reported = maxi(max_contacts_reported, 8)
 	for w in wheels:
@@ -197,6 +203,54 @@ func _update_damage() -> void:
 		var d := damage.zone(w.zone)
 		w.toe = deg_to_rad(damage_toe_deg) * d * (1.0 if w.center.x < 0.0 else -1.0)  # toe out
 		w.grip_factor = 1.0 - damage_grip_loss * d
+		w.wobble = deg_to_rad(damage_wobble_deg) * smoothstep(0.5, 1.0, d)
+		var side := damage.zone(7 if w.center.x < 0.0 else 3)
+		if not w.detached and d >= 1.0 and side >= 1.0:
+			_detach_wheel(w)
+
+
+## The wheel comes off: no more ray and forces, its tyre and rim fly off, the corner drops.
+func _detach_wheel(w: Wheel) -> void:
+	w.detached = true
+	w.contact = false
+	w.compression = 0.0
+	w.omega = 0.0
+	w.ray.enabled = false
+	var nodes: Array[Node3D] = []
+	w.visual_parents.clear()
+	for v in w.visuals:
+		w.visual_parents.append(v.get_parent())
+		if str(v.name).contains("Shadow"):
+			v.visible = false  # flat shadow quad under the wheel
+		else:
+			nodes.append(v)
+	var col := CollisionShape3D.new()
+	var tyre := CylinderShape3D.new()
+	tyre.radius = wheel_radius
+	tyre.height = 0.16
+	col.shape = tyre
+	col.basis = Basis(Vector3.BACK, PI / 2.0)  # cylinder axis along the axle (X)
+	w.debris = CarDamage.make_debris(self, nodes, wheel_mass, col)
+
+
+## Puts the car back together: dents, detached parts and wheels.
+func repair() -> void:
+	if damage != null:
+		damage.repair()
+	for w in wheels:
+		if not w.detached:
+			continue
+		for i in w.visuals.size():
+			var v := w.visuals[i]
+			if v.get_parent() != w.visual_parents[i]:
+				v.reparent(w.visual_parents[i], false)
+			v.transform = w.rest[i]
+			v.visible = true
+		if w.debris != null:
+			w.debris.queue_free()
+			w.debris = null
+		w.detached = false
+		w.ray.enabled = true
 
 
 ## Share of the engine torque left after damage to the zones around the engine.
@@ -441,7 +495,7 @@ func _update_gearbox(delta: float) -> void:
 	var omega := 0.0
 	var driven := 0
 	for w in wheels:
-		if _drive_share(w) > 0.0:
+		if _drive_share(w) > 0.0 and not w.detached:
 			omega += w.omega
 			driven += 1
 	if driven > 0:
@@ -504,6 +558,11 @@ func _torque_at(r: float) -> float:
 func _update_contact(w: Wheel, delta: float) -> void:
 	# Cast now, from the current body transform: the node's own result is a couple of physics
 	# ticks old, which at speed put the contact behind the wheel and let the body sink.
+	if w.detached:
+		w.contact = false
+		w.compression = 0.0
+		w.compression_speed = 0.0
+		return
 	w.ray.force_raycast_update()
 	w.contact = w.ray.is_colliding()
 	if not w.contact:
@@ -518,6 +577,12 @@ func _update_contact(w: Wheel, delta: float) -> void:
 
 
 func _apply_wheel(w: Wheel, delta: float, drive_torque: float, inertia: float) -> void:
+	if w.detached:
+		w.normal_load = 0.0
+		w.force = Vector2.ZERO
+		w.slip_ratio = 0.0
+		w.slip_angle = 0.0
+		return
 	var brake_torque := brake * brake_decel_g * mass * GRAVITY * wheel_radius \
 		* (brake_front_bias if w.front else 1.0 - brake_front_bias) / 2.0
 	var abs_on := brake_assist and (w.front or not handbrake)
@@ -549,7 +614,8 @@ func _apply_wheel(w: Wheel, delta: float, drive_torque: float, inertia: float) -
 	var offset := w.point - global_position
 	apply_force(normal * w.normal_load, offset)
 
-	var wheel_basis := global_basis * Basis(Vector3.UP, (steer if w.front else 0.0) + w.toe)
+	# A wobbling wheel also shakes the car: its toe swings with the turn of the wheel.
+	var wheel_basis := global_basis * Basis(Vector3.UP, (steer if w.front else 0.0) + w.toe + 0.3 * w.wobble * sin(w.spin))
 	var fwd := (-wheel_basis.z).slide(normal).normalized()
 	var right := wheel_basis.x.slide(normal).normalized()
 	var v := linear_velocity + angular_velocity.cross(offset)
@@ -607,9 +673,13 @@ func _update_visual(w: Wheel) -> void:
 	var lift := w.compression - droop_travel
 	var steer_basis := Basis(Vector3.UP, (steer if w.front else 0.0) + w.toe)
 	var spin_basis := Basis(Vector3.RIGHT, -w.spin)
+	# A bent wheel leans (camber) and wobbles: its axle tilt circles once per turn.
+	var side := -1.0 if w.center.x < 0.0 else 1.0
+	var wobble_basis := Basis(Vector3.BACK, side * w.wobble * 0.5 + w.wobble * sin(w.spin)) \
+		* Basis(Vector3.UP, w.wobble * cos(w.spin))
 	for i in w.visuals.size():
 		var rest := w.rest[i]
-		w.visuals[i].transform = Transform3D(steer_basis * spin_basis * rest.basis, rest.origin + Vector3.UP * lift)
+		w.visuals[i].transform = Transform3D(steer_basis * wobble_basis * spin_basis * rest.basis, rest.origin + Vector3.UP * lift)
 
 
 func _update_telemetry(delta: float) -> void:
@@ -637,4 +707,5 @@ func _damage_summary() -> Dictionary:
 	return {"front": maxf(damage.zone(1), maxf(damage.zone(0), damage.zone(2))),
 		"rear": maxf(damage.zone(5), maxf(damage.zone(4), damage.zone(6))),
 		"left": damage.zone(7), "right": damage.zone(3), "roof": damage.zone(8),
-		"engine": 1.0 - engine_health()}
+		"engine": 1.0 - engine_health(),
+		"lost": damage.detached_count() + wheels.filter(func(w: Wheel) -> bool: return w.detached).size()}

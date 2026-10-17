@@ -54,12 +54,22 @@ static func _make_body(group: Node3D, mi: MeshInstance3D, collide: String, mass:
 	for surface in mi.mesh.get_surface_count():
 		for p: Vector3 in mi.mesh.surface_get_arrays(surface)[Mesh.ARRAY_VERTEX]:
 			points.append(p * scale)
+	body.add_child(collision_for(points))
+	if body is RigidBody3D:
+		_add_wake_area(body as RigidBody3D, bounds_of(points))
+	group.remove_child(mi)
+	mi.transform = Transform3D(Basis.from_scale(scale), Vector3.ZERO)
+	mi.name = "mesh"
+	body.add_child(mi)
+	group.add_child(body)
+
+
+## Collision for a set of mesh points (body space): their convex hull, or for flat sets (sign
+## plates, body panels) a box at least MIN_THICKNESS thick, since the hull would be degenerate.
+static func collision_for(points: PackedVector3Array) -> CollisionShape3D:
 	var col := CollisionShape3D.new()
-	var bounds := AABB(points[0], Vector3.ZERO) if not points.is_empty() else AABB()
-	for p in points:
-		bounds = bounds.expand(p)
+	var bounds := bounds_of(points)
 	if bounds.size[bounds.get_shortest_axis_index()] < MIN_THICKNESS:
-		# Flat objects (sign plates) give a degenerate hull: use a box with some thickness.
 		var box := BoxShape3D.new()
 		box.size = bounds.size.max(Vector3.ONE * MIN_THICKNESS)
 		col.shape = box
@@ -68,14 +78,14 @@ static func _make_body(group: Node3D, mi: MeshInstance3D, collide: String, mass:
 		var hull := ConvexPolygonShape3D.new()
 		hull.points = points
 		col.shape = hull
-	body.add_child(col)
-	if body is RigidBody3D:
-		_add_wake_area(body as RigidBody3D, bounds)
-	group.remove_child(mi)
-	mi.transform = Transform3D(Basis.from_scale(scale), Vector3.ZERO)
-	mi.name = "mesh"
-	body.add_child(mi)
-	group.add_child(body)
+	return col
+
+
+static func bounds_of(points: PackedVector3Array) -> AABB:
+	var bounds := AABB(points[0], Vector3.ZERO) if not points.is_empty() else AABB()
+	for p in points:
+		bounds = bounds.expand(p)
+	return bounds
 
 
 ## Releases a frozen smackable as soon as a moving body (the car, a flying sign) gets close, so

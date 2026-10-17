@@ -1,6 +1,6 @@
 ---
 type: decisions
-updated: 2026-10-15
+updated: 2026-10-17
 format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), kontext a důsledky."
 ---
 
@@ -56,3 +56,9 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
   - Exportér auta (CRP → glTF) a exportér vybrané trati mají vysokou prioritu.
   - Fiktivní auta (D-004) a vlastní tratě (D-005) zůstávají cílem, ale práce na nich začne až po splnění milníku fáze 2 (hratelný prototyp s původním obsahem).
   - Volba konkrétního auta a trati: viz otevřená otázka v `docs/plan.md`.
+
+## D-010 Poškození s následky a odpadajícími díly
+- **Stav:** accepted
+- **Rozhodnutí:** Poškození auta má kromě deformace i mechanické následky, které jsou realističtější a závažnější než v originále: rozbíhavost a menší přilnavost kola na poškozeném rohu, ztráta výkonu motoru, větší odpor vzduchu, menší rejstřík řízení. Při plném poškození zóny odpadnou její díly, kola se od poloviny poškození rohu viklají a při plném poškození rohu i boku upadnou.
+- **Důvod:** Přání uživatele (17. 10. 2026). Originál díly ani kola neodhazuje.
+- **Důsledky:** Prototyp používá díly, které jsou v modelu originálu samostatné (kapota, víko motoru, dveře, světla, značka, výfuk, zástěry). Vlastní auta (D-004) se modelují s oddělenými nárazníky a blatníky, kotevními body a vnitřními plochami. Další návrhy jsou v [IDEA-006](../ideas/severe-damage-wheel-loss.md). Míru následků je potřeba doladit po srovnání s originálem.

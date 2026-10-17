@@ -1,6 +1,7 @@
 extends Node
 ## Crash test for the car damage (CarDamage):
 ##   godot --headless --path game res://tests/damage_test.tscn [-- --speed=50 --rear]
+##   godot --headless --path game res://tests/damage_test.tscn -- --damage=0:1,7:1   (preset damage, drive 3 s)
 ##   godot --path game res://tests/damage_test.tscn -- --shot=<folder>   (window: saves damage.png)
 ## On a flat test ground 500 m below the skidpad (away from its tyre walls) a static wall stands
 ## ahead (or behind with --rear), far enough to reach the speed; the car
@@ -15,10 +16,13 @@ var car: Car
 var target_kmh := 50.0
 var rear := false
 var shot_dir := ""
+var preset := {}  ## zone -> damage from --damage=z:v,...: no wall, drive for PRESET_TIME instead
+const PRESET_TIME := 3.0
 var t := 0.0
 var hit_time := -1.0
 var hit_kmh := 0.0
 var wall: StaticBody3D
+var reported := false
 
 
 func _ready() -> void:
@@ -27,6 +31,10 @@ func _ready() -> void:
 			target_kmh = arg.trim_prefix("--speed=").to_float()
 		elif arg == "--rear":
 			rear = true
+		elif arg.begins_with("--damage="):
+			for pair in arg.trim_prefix("--damage=").split(","):
+				var kv := pair.split(":")
+				preset[kv[0].to_int()] = kv[1].to_float()
 		elif arg.begins_with("--shot="):
 			shot_dir = arg.trim_prefix("--shot=")
 	main = preload("res://scenes/main.tscn").instantiate() as Node3D
@@ -65,6 +73,18 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	t += delta
 	var speed := car.forward_speed * 3.6
+	if not preset.is_empty():
+		if t > 0.5 and hit_time < 0.0:
+			for z: int in preset:
+				car.damage.set_damage(z, preset[z])
+			hit_time = t
+			wall.position.y -= 100.0  # out of the way
+		if hit_time >= 0.0:
+			Input.action_press("accelerate", 0.5)
+			if t - hit_time >= PRESET_TIME:
+				Input.action_release("accelerate")
+				_report()
+		return
 	if hit_time < 0.0:
 		if car.get_colliding_bodies().has(wall):
 			hit_time = t
@@ -101,6 +121,9 @@ func _physics_process(delta: float) -> void:
 
 
 func _report() -> void:
+	if reported:
+		return
+	reported = true
 	var d = car.damage
 	print("DAMAGE TEST: %s into a wall at %.0f km/h, impact %.0f N*s (threshold %.0f)" % [
 		"reversing" if rear else "driving", hit_kmh, d.last_impact, d.threshold])
@@ -121,6 +144,27 @@ func _report() -> void:
 			w.zone, rad_to_deg(w.toe), w.grip_factor])
 	print("  wheels: ", " | ".join(wheels))
 	print("  engine torque %.0f %%, total damage %.2f" % [car.engine_health() * 100.0, d.total()])
+	var lost := PackedStringArray()
+	for part in d.parts:
+		if part["body"] != null:
+			lost.append("%s (%.1f m away)" % [part["group"], (part["body"] as Node3D).global_position.distance_to(car.global_position)])
+	for w in car.wheels:
+		if w.detached:
+			lost.append("wheel %s%s (%.1f m away)" % ["F" if w.front else "R", "L" if w.center.x < 0.0 else "R",
+				w.debris.global_position.distance_to(car.global_position)])
+		elif w.wobble > 0.0:
+			lost.append("wheel %s%s wobbles %.1f°" % ["F" if w.front else "R", "L" if w.center.x < 0.0 else "R", rad_to_deg(w.wobble)])
+	print("  parts off: ", ", ".join(lost) if not lost.is_empty() else "none")
+	print("  car: %.0f km/h, roll %.1f°, pitch %.1f°" % [car.forward_speed * 3.6,
+		rad_to_deg(car.global_basis.get_euler().z), rad_to_deg(car.global_basis.get_euler().x)])
+	if shot_dir.is_empty():
+		# Repair (F5) must put every part and wheel back.
+		car.repair()
+		await get_tree().physics_frame
+		await get_tree().physics_frame
+		var still_off := d.detached_count() + car.wheels.filter(func(w): return w.detached).size()
+		var debris := get_tree().root.find_children("*", "RigidBody3D", true, false).filter(func(b): return b != car).size()
+		print("  after repair: parts off %d, zone max %.2f, loose bodies left %d" % [still_off, Array(d.zone_damage).max(), debris])
 	if not shot_dir.is_empty() and DisplayServer.get_name() != "headless":
 		wall.visible = false  # the camera looks at the dented side from where the wall stands
 		var cam := main.get_node("Camera") as Camera3D

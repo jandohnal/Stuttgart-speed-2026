@@ -75,7 +75,7 @@ func _ready() -> void:
 		car.setup(OriginalAssets.load_gltf(CAR_MODEL), cars[CAR_KEY])
 		var damage: Variant = OriginalAssets.load_json(CAR_MODEL.get_basename() + "_damage.json")
 		if damage is Dictionary:
-			car.setup_damage(damage["zones"])
+			car.setup_damage(damage)
 	else:
 		push_error("Car %s not found in %s" % [CAR_KEY, CAR_PHYSICS])
 	_reset_car(start_slice)
@@ -168,8 +168,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		car.steering_assist = not car.steering_assist
 	elif event.is_action_pressed("brake_assist"):
 		car.brake_assist = not car.brake_assist
-	elif event.is_action_pressed("repair") and car.damage != null:
-		car.damage.repair()
+	elif event.is_action_pressed("repair"):
+		car.repair()
 	elif event.is_action_pressed("fullscreen"):
 		var full := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if full else DisplayServer.WINDOW_MODE_FULLSCREEN)
