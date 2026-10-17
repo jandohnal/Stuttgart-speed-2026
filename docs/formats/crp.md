@@ -46,13 +46,13 @@ Za tabulkou článků následují rovnou položky misc.
 | --- | --- | --- |
 | `Name` | 0 | jméno části (`Body`, `HoodOut`, `WheelFront` ...) |
 | `Base` | 0 | 0x0C počet úrovní; 0x44 info (GeomIndex, TypeIndex ... LevelIndex na +10); 0x64 seznam úrovní po 12 B (úroveň na +8) |
-| `vt` | úroveň \| animace << 4 \| 0x8000 poškozené | vrcholy x, y, z, 1 (f32 ×4) |
+| `vt` | úroveň \| animace << 4 \| 0x8000 poškozené | vrcholy x, y, z, 1 (f32 ×4); s 0x8000 **posuny** vrcholů pro plně poškozené auto (x, y, z, 0), viz [Poškození](#poškození) |
 | `nm` | dtto | normály (f32 ×4) |
 | `uv` | úroveň | texturové souřadnice (f32 ×2) |
 | `pr` | úroveň << 12 \| číslo dílu | díl (trojúhelníky jednoho materiálu) |
 | `tr` | úroveň | matice 4×4 (f32, Direct3D, řádky = osy, posun ve floatech 12–14); u aut jen posun (dveře, kapota, kola), u objektů tratí úplné umístění (rotace, měřítko, poloha) |
 | `$n` | úroveň | culling |
-| `dz` | úroveň | zóny poškození |
+| `dz` | úroveň | zóny poškození: které vrcholy patří do které zóny, viz [Poškození](#poškození) |
 | `ef` | | efekt (světlo, odlesk) – nemá geometrii |
 
 Úrovně: 1–2 model do menu („fe“), 3–7 herní LOD („ig1–ig5“). TypeIndex ≠ 0 jsou varianty (styly, střecha cabrio, spoiler), LevelIndex >> 4 & 8 je řidič.
@@ -92,18 +92,50 @@ Stránka je atlas 256×256 (nebo podle `.tpg`) složený z položek SHPI na jeji
 
 Barva laku se v originále dobarvuje podle `.clr`, textury karoserie jsou šedé.
 
+### Poškození
+
+Každý díl auta má ke každé úrovni dvě položky:
+
+- `vt` s indexem `0x8000 | úroveň`: posun každého vrcholu pro plně poškozené auto (stejný počet jako `vt` úrovně, w = 0, u 356 A 0–0,29 m; některé vrcholy 0). Nejsou to polohy.
+- `dz` s indexem úrovně: přiřazení vrcholů do zón.
+
+| Offset | Typ | Obsah |
+| --- | --- | --- |
+| 0x00 | u32 | počet zón v dílu (n) |
+| 0x04 | n × (i32, i32, i32) | zóna, počet vrcholů, začátek v seznamu níže |
+| 0x04 + 12 n | u32 × … | indexy vrcholů seskupené podle zón |
+
+Délka = 4 + 12 n + 4 × počet vrcholů dílu (ověřeno na všech dílech 356 A). Poškozená poloha = vrchol + d(zóna) × posun, d ∈ ⟨0, 1⟩.
+
+Zóny na 356 A (těžiště v glTF, předek −Z, vpravo +X); posuny míří dovnitř auta (71–100 % vrcholů zóny):
+
+| Zóna | Místo | Těžiště (m) | Max. posun |
+| --- | --- | --- | --- |
+| 0 | předek vlevo | (−0,53; 0,49; −1,59) | 0,28 |
+| 1 | předek uprostřed (kapota) | (−0,05; 0,61; −0,61) | 0,14 |
+| 2 | předek vpravo | (0,54; 0,49; −1,59) | 0,29 |
+| 3 | pravý bok | (0,62; 0,64; −0,18) | 0,16 |
+| 4 | záď vpravo | (0,49; 0,50; 1,53) | 0,14 |
+| 5 | záď uprostřed | (0,00; 0,61; 1,20) | 0,18 |
+| 6 | záď vlevo | (−0,49; 0,50; 1,53) | 0,24 |
+| 7 | levý bok | (−0,53; 0,68; −0,23) | 0,16 |
+| 8 | střecha | (−0,16; 0,98; −0,12) | 0,07 |
+| 9 | spodek | (0,00; 0,20; 0,08) | 0,18 |
+
+Textury poškození jsou v FSH jako alternativní obrázky na stejném místě atlasu (zatím se nepoužívají).
+
 ## 4. Převod do glTF (hotovo pro auta)
 
 ```
 python3 tools/crp2gltf.py sources/GameData/CarModel/356a.crp decomposed/GameData/CarModel/356a/356a.gltf
 ```
 
-- Výstup: `.gltf` + `.bin` + `<auto>_tpageN.png`, jeden uzel na část, primitiva podle texturové stránky.
+- Výstup: `.gltf` + `.bin` + `<auto>_tpageN.png`, jeden uzel na část, primitiva podle texturové stránky. Poškození: každý díl má morph target `dz<zóna>` pro každou svou zónu (posuny jen u vrcholů zóny, `mesh.extras.targetNames`, v Godotu blend shapes). `<auto>_damage.json`: zóny s těžištěm, počtem vrcholů a max. posunem. 356 A: 45 z 58 dílů má targety.
 - Jednotky jsou metry, osa Y nahoru, **předek auta je −Z** (stejně jako „dopředu“ v Godotu).
 - **Souřadnice originálu jsou levotočivé (Direct3D).** Převod do glTF zrcadlí osu X (`crp.to_gltf`), tím se zároveň otočí pořadí vrcholů trojúhelníků na správnou stranu. Ověřeno: 96–99 % trojúhelníků aut souhlasí s uloženými normálami (před opravou 4 %), volant 356 A je vlevo (−0,29 m), všechny normály silnice skidpadu míří nahoru, vektor „doprava“ v `SimD` = dopředu × nahoru. Bez opravy byly modely zrcadlené (pravostranné řízení) a kolize trati v Godotu nefungovala (paprsek trefil rub trojúhelníku).
 - Výchozí úroveň 1 (model do menu, cca 3 000 trojúhelníků), `--level 3` herní LOD, `--all` i varianty a řidič.
 - Ověřeno: všech 44 aut se převede bez chyby; 356 A a 996 zkontrolované vizuálně v three.js (tvar, kola, světla, textury vlevo i vpravo sedí).
-- Známé nedostatky: lak bez barvy (`.clr` se nepoužívá), u decalů může být zvolená jiná alternativní textura (tenké světlé pruhy na kapotě), poškozené vrcholy (0x8000) a animace se neexportují.
+- Známé nedostatky: lak bez barvy (`.clr` se nepoužívá), u decalů může být zvolená jiná alternativní textura (tenké světlé pruhy na kapotě), textury poškození a animace se neexportují.
 
 ## 5. Tratě (ověřeno zatím jen na `skidpad`)
 

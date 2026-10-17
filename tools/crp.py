@@ -126,8 +126,11 @@ def article_matrix(d, art):
     return m
 
 
-def article_mesh(d, art, level, part_level, materials):
+def article_mesh(d, art, level, part_level, materials, sources=False):
     """Return (translation, {material key: (positions, normals, uvs, indices)}) or None.
+
+    With sources=True a third item {material key: [source vt index per output vertex]} is added
+    (e.g. to attach per-vertex damage offsets as morph targets).
 
     level: index of vt/nm/uv entries; part_level: level in the pr index (pr index = part_level << 12 | n).
     materials: {mt index: key}; parts are grouped into one primitive per key.
@@ -179,13 +182,17 @@ def article_mesh(d, art, level, part_level, materials):
                     nrm.append(norms[vi][:3] if norms else None)
                     tex.append(uvs[ui] if 0 <= ui < len(uvs) else (0.0, 0.0))
                 idx.append(seen[(vi, ui)])
-    out = {}
-    for k, (pos, nrm, tex, idx, _) in prims.items():
+    out, src = {}, {}
+    for k, (pos, nrm, tex, idx, seen) in prims.items():
         if len(idx) >= 3:
             if any(n is None for n in nrm):
                 nrm = smooth_normals(pos, idx)
             out[k] = (pos, nrm, tex, idx)
-    return offset, out
+            order = [0] * len(pos)
+            for (vi, _), i in seen.items():
+                order[i] = vi
+            src[k] = order
+    return (offset, out, src) if sources else (offset, out)
 
 
 def smooth_normals(pos, idx):
@@ -211,7 +218,8 @@ def write_gltf(out_path, nodes_data, material_spec, generator):
     """Write <out>.gltf + <out>.bin.
 
     nodes_data: list of dicts {name, offset, prims, group (optional), matrix (optional, glTF
-    column-major, replaces offset)}; nodes with a group become
+    column-major, replaces offset), targets (optional: {"names": [...], material key: [[offset per
+    vertex] per name]}, glTF morph targets)}; nodes with a group become
     children of one empty node per group.
     material_spec(key) -> {"name": str, "uri": png file or None, "alpha": glTF alphaMode or None}.
     """
@@ -258,13 +266,23 @@ def write_gltf(out_path, nodes_data, material_spec, generator):
 
     for nd in nodes_data:
         mesh = {"name": nd["name"], "primitives": []}
+        targets = nd.get("targets")
         for key, (pos, nrm, tex, idx) in sorted(nd["prims"].items(), key=lambda kv: kv[0]):
-            mesh["primitives"].append({
+            prim = {
                 "attributes": {"POSITION": add("<3f", [tuple(p) for p in pos], "VEC3", 34962, True),
                                "NORMAL": add("<3f", [tuple(n) for n in nrm], "VEC3", 34962),
                                "TEXCOORD_0": add("<2f", [tuple(t) for t in tex], "VEC2", 34962)},
                 "indices": add("<I", idx, "SCALAR", 34963),
-                "material": material(key)})
+                "material": material(key)}
+            if targets:
+                # Every primitive of a mesh needs the same targets; zero offsets where a zone is absent.
+                per_name = targets.get(key) or [[(0.0, 0.0, 0.0)] * len(pos) for _ in targets["names"]]
+                prim["targets"] = [{"POSITION": add("<3f", [tuple(o) for o in offs], "VEC3", 34962, True)}
+                                   for offs in per_name]
+            mesh["primitives"].append(prim)
+        if targets:
+            mesh["extras"] = {"targetNames": list(targets["names"])}
+            mesh["weights"] = [0.0] * len(targets["names"])
         gl["meshes"].append(mesh)
         node = {"name": nd["name"], "mesh": len(gl["meshes"]) - 1}
         if nd.get("matrix"):

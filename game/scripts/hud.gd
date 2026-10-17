@@ -74,4 +74,13 @@ func _process(delta: float) -> void:
 	speed_gauge.trip_text = "%05d" % floori(_distance_m / 100.0)  # last digit is tenths of a km
 	label.text = "lat %.2f g   long %.2f g   steer %.1f°   steering assist %s   ABS %s\n" % [
 		t["lat_g"], t["long_g"], t["steer_deg"], "ON" if t["assist"] else "OFF", "ON" if t["abs"] else "OFF",
-	] + "W/S throttle/brake  A/D steer  Space handbrake  R reset  F2 telemetry  F3 assist  F4 ABS  F11 full screen"
+	] + _damage_text(t.get("damage", {})) \
+		+ "W/S throttle/brake  A/D steer  Space handbrake  R reset  F2 telemetry  F3 assist  F4 ABS  F5 repair  F11 full screen"
+
+
+func _damage_text(d: Dictionary) -> String:
+	if d.is_empty():
+		return ""
+	return "damage  front %d%%  rear %d%%  left %d%%  right %d%%  roof %d%%   engine -%d%%\n" % [
+		roundi(d["front"] * 100.0), roundi(d["rear"] * 100.0), roundi(d["left"] * 100.0),
+		roundi(d["right"] * 100.0), roundi(d["roof"] * 100.0), roundi(d["engine"] * 100.0)]

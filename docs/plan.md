@@ -61,7 +61,8 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [ ] Doladit pneumatiky a řízení proti originálu přes Wine (přilnavost 0x0F4 a setrvačnost 0x058 jsou hypotézy), asistent řízení pro klávesnici hotový (F3); ABS (F4) a zadní přilnavost 1,12 naladěné podle ruční jízdy proti originálu (smyk zádí při brzdění v zatáčce); klávesy s náběhem pedálů a volantu jako v tehdejších hrách
 - [x] HUD: kulatý rychloměr (s počítadlem km) a otáčkoměr v klasickém stylu (kreslené procedurálně, stupnice z dat auta, ručička s tlumenou setrvačností); otáčky motoru při řazení klesají a stoupají plynule (spojka)
 - [x] Kolize s objekty kolem trati: sražitelné značky (dynamická tělesa s původní hmotností), ostatní statické
-- [ ] Zóny poškození auta, deformace meshe
+- [x] Poškození auta: zóny `dz` a posuny `vt` 0x8000 jako blend shapes, náraz podle impulsu, následky (sbíhavost a přilnavost kol, výkon motoru, odpor vzduchu, rejstřík řízení)
+- [ ] Naladit poškození a jeho následky proti originálu (Wine); textury poškození; utržení kola ([IDEA-006](../ideas/severe-damage-wheel-loss.md))
 - [ ] Srovnávací jízdy s originálem přes Wine: zrychlení, brzdná dráha, rychlost v zatáčkách
 - [ ] Rozhodnout definitivně o enginu (D-002)
 

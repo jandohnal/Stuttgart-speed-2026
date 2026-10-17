@@ -80,4 +80,6 @@ func _physics_process(delta: float) -> void:
 		print("  sign moved %.1f m, now %s, car %.0f km/h" % [
 			sign_body.global_position.distance_to(sign_start), "frozen" if sign_body.freeze else "free",
 			car.forward_speed * 3.6])
+		if car.damage != null:
+			print("  car damage: %d impacts, max zone %.2f" % [car.damage.impacts, Array(car.damage.zone_damage).max()])
 		get_tree().quit()

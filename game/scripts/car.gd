@@ -8,10 +8,19 @@ extends RigidBody3D
 ## Wheel spin is integrated in substeps so it stays stable at low speed.
 
 const LBFT_TO_NM := 1.3558
+const CarDamage := preload("res://scripts/car_damage.gd")
 const IDLE_RPM := 900.0
 const GRAVITY := 9.81
 const AIR_DENSITY := 1.225
 
+@export_group("Damage consequences")
+## Per zone damage 0..1 (CarDamage) at full damage gives:
+@export var damage_toe_deg := 3.0  ## wheel on a damaged corner toes out (the car pulls to that side)
+@export var damage_grip_loss := 0.15  ## that wheel's grip (bent suspension)
+@export var damage_power_loss := 0.35  ## engine torque, from the zones around the engine
+@export var damage_drag_gain := 0.15  ## drag area, from the average damage
+@export var damage_steer_loss := 0.2  ## steering lock, from the front centre zone
+@export_group("")
 @export var bump_travel := 0.08  ## m the wheel can move up from the model's ride height
 @export var droop_travel := 0.10  ## m the wheel can drop below it
 @export var ride_frequency := 1.7  ## Hz, sets the spring rate; springs are preloaded to the model's ride height
@@ -74,6 +83,8 @@ var mu := 1.0  ## tyre friction coefficient at static load
 var peak_slip_angle := 0.12  ## rad, from the tyre aspect ratio (taller sidewall = larger)
 var engine_inertia := 0.09  ## kg m2, .sim 0x058 / 1000 (hypothesis)
 var torque_peak := 100.0
+var damage: CarDamage  ## null until setup_damage()
+var _model: Node3D
 
 var gear := 1  ## -1 reverse, 1..n forward
 var rpm := IDLE_RPM
@@ -111,6 +122,9 @@ class Wheel:
 	var point := Vector3.ZERO
 	var normal := Vector3.UP
 	var compression_speed := 0.0
+	var zone := -1  ## damage corner zone (CarDamage.CORNER_ZONES)
+	var toe := 0.0  ## rad, from damage, positive = to the left
+	var grip_factor := 1.0  ## from damage
 
 
 func setup(model: Node3D, car_params: Dictionary) -> void:
@@ -140,6 +154,7 @@ func setup(model: Node3D, car_params: Dictionary) -> void:
 	engine_inertia = float(unknown.get("0x058", 90.0)) / 1000.0
 	spring_rate = mass / 4.0 * pow(TAU * ride_frequency, 2.0)
 	damper_rate = 2.0 * damping_ratio * sqrt(spring_rate * mass / 4.0)
+	_model = model
 	if model != null:
 		add_child(model)
 		_build_collision(model)
@@ -151,6 +166,47 @@ func setup(model: Node3D, car_params: Dictionary) -> void:
 			if other != w and other.front == w.front and signf(other.center.x) != signf(w.center.x):
 				w.partner = other
 	_set_center_of_mass()
+
+
+## Enables damage from the zones in <car>_damage.json (tools/crp2gltf.py).
+func setup_damage(zones: Array) -> void:
+	damage = CarDamage.new(_model, zones)
+	contact_monitor = true
+	max_contacts_reported = maxi(max_contacts_reported, 8)
+	for w in wheels:
+		w.zone = damage.corner_of(w.center)
+
+
+func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
+	if damage == null:
+		return
+	var contacts := []
+	var to_car := global_basis.inverse()
+	for i in state.get_contact_count():
+		var impulse := state.get_contact_impulse(i).length()
+		if impulse > 0.0:
+			contacts.append({"impulse": impulse, "point": to_local(state.get_contact_local_position(i)),
+				"normal": to_car * state.get_contact_local_normal(i)})
+	damage.add_tick(contacts)
+
+
+func _update_damage() -> void:
+	if damage == null:
+		return
+	for w in wheels:
+		var d := damage.zone(w.zone)
+		w.toe = deg_to_rad(damage_toe_deg) * d * (1.0 if w.center.x < 0.0 else -1.0)  # toe out
+		w.grip_factor = 1.0 - damage_grip_loss * d
+
+
+## Share of the engine torque left after damage to the zones around the engine.
+func engine_health() -> float:
+	if damage == null:
+		return 1.0
+	var front := str(params.get("engine_position", "rear")) == "front"
+	var centre := damage.zone(1 if front else 5)
+	var sides := maxf(damage.zone(0 if front else 4), damage.zone(2 if front else 6))
+	return 1.0 - damage_power_loss * maxf(centre, 0.5 * sides)
 
 
 func reset_to(xf: Transform3D) -> void:
@@ -273,6 +329,7 @@ func _physics_process(delta: float) -> void:
 		return
 	forward_speed = -global_basis.z.dot(linear_velocity)
 	_read_input(delta)
+	_update_damage()
 	_update_gearbox(delta)
 	var engaged := _shift_timer <= 0.0
 	var gearing := _gear_ratio() * final_drive
@@ -296,7 +353,8 @@ func _physics_process(delta: float) -> void:
 		var torque := engine_torque * gearing * (drivetrain_efficiency if engine_torque > 0.0 else 1.0) * share
 		_apply_wheel(w, delta, torque, wheel_inertia + (engine_inertia_at_wheel if share > 0.0 else 0.0))
 	var v := linear_velocity
-	apply_central_force(-v * v.length() * 0.5 * AIR_DENSITY * drag_area)
+	var drag := drag_area * (1.0 + damage_drag_gain * (damage.total() if damage != null else 0.0))
+	apply_central_force(-v * v.length() * 0.5 * AIR_DENSITY * drag)
 	_update_telemetry(delta)
 
 
@@ -331,7 +389,7 @@ func _read_input(delta: float) -> void:
 		brake = brk
 		if brk_raw > 0.1 and accel_raw < 0.1 and absf(forward_speed) < 0.5:
 			gear = -1  # arcade style: holding brake at standstill reverses
-	var lock := deg_to_rad(max_steer_deg)
+	var lock := deg_to_rad(max_steer_deg) * (1.0 - damage_steer_loss * (damage.zone(1) if damage != null else 0.0))
 	var target := steer_input * lock
 	if steering_assist:
 		target = _assisted_steer(target, lock)
@@ -430,7 +488,7 @@ func _shift(to: int) -> void:
 func _engine_torque() -> float:
 	if rpm >= redline:
 		return 0.0  # rev limiter
-	return _torque_at(rpm)
+	return _torque_at(rpm) * engine_health()
 
 
 ## Full-throttle torque (Nm) at engine speed r, from the .sim curve.
@@ -491,7 +549,7 @@ func _apply_wheel(w: Wheel, delta: float, drive_torque: float, inertia: float) -
 	var offset := w.point - global_position
 	apply_force(normal * w.normal_load, offset)
 
-	var wheel_basis := global_basis * Basis(Vector3.UP, steer if w.front else 0.0)
+	var wheel_basis := global_basis * Basis(Vector3.UP, (steer if w.front else 0.0) + w.toe)
 	var fwd := (-wheel_basis.z).slide(normal).normalized()
 	var right := wheel_basis.x.slide(normal).normalized()
 	var v := linear_velocity + angular_velocity.cross(offset)
@@ -499,7 +557,7 @@ func _apply_wheel(w: Wheel, delta: float, drive_torque: float, inertia: float) -
 	var v_lat := v.dot(right)
 	var static_load := mass * GRAVITY / 4.0
 	var load_factor := 1.0 - load_sensitivity * (w.normal_load / static_load - 1.0)
-	var max_force := mu * (1.0 if w.front else rear_grip) * clampf(load_factor, 0.5, 1.2) * w.normal_load
+	var max_force := mu * (1.0 if w.front else rear_grip) * w.grip_factor * clampf(load_factor, 0.5, 1.2) * w.normal_load
 	# Slip angle with a speed floor: at a standstill the tyre acts as a stiff damper.
 	w.slip_angle = atan2(v_lat, maxf(absf(v_long), 3.0))
 	var slip_y := tan(w.slip_angle) / tan(peak_slip_angle)
@@ -547,7 +605,7 @@ func _spin_wheel(omega: float, torque: float, brake_torque: float, inertia: floa
 
 func _update_visual(w: Wheel) -> void:
 	var lift := w.compression - droop_travel
-	var steer_basis := Basis(Vector3.UP, steer if w.front else 0.0)
+	var steer_basis := Basis(Vector3.UP, (steer if w.front else 0.0) + w.toe)
 	var spin_basis := Basis(Vector3.RIGHT, -w.spin)
 	for i in w.visuals.size():
 		var rest := w.rest[i]
@@ -567,6 +625,16 @@ func _update_telemetry(delta: float) -> void:
 		"steer_deg": snappedf(rad_to_deg(steer), 0.1),
 		"assist": steering_assist,
 		"abs": brake_assist,
+		"damage": _damage_summary(),
 		"lat_g": snappedf(local.x / GRAVITY, 0.001),
 		"long_g": snappedf(-local.z / GRAVITY, 0.001),
 	}
+
+
+func _damage_summary() -> Dictionary:
+	if damage == null:
+		return {}
+	return {"front": maxf(damage.zone(1), maxf(damage.zone(0), damage.zone(2))),
+		"rear": maxf(damage.zone(5), maxf(damage.zone(4), damage.zone(6))),
+		"left": damage.zone(7), "right": damage.zone(3), "roof": damage.zone(8),
+		"engine": 1.0 - engine_health()}

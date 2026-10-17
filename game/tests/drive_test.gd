@@ -202,6 +202,9 @@ func _finish() -> void:
 	print("  braking for corners: %.1f s" % (corner_brakes / float(Engine.physics_ticks_per_second)))
 	print("  suspension: max wheel lift %.3f m of %.2f, bump stop %.1f s" % [
 		max_lift, car.bump_travel, bump_stop_ticks / float(Engine.physics_ticks_per_second)])
+	if car.damage != null:
+		print("  damage: %d impacts, average %.2f, max zone %.2f" % [car.damage.impacts, car.damage.total(),
+			Array(car.damage.zone_damage).max()])
 	print("  body collisions: ", collisions if not collisions.is_empty() else "none")
 	print("  braking 100-0 km/h: %s" % ("%.1f m" % brake_distance if brake_distance >= 0.0 else "n/a"))
 	print("  distance from road at end: %.1f m" % _distance_from_road())
