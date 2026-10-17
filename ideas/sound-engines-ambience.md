@@ -2,9 +2,9 @@
 type: idea
 id: IDEA-004
 title: "Zvuky motorů a prostředí: zdroje a implementace"
-status: idea            # idea | accepted | rejected | done
+status: accepted        # idea | accepted | rejected | done
 created: 2026-10-16
-related: [D-007, D-008, IDEA-001]
+related: [D-007, D-008, D-011, IDEA-001]
 tags: [audio, engine-sound, ambience, sfx, licensing, godot]
 ---
 
@@ -58,7 +58,7 @@ Potřebné kategorie: les, louka, pobřeží a moře, řeka, vodopád, vesnice, 
 ## Další kroky (pokud se nápad přijme)
 
 - [ ] Stáhnout Sonniss GDC bundly a projít vozidla a ambienty
-- [ ] Prototyp přehrávače motoru se smyčkami podle otáček v Godotu
+- [x] Prototyp přehrávače motoru se smyčkami podle otáček v Godotu (`game/scripts/car_audio.gd`, zatím se zvuky originálu, D-011)
 - [ ] Vybrat zdroj smyček pro první typ motoru (knihovna, engine-sim, vlastní nahrávka)
 - [ ] Šablona evidence licencí zvuků
-- [ ] Zapsat jako rozhodnutí do `docs/decisions.md`
+- [x] Zapsat jako rozhodnutí do `docs/decisions.md` (D-011)

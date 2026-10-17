@@ -72,10 +72,11 @@ func _process(delta: float) -> void:
 	_distance_m += absf(float(t["speed_kmh"])) / 3.6 * delta
 	speed_gauge.odo_text = "%06d" % floori(_distance_m / 1000.0)
 	speed_gauge.trip_text = "%05d" % floori(_distance_m / 100.0)  # last digit is tenths of a km
-	label.text = "lat %.2f g   long %.2f g   steer %.1f°   steering assist %s   ABS %s\n" % [
+	label.text = "lat %.2f g   long %.2f g   steer %.1f°   steering assist %s   ABS %s   sound %s\n" % [
 		t["lat_g"], t["long_g"], t["steer_deg"], "ON" if t["assist"] else "OFF", "ON" if t["abs"] else "OFF",
+		"OFF" if AudioServer.is_bus_mute(0) else "ON",
 	] + _damage_text(t.get("damage", {})) \
-		+ "W/S throttle/brake  A/D steer  Space handbrake  R reset  F2 telemetry  F3 assist  F4 ABS  F5 repair  F11 full screen"
+		+ "W/S throttle/brake  A/D steer  Space handbrake  R reset  F2 telemetry  F3 assist  F4 ABS  F5 repair  M sound  F11 full screen"
 
 
 func _damage_text(d: Dictionary) -> String:

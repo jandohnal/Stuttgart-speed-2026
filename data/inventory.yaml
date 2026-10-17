@@ -121,15 +121,21 @@ items:
     path: ["GameData/Sounds/*.viv", "GameData/Sounds/*.bnk"]
     count: {viv: 42, bnk_inside: 698}
     format: viv/bnk
-    status: known_format
-    notes: "BIGF archivy, EA zvukové banky (vgmstream). Jen reference, do hry vlastní samply (D-007)"
+    status: decoded
+    doc: docs/formats/bnk.md
+    tool: tools/snd2wav.py
+    output: "decomposed/GameData/Sounds/<archiv>/<banka>/<n>.wav + index.json"
+    notes: "BIGF archivy, EA banky BNKl v4 (PT hlavičky, EA-XA ADPCM, PCM 16/8 bit). 1 453 zvuků. Banky okolí (track.viv) zatím ne. Prototyp je používá lokálně (D-011), do vydání vlastní samply (D-007)"
 
   - id: engine_sound_params
     category: to_write
     priority: low
-    path: GameData/Sounds/*.spl
+    path: ["GameData/Sounds/*.spl", "GameData/Sounds/sd*.viv: .ect .elt .cct .clt"]
     count: 86
-    status: unknown
+    status: partial
+    doc: docs/formats/bnk.md
+    tool: tools/engine_sound.py
+    notes: "Tabulky CRDl: sloty smyček (load / coast), mřížka prolínání neurčena. .spl: 13 × i32 ladění, číslo sady v něm není"
 
   - id: music
     category: unpack

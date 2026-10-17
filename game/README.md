@@ -24,6 +24,16 @@ python3 tools/track2gltf.py sources/GameData/Track/farmland.crp decomposed/GameD
 python3 tools/track2gltf.py sources/GameData/Track/skidpad.crp decomposed/GameData/Track/skidpad/skidpad.gltf
 ```
 
+Zvuk (zatím zvuky originálu, D-011):
+
+```bash
+python3 tools/snd2wav.py sources/GameData/Sounds decomposed/GameData/Sounds
+```
+
+```bash
+python3 tools/engine_sound.py decomposed/GameData/Sounds
+```
+
 ## Spuštění
 
 Otevřít `game/project.godot` v Godotu 4.7 a spustit (F5). Fyzika Jolt, 120 Hz, renderer Forward+ přes Metal.
@@ -40,6 +50,7 @@ Trať určuje nastavení projektu `stuttgart/track` (výchozí `farmland`), z p�
 | F3 | asistent řízení zapnout / vypnout (stav je v HUD, výchozí zapnuto) |
 | F4 | ABS zapnout / vypnout (stav je v HUD, výchozí zapnuto) |
 | F5 | oprava auta (vynuluje poškození, prototyp) |
+| M | zvuk vypnout / zapnout (stav v HUD) |
 | F11 | celá obrazovka / okno |
 
 Samostatně spuštěná hra běží přes celou obrazovku (ne v náhledu editoru, ne v testech bez okna). Okno si vynutí argument `-- --windowed=1`. HUD se škáluje se zvětšením okna (základ 1152 × 648).
@@ -60,6 +71,7 @@ Samostatně spuštěná hra běží přes celou obrazovku (ne v náhledu editoru
 | `scripts/car.gd` | auto: raycast podvozek nad `RigidBody3D` (D-003), motor a automatická převodovka z `cars.json`, model pneumatik (skluz, rotace kol, setrvačnost motoru) |
 | `scripts/follow_camera.gd`, `scripts/hud.gd` | kamera za autem, údaje o jízdě |
 | `scripts/car_damage.gd` | poškození: impulsy kontaktů karoserie sečtené za prvních 0,1 s nárazu, nad prahem promáčknou zóny u bodu nárazu (blend shapes `dz0`–`dz9` z `<auto>_damage.json`); díly odpadají nebo visí na pantech (`HingeJoint3D`); následky čte `car.gd` |
+| `scripts/car_audio.gd` | zvuk auta: smyčky motoru podle otáček (výška, prolínání dvou nejbližších) a plynu (load / coast), pískání pneumatik podle skluzu, vítr, drhnutí, nárazy a díly ze signálů `CarDamage`; sběrnice `Engine` a `Sfx` |
 | `scripts/track_props.gd` | fyzika objektů kolem trati (skupina `props`, `<trať>_objects.json`): sražitelné jako `RigidBody3D` s původní hmotností, zmrazené, dokud se nepřiblíží pohyblivé těleso (1 m), ostatní statické; kolize z konvexního obalu, ploché jako kvádr 10 cm |
 | `scripts/gauge.gd` | kulatý budík (otáčkoměr, rychloměr) kreslený v `_draw()`; stupnice nastaví `hud.gd` podle redline a převodů auta |
 
@@ -124,6 +136,12 @@ Test nárazu do zdi (bez okna) na vlastní ploše 500 m pod skidpadem, volby `--
 
 Jízdní testy na obou tratích a náraz do značky (80 kg, 44 km/h) končí bez poškození.
 
+Zvuk (bez okna, tichý ovladač): auto na skidpadu projede převody s plným plynem a vypíše hlasitost a výšku smyček motoru po 1000 ot/min, pak ubere plyn a dostane smyk. Kontroly: stálá hlasitost při prolínání, výška 0,5–2, po ubrání plynu hrají smyčky bez plynu, pneumatiky pískají jen ve smyku. 17. 10. 2026: OK, pískání rovně 0, ve smyku 0,63.
+
+```bash
+~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/audio_test.tscn
+```
+
 Náraz do objektu (bez okna): auto se rozjede na první dopravní značku na farmlandu a vypíše rychlost nárazu a kam značka odletěla. 16. 10. 2026: náraz 44 km/h, značka (80 kg) odletěla o 9,2 m.
 
 ```bash
@@ -160,4 +178,4 @@ Na farmlandu auto 40 s jede po silnici z kopce bez kolize. Odvážnější řidi
 - Paprsky kol se počítají v každém kroku znovu (`force_raycast_update`). Výsledek uzlu `RayCast3D` byl o dva kroky fyziky starý: při 120 km/h ležel bod dotyku 0,57 m za kolem, podvozek se zdál natažený a karoserie klesala až k silnici, kola mizela v podbězích.
 - Kolize karoserie je konvexní obal jejích meshů bez kol (zaoblené rohy, skutečný práh 0,19 m). Box přes celou šířku zavadil předním rohem o klopenou silnici.
 - Objekty kolem trati (farmland 66 značek, 4 sloupy) kolidují, značky jdou srazit. Terén a silnice mají oboustrannou kolizi (`backface_collision`), jinak jimi objekty propadaly. Animované objekty („sweepery“) stojí, předlohy z úloh (kužely, šipky) se zatím nerozmisťují.
-- Poškození zatím bez textur (odřený lak). Nárazníky a blatníky jsou součástí meshe karoserie a neodpadávají (potřebují vlastní modely, [IDEA-006](../ideas/severe-damage-wheel-loss.md)). Bez zvuku.
+- Poškození zatím bez textur (odřený lak). Nárazníky a blatníky jsou součástí meshe karoserie a neodpadávají (potřebují vlastní modely, [IDEA-006](../ideas/severe-damage-wheel-loss.md)). Zvuk motoru zatím bez prolínací mřížky originálu (jen dvě nejbližší smyčky), zvuky v `SND_coll.bnk` jsou vybrané podle signálu a potvrzené poslechem, okolí tratí zatím bez zvuku.

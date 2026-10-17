@@ -12,6 +12,9 @@ extends RefCounted
 ## a hard impact tears the hood (front) or engine lid (rear) off. repair() puts everything back.
 
 const TrackProps := preload("res://scripts/track_props.gd")
+
+signal impacted(kmh: float, point: Vector3, impulse: float)  ## every resolved impact, point in car space
+signal part_changed(kind: String, state: String, point: Vector3)  ## a part came loose ("hinged") or off
 const ZONE_COUNT := 10
 const CORNER_ZONES := [0, 2, 4, 6]  ## front left, front right, rear right, rear left
 
@@ -25,6 +28,7 @@ var window := 12  ## physics ticks (0.1 s at 120 Hz) summed per impact
 var unlatch_damage := 0.5  ## front / rear damage that unlatches the hood, engine lid and doors
 var tear_speed_kmh := 100.0  ## impact speed (along the contact normal) that tears a swinging lid off
 var last_impact_kmh := 0.0
+var scrape := 0.0  ## N*s of body contact in the last tick (scraping, resting)
 
 var zone_damage := PackedFloat32Array()
 var centroids: Array[Vector3] = []  ## per zone id, car space (Vector3.INF where unknown)
@@ -89,6 +93,7 @@ func add_tick(contacts: Array) -> void:
 		tick += impulse
 		point += c["point"] * impulse
 		normal += c["normal"] * impulse
+	scrape = tick
 	var velocity := _car.global_basis.inverse() * _car.linear_velocity
 	var before := _prev_velocity
 	_prev_velocity = velocity
@@ -226,6 +231,7 @@ func _resolve() -> void:
 			_sum, _ticks, point.snapped(Vector3.ONE * 0.01), normal.snapped(Vector3.ONE * 0.01),
 			_impact_speed * 3.6, maxf(amount, 0.0)])
 	last_impact_kmh = _impact_speed * 3.6
+	impacted.emit.call_deferred(last_impact_kmh, point, _sum)  # we are inside the physics callback
 	var hard := ""
 	if last_impact_kmh >= tear_speed_kmh:
 		hard = "front" if point.z < 0.0 else "rear"
@@ -317,6 +323,7 @@ func _change(part: Dictionary) -> void:
 		part["joint"] = null
 		_throw(_car, part["body"])
 	part["state"] = want
+	part_changed.emit(part["kind"], want, (part["bounds"] as AABB).get_center())
 
 
 ## Holds a loose part on its hinges: a HingeJoint3D (rotation about its Z axis) between car and part.

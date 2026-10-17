@@ -2,12 +2,15 @@ extends Node3D
 ## Phase 2 prototype (D-009): the original 356 A on an original track (farmland = Normandie by
 ## default, or skidpad), both loaded at run time from decomposed/. Track: project setting
 ## stuttgart/track, overridden by the user argument --track=<name>; --slice=<n> starts on road
-## slice n instead of the start line; --windowed=1 keeps a window. F3 toggles the steering assist, F4 the ABS, F5 repairs the car,
+## slice n instead of the start line; --windowed=1 keeps a window. F3 toggles the steering assist, F4 the ABS, F5 repairs the car, M mutes the sound,
 ## F11 full screen. F2 records telemetry to
 ## user://telemetry_*.csv for comparing with the original game.
 
 const DEFAULT_TRACK := "farmland"
 const TrackProps := preload("res://scripts/track_props.gd")
+const CarAudio := preload("res://scripts/car_audio.gd")
+const ENGINE_SOUND := "GameData/Sounds/sd1a"  ## 356 A: lowest of the three 356 sets (idle note 29), confirmed by ear
+const SFX_BANK := "GameData/Sounds/SND_coll"
 const CAR_MODEL := "GameData/CarModel/356a/356a.gltf"
 const CAR_PHYSICS := "GameData/Simulation/cars.json"
 const CAR_KEY := "356Acoupe16"
@@ -23,6 +26,7 @@ const ACTIONS := {
 	"steering_assist": [KEY_F3],
 	"brake_assist": [KEY_F4],
 	"repair": [KEY_F5],
+	"mute": [KEY_M],
 	"fullscreen": [KEY_F11],
 }
 const LOG_FIELDS := ["time", "speed_kmh", "rpm", "gear", "throttle", "brake", "steer_deg", "lat_g", "long_g"]
@@ -76,6 +80,12 @@ func _ready() -> void:
 		var damage: Variant = OriginalAssets.load_json(CAR_MODEL.get_basename() + "_damage.json")
 		if damage is Dictionary:
 			car.setup_damage(damage)
+		var engine: Variant = OriginalAssets.load_json(ENGINE_SOUND.path_join("engine.json"))
+		if engine is Dictionary:
+			var audio := CarAudio.new()
+			audio.name = "Audio"
+			car.add_child(audio)
+			audio.setup(car, engine, ENGINE_SOUND, SFX_BANK)
 	else:
 		push_error("Car %s not found in %s" % [CAR_KEY, CAR_PHYSICS])
 	_reset_car(start_slice)
@@ -170,6 +180,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		car.brake_assist = not car.brake_assist
 	elif event.is_action_pressed("repair"):
 		car.repair()
+	elif event.is_action_pressed("mute"):
+		AudioServer.set_bus_mute(0, not AudioServer.is_bus_mute(0))
 	elif event.is_action_pressed("fullscreen"):
 		var full := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if full else DisplayServer.WINDOW_MODE_FULLSCREEN)

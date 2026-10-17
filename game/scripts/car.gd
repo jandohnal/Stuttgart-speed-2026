@@ -231,6 +231,7 @@ func _detach_wheel(w: Wheel) -> void:
 	col.shape = tyre
 	col.basis = Basis(Vector3.BACK, PI / 2.0)  # cylinder axis along the axle (X)
 	w.debris = CarDamage.make_debris(self, nodes, wheel_mass, col)
+	damage.part_changed.emit("wheel", "off", w.center)
 
 
 ## Puts the car back together: dents, detached parts and wheels.
