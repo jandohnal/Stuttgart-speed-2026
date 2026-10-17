@@ -30,10 +30,6 @@ Zvuk (zatím zvuky originálu, D-011):
 python3 tools/snd2wav.py sources/GameData/Sounds decomposed/GameData/Sounds
 ```
 
-```bash
-python3 tools/engine_sound.py decomposed/GameData/Sounds
-```
-
 ## Spuštění
 
 Otevřít `game/project.godot` v Godotu 4.7 a spustit (F5). Fyzika Jolt, 120 Hz, renderer Forward+ přes Metal.

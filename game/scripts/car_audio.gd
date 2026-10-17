@@ -1,6 +1,6 @@
 extends Node3D
 ## Car sounds for the phase 2 prototype, from the original's banks converted by tools/snd2wav.py
-## and tools/engine_sound.py (loaded at run time from decomposed/, D-008, D-011):
+## (engine.json of the set; loaded at run time from decomposed/, D-008, D-011):
 ## - engine: looped recordings at fixed engine speeds, pitched to the current rpm and crossfaded
 ##   (equal power, on a log rpm scale) between the two nearest; "load" loops on throttle, "coast"
 ##   loops (with idle) off throttle, blended by the throttle;

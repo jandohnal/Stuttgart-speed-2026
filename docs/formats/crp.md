@@ -5,7 +5,7 @@ game: "NFS5 (Porsche 2000 / Porsche Unleashed), PC"
 location: ["GameData/CarModel/*.crp", "GameData/Track/*.crp", "FEData/Models/*.crp"]
 compression: "EA RefPack (QFS), magic 0x10FB"
 status: "komprese, kontejner a geometrie aut hotové; tratě: skidpad"
-tool: ["tools/refpack.py", "tools/crp.py", "tools/crp2gltf.py", "tools/track2gltf.py"]
+tool: ["tools/archives.py", "tools/crp.py", "tools/crp2gltf.py", "tools/track2gltf.py"]
 updated: 2026-10-15
 ---
 
@@ -14,7 +14,7 @@ updated: 2026-10-15
 ## 1. Komprese (hotovo)
 
 Soubor začíná `10 FB` + 3 B velikost rozbalených dat (big-endian), následuje proud RefPack.
-`tools/refpack.py` rozbalí auto (`356a.crp`: 3 764 224 B) i trať (`alps.crp`: 6 168 576 B) s přesnou shodou deklarované velikosti.
+`tools/archives.py refpack` rozbalí auto (`356a.crp`: 3 764 224 B) i trať (`alps.crp`: 6 168 576 B) s přesnou shodou deklarované velikosti.
 
 ## 2. Kontejner (hotovo pro auta)
 

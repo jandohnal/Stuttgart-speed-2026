@@ -69,7 +69,7 @@ items:
     count: {cars: 44, tracks: 15, menu: 8}
     format: crp
     doc: docs/formats/crp.md
-    tool: tools/refpack.py
+    tool: tools/archives.py
     status: decoded_cars
 
   - id: car_geometry
@@ -134,7 +134,7 @@ items:
     count: 86
     status: partial
     doc: docs/formats/bnk.md
-    tool: tools/engine_sound.py
+    tool: tools/snd2wav.py
     notes: "Tabulky CRDl: sloty smyček (load / coast), mřížka prolínání neurčena. .spl: 13 × i32 ladění, číslo sady v něm není"
 
   - id: music

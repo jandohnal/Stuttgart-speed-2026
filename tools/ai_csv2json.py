@@ -16,6 +16,8 @@ import re
 import struct
 import sys
 
+from common import find_file
+
 
 class Stream:
     """Values in .bin order."""
@@ -240,17 +242,13 @@ PARSERS = {
 }
 
 
-def find_bin(folder, stem):
-    return next((os.path.join(folder, f) for f in os.listdir(folder) if f.lower() == stem + ".bin"), None)
-
-
 def convert(path, out_dir):
     stem = os.path.splitext(os.path.basename(path))[0].lower()
     rows, st = read_rows(path), Stream()
     data = PARSERS[stem](rows, st)
     data = {"source": os.path.basename(path), **data}
     status = "no .bin"
-    bin_path = find_bin(os.path.dirname(path), stem)
+    bin_path = find_file(os.path.dirname(path), stem + ".bin")
     if bin_path:
         raw = open(bin_path, "rb").read()
         expected = list(struct.unpack(f"<{len(raw) // 4}i", raw))

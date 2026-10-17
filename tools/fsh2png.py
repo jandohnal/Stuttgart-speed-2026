@@ -14,8 +14,8 @@ import struct
 import sys
 import zlib
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from refpack import decompress  # noqa: E402
+from archives import decompress
+from common import source_files
 
 # Image record types: bytes per pixel. Bit 0x80 set = RefPack-compressed pixels.
 IMAGE_BPP = {0x7B: 1, 0x7D: 4, 0x7E: 2, 0x7F: 3, 0x78: 2, 0x6D: 2}
@@ -172,12 +172,7 @@ def main(src, dst):
     if os.path.isfile(src):
         jobs = [(src, dst)]
     else:
-        jobs = []
-        for root, _, files in os.walk(src):
-            for fn in sorted(files):
-                if fn.lower().endswith(".fsh"):
-                    rel = os.path.relpath(os.path.join(root, fn), src)
-                    jobs.append((os.path.join(root, fn), os.path.join(dst, os.path.splitext(rel)[0])))
+        jobs = [(path, os.path.join(dst, rel)) for path, rel in source_files(src, [".fsh"])]
     total, bad = 0, 0
     for s, o in sorted(jobs):
         try:

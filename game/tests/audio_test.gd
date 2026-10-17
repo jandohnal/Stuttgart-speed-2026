@@ -28,7 +28,7 @@ func _ready() -> void:
 	car.digital_input = false
 	audio = car.get_node_or_null("Audio")
 	if audio == null:
-		print("AUDIO TEST: no CarAudio - run tools/snd2wav.py and tools/engine_sound.py")
+		print("AUDIO TEST: no CarAudio - run tools/snd2wav.py")
 		get_tree().quit(1)
 
 

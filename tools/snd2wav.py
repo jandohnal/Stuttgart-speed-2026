@@ -1,19 +1,31 @@
-"""Convert NFS5 sound banks (BIGF .viv archives with EA BNKl banks, or loose .bnk) to WAV.
+"""Convert NFS5 sound banks (BIGF .viv archives with EA BNKl banks, or loose .bnk) to WAV and
+describe the engine sound sets for the game.
 
 Format: docs/formats/bnk.md. Codec and header layout follow vgmstream (EA BNK / EA-XA ADPCM).
 For every bank writes <out>/<archive>/<bank>/<n>.wav plus index.json (sample rate, samples,
 loop points, codec); the other files of an archive (engine tables .ect/.elt/.cct/.clt, .h,
-default.cfg) are copied next to the banks as they are.
+default.cfg) are copied next to the banks as they are. For an engine set (sd*.viv) it also
+writes <out>/<set>/engine.json: the loops of the engine tables, grouped into "load" (on throttle,
+*lt tables) and "coast" (off throttle and idle, *ct tables), two layers each (the two sample
+groups of a table, played together), with the engine speed each loop was recorded at.
+
+The engine tables (CRDl) are only partly decoded: bytes 0x20..0x27 list two groups of four bank
+indices (index + 1, 0 = none); the crossfade grid after them is not used yet. The recorded speed
+comes from the loop's MIDI root note (PT tag 0x07): firing frequency = note frequency, a four
+stroke engine fires cylinders / 2 times per turn, so rpm = frequency * 60 / (cylinders / 2).
 
 Usage:
     python3 tools/snd2wav.py sources/GameData/Sounds decomposed/GameData/Sounds
-    python3 tools/snd2wav.py sources/GameData/Sounds/sd1a.viv decomposed/GameData/Sounds
+    python3 tools/snd2wav.py sources/GameData/Sounds/sd1a.viv decomposed/GameData/Sounds [--cylinders 4]
 """
+import argparse
 import json
 import os
 import struct
-import sys
 import wave
+
+from archives import read_bigf
+from common import source_files
 
 DEFAULT_RATE = 22050
 # PT header tags (one byte tag, one byte size, big-endian value); 0xFC-0xFE start a sub-header.
@@ -21,20 +33,7 @@ DEFAULT_RATE = 22050
 PT_TAGS = {0x80: "version", 0x82: "channels", 0x83: "codec1", 0x84: "sample_rate", 0x85: "samples",
            0x86: "loop_start", 0x87: "loop_end", 0x88: "data_offset", 0x92: "bytes_per_sample", 0xA0: "codec2"}
 EA_XA_TABLE = (0, 240, 460, 392, 0, 0, -208, -220)
-
-
-def read_bigf(data):
-    """{name: bytes} of a BIGF archive (big-endian directory: offset, size, zero-terminated name)."""
-    if data[:4] != b"BIGF":
-        raise ValueError("not a BIGF archive")
-    count = struct.unpack_from(">I", data, 8)[0]
-    pos, files = 16, {}
-    for _ in range(count):
-        offset, size = struct.unpack_from(">II", data, pos)
-        end = data.index(b"\0", pos + 8)
-        files[data[pos + 8:end].decode("latin1")] = data[offset:offset + size]
-        pos = end + 1
-    return files
+ENGINE_TABLES = {"load": ("elt", "clt"), "coast": ("ect", "cct")}  # exterior first, cockpit second
 
 
 def read_pt(data, pos):
@@ -157,7 +156,46 @@ def convert_bank(data, out_dir):
     return len(entries), skipped
 
 
-def convert(src, out_root):
+def note_hz(note):
+    return 440.0 * 2.0 ** ((note - 69) / 12.0)
+
+
+def table_slots(data):
+    """An engine table's two groups of four bank indices (None where empty)."""
+    if data[:4] != b"CRDl":
+        raise ValueError("not a CRDl table")
+    ids = [b + 1 if b else None for b in data[0x20:0x28]]
+    return [ids[0:4], ids[4:8]]
+
+
+def describe_engine(set_dir, cylinders=4):
+    """Write <set>/engine.json from the converted set (tables and index.json); returns it."""
+    name = os.path.basename(os.path.normpath(set_dir))
+    index = {e["index"]: e for e in json.load(open(os.path.join(set_dir, name, "index.json")))["sounds"]}
+    fires_per_turn = cylinders / 2.0
+    out = {"set": name, "cylinders": cylinders, "view": "exterior", "groups": {}}
+    for group, (exterior, _cockpit) in ENGINE_TABLES.items():
+        layers = []
+        for slots in table_slots(open(os.path.join(set_dir, f"{name}.{exterior}"), "rb").read()):
+            loops = []
+            for i in slots:
+                e = index.get(i)
+                if e is None or "0x07" not in e.get("tags", {}):
+                    continue
+                note = e["tags"]["0x07"]
+                loops.append({"index": i, "file": f"{name}/{e['file']}", "note": note,
+                              "rpm": round(note_hz(note) * 60.0 / fires_per_turn),
+                              "rate": e["rate"], "samples": e["samples"],
+                              "loop_start": e.get("loop_start", 0), "loop_end": e.get("loop_end", e["samples"] - 1)})
+            if loops:
+                layers.append(sorted(loops, key=lambda x: x["rpm"]))
+        out["groups"][group] = layers
+    with open(os.path.join(set_dir, "engine.json"), "w") as fh:
+        json.dump(out, fh, indent=1)
+    return out
+
+
+def convert(src, out_root, cylinders=4):
     """Convert one .viv or .bnk file; returns (banks, sounds, skipped)."""
     stem = os.path.splitext(os.path.basename(src))[0]
     data = open(src, "rb").read()
@@ -176,6 +214,8 @@ def convert(src, out_root):
             else:
                 with open(os.path.join(folder, name), "wb") as fh:
                     fh.write(payload)
+        if os.path.exists(os.path.join(folder, f"{stem}.elt")):
+            describe_engine(folder, cylinders)
     elif data[:4] == b"BNKl":
         n, skipped = convert_bank(data, os.path.join(out_root, stem))
         banks, sounds = 1, n
@@ -183,16 +223,17 @@ def convert(src, out_root):
 
 
 def main():
-    if len(sys.argv) != 3:
-        sys.exit(__doc__)
-    src, out = sys.argv[1], sys.argv[2]
-    files = [os.path.join(src, f) for f in sorted(os.listdir(src)) if f.lower().endswith((".viv", ".bnk"))] \
-        if os.path.isdir(src) else [src]
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("src", help="a .viv / .bnk file or a folder of them")
+    ap.add_argument("out")
+    ap.add_argument("--cylinders", type=int, default=4, help="for the engine speed of the loops")
+    a = ap.parse_args()
+    files = [path for path, _ in source_files(a.src, [".viv", ".bnk"], recursive=False)]
     total_banks = total_sounds = 0
     total_skipped = {}
     for f in files:
         try:
-            banks, sounds, skipped = convert(f, out)
+            banks, sounds, skipped = convert(f, a.out, a.cylinders)
         except ValueError as e:
             print(f"{f}: {e}")
             continue

@@ -6,10 +6,8 @@ Used by tools/crp2gltf.py (cars) and tools/track2gltf.py (tracks).
 import json
 import os
 import struct
-import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from refpack import decompress  # noqa: E402
+from archives import decompress
 
 INDEX_VERTEX = 0x4976  # "vI"
 INDEX_UV = 0x4975  # "uI"
@@ -54,6 +52,22 @@ def parse_crp(d):
     arts = [read_entry(d, start + 16 * i) for i in range(arti_count)]
     misc = [read_entry(d, start + 16 * (arti_count + i)) for i in range(misc_count)]
     return d, arts, misc
+
+
+def base_info(d, art):
+    """The article's Base entry: level count and levels (cars), the info bytes at 0x44 read as car
+    indices (geom, type, level index) and as a track object tag (4 characters: SIGN, CONE ...)."""
+    base = find(art.sub, "Base")
+    if base is None:
+        return None
+    o = base.data
+    count = struct.unpack_from("<I", d, o + 12)[0]
+    info = d[o + 0x44:o + 0x54]
+    raw = info[:4].rstrip(b"\0")
+    return {"geom_index": info[0], "type_index": info[1], "level_index": info[10],
+            "levels": [struct.unpack_from("<ihhhh", d, o + 0x64 + 12 * i)[3] for i in range(count)]
+            if base.length >= 0x64 + 12 * count else [],
+            "tag": raw.decode("latin1") if raw and all(32 <= c < 127 for c in raw) else ""}
 
 
 def entry_text(d, e):

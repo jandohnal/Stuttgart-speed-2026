@@ -34,7 +34,7 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 ## Fáze 1 – Data z originálu
 
 - [x] Inventura instalace ([data-inventory.md](data-inventory.md))
-- [x] Dekompresor EA RefPack ([tools/refpack.py](../tools/refpack.py)), ověřený na autě i trati
+- [x] Dekompresor EA RefPack ([tools/archives.py](../tools/archives.py)), ověřený na autě i trati
 - [x] Částečné dekódování `.sim` ([formats/sim.md](formats/sim.md))
 - [x] Zkopírovat assety hry do `sources/`
 - [x] Převod všech `.sim` do `decomposed/GameData/Simulation/cars.json`

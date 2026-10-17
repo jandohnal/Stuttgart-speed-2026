@@ -6,7 +6,7 @@ location: "GameData/Sounds/*.viv, *.bnk, *.spl"
 count: "42 .viv, 4 .bnk, 86 .spl"
 endianness: "BIGF big-endian, BNKl a CRDl little-endian, hodnoty v PT big-endian"
 status: partial
-tool: "tools/snd2wav.py (banky do WAV), tools/engine_sound.py (sady motorů pro hru)"
+tool: "tools/snd2wav.py (banky do WAV a sady motorů pro hru), tools/archives.py (BIGF)"
 updated: 2026-10-17
 ---
 
@@ -79,7 +79,7 @@ Převod: `python3 tools/snd2wav.py sources/GameData/Sounds decomposed/GameData/S
 
 Výklad z obsahu (sd1a): `*lt` mají v obou skupinách 4 smyčky v celém rozsahu not (41, 51, 57, 59) → **pod plynem** (load); `*ct` mají volnoběh (nota 29) a méně smyček → **bez plynu** (coast). `e*` = pohled zvenku, `c*` = z kokpitu. Dvě skupiny tabulky mají stejné noty (nejspíš dvě složky zvuku, např. výfuk a mechanika).
 
-`tools/engine_sound.py decomposed/GameData/Sounds` zapíše pro každou sadu `engine.json`: smyčky „load“ a „coast“ (z `elt` a `ect`) a otáčky, při kterých jsou nahrané. Otáčky z noty: frekvence noty = frekvence zážehů, čtyřválec zapaluje dvakrát za otáčku, ot/min = f × 30. Pro `sd1a` vychází volnoběh 1 310 a smyčky 2 620–7 410 ot/min, což sedí na 356 (omezovač 5 800). U jiných sad vychází přes 14 000, převod noty na otáčky je tedy u každé sady jiný (neurčeno).
+`tools/snd2wav.py` zapíše při převodu archivu sady motoru i `engine.json`: smyčky „load“ a „coast“ (z `elt` a `ect`) a otáčky, při kterých jsou nahrané. Otáčky z noty: frekvence noty = frekvence zážehů, čtyřválec zapaluje dvakrát za otáčku, ot/min = f × 30. Pro `sd1a` vychází volnoběh 1 310 a smyčky 2 620–7 410 ot/min, což sedí na 356 (omezovač 5 800). U jiných sad vychází přes 14 000, převod noty na otáčky je tedy u každé sady jiný (neurčeno).
 
 ## `.spl` (ladění zvuku auta)
 

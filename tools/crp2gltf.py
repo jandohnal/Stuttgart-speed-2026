@@ -17,14 +17,13 @@ import argparse
 import json
 import math
 import os
-from collections import Counter
 import re
 import struct
-import sys
+from collections import Counter
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import fsh2png  # noqa: E402
-from crp import article_mesh, entry_text, find, parse_crp, to_gltf, vectors, write_gltf  # noqa: E402
+import fsh2png
+from common import find_file
+from crp import article_mesh, base_info, entry_text, find, parse_crp, to_gltf, vectors, write_gltf
 
 # Detail levels: 1-2 showroom ("fe"), 3-7 in-game LODs ("ig"); 0x8000 = damaged copy.
 DAMAGED = 0x8000
@@ -32,14 +31,6 @@ BIL_DRIVER = 8
 # Damage zones as found on the 356 A (centroids of their vertices); car front is -Z, right +X.
 ZONE_NAMES = {0: "front_left", 1: "front", 2: "front_right", 3: "right", 4: "rear_right", 5: "rear",
               6: "rear_left", 7: "left", 8: "roof", 9: "bottom"}
-
-
-def parse_base(d, e):
-    o = e.data
-    level_count = struct.unpack_from("<I", d, o + 12)[0]
-    info = d[o + 0x44:o + 0x54]
-    levels = [struct.unpack_from("<ihhhh", d, o + 0x64 + 12 * i)[3] for i in range(level_count)]
-    return {"geom_index": info[0], "type_index": info[1], "level_index": info[10], "levels": levels}
 
 
 # Parts that can come off: name -> kind; doors are grouped per side by their pivot (tr).
@@ -170,9 +161,8 @@ def load_textures(d, misc, tpg_path, out_dir, stem):
             continue
         data = embedded.get(p["file"])
         if data is None and p.get("name"):  # shared textures (Suit, Head, Cabrio) live next to the .crp
-            ext = os.path.join(car_dir, os.path.splitext(p["name"])[0] + ".fsh")
-            alt = [f for f in os.listdir(car_dir) if f.lower() == os.path.basename(ext).lower()]
-            data = open(os.path.join(car_dir, alt[0]), "rb").read() if alt else None
+            path = find_file(car_dir, os.path.splitext(p["name"])[0] + ".fsh")
+            data = open(path, "rb").read() if path else None
         if data is None:
             continue
         images[i] = build_atlas(data, p["width"], p["height"])
@@ -198,11 +188,10 @@ def convert(src, out_path, level=1, include_all=False, tpg=None):
     materials = {e.index: struct.unpack_from("<i", d, e.data + 0x28)[0] for e in misc if e.tag == "mt"}
     nodes, skipped, zone_acc, detach = [], 0, {}, {}
     for art in arts:
-        name_e, base_e = find(art.sub, "Name"), find(art.sub, "Base")
-        if name_e is None or base_e is None or find(art.sub, "ef") is not None:
+        name_e, base = find(art.sub, "Name"), base_info(d, art)
+        if name_e is None or base is None or find(art.sub, "ef") is not None:
             continue
         name = entry_text(d, name_e)
-        base = parse_base(d, base_e)
         if not include_all and (base["type_index"] != 0 or (base["level_index"] >> 4) & BIL_DRIVER):
             skipped += 1
             continue

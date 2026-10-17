@@ -17,11 +17,11 @@ import math
 import os
 import re
 import struct
-import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import fsh2png  # noqa: E402
-from crp import article_matrix, article_mesh, entry_text, find, parse_crp, to_gltf, write_gltf  # noqa: E402
+import fsh2png
+import scn
+from common import find_file
+from crp import article_matrix, article_mesh, base_info, entry_text, find, parse_crp, to_gltf, write_gltf
 
 GROUPS = [
     ("road", r"^RD"),
@@ -29,8 +29,6 @@ GROUPS = [
     ("terrain", r"^(CNK|MESH|FARM|HILL|TOPOF|SECONDARY|CLIF)"),
 ]
 PLACED_MIN_DISTANCE = 50.0  # m
-BASE_TAG = 0x44  # Base: 4-character object tag (SIGN, CONE ...), the key into animdefs.txt
-COLLIDE_TYPES = {"ksmackable": "smackable", "kbox": "box", "kcylinder": "cylinder", "0": "none"}
 SIMD_SIZE = 80
 SEGMENT_GAP = 30.0  # m; slices are ~6 m apart, a bigger jump starts the next road segment (alternative routes)
 CENTERLINE = "__road_centerline"
@@ -49,54 +47,15 @@ def texture_files(src, d, misc, out_dir):
     if not os.path.exists(index_path):
         sn = find(misc, "sn")
         fsh_name = entry_text(d, sn) if sn else os.path.splitext(os.path.basename(src))[0] + ".fsh"
-        folder = os.path.dirname(src)
-        match = [f for f in os.listdir(folder) if f.lower() == fsh_name.lower()]
-        if not match:
+        fsh = find_file(os.path.dirname(src), fsh_name)
+        if fsh is None:
             return {}
-        fsh2png.convert(os.path.join(folder, match[0]), out_dir)
+        fsh2png.convert(fsh, out_dir)
     files = {}
     for e in json.load(open(index_path))["entries"]:
         if "file" in e:
             files.setdefault(e["name"], e["file"])
     return files
-
-
-def object_tag(d, art):
-    base = find(art.sub, "Base")
-    if base is None or base.length < BASE_TAG + 4:
-        return ""
-    raw = d[base.data + BASE_TAG:base.data + BASE_TAG + 4].rstrip(b"\0")
-    return raw.decode("latin1") if raw and all(32 <= c < 127 for c in raw) else ""
-
-
-def load_animdefs(folder):
-    """Object properties per tag from animdefs.txt: {tag: {"collide", "mass", "drivethrough"}}.
-
-    Only the top-level keys of each SECTION:ANIM are read; the first section of a tag wins."""
-    match = [f for f in os.listdir(folder) if f.lower() == "animdefs.txt"]
-    if not match:
-        return {}
-    text = re.sub(r"//[^\n]*", "", open(os.path.join(folder, match[0]), encoding="latin1").read())
-    defs = {}
-    for m in re.finditer(r"SECTION:ANIM\s*\{", text):
-        depth, j = 1, m.end()
-        while depth and j < len(text):
-            depth += {"{": 1, "}": -1}.get(text[j], 0)
-            j += 1
-        body = text[m.end():j - 1]
-        while True:  # drop nested sections, keep the top-level keys
-            flat = re.sub(r"SECTION:\w+\s*\{[^{}]*\}", "", body)
-            if flat == body:
-                break
-            body = flat
-        props = {k.lower(): v.strip() for k, v in re.findall(r"(\w+)\s*=\s*([^;]+);", body)}
-        tag = props.get("tag")
-        if not tag or tag in defs:
-            continue
-        defs[tag] = {"collide": COLLIDE_TYPES.get(props.get("collidetype", "0").lower(), "static"),
-                     "mass": float(props.get("mass", 0) or 0),
-                     "drivethrough": props.get("drivethrough", props.get("drivethru", "0")) == "1"}
-    return defs
 
 
 def road_slices(d, misc):
@@ -129,28 +88,14 @@ def road_segments(slices):
 
 
 def race_gates(src, slices):
-    """Start and finish lines from <track>_fstart.scn (TRIGGER_ELEMENT type 2 = start, 1 = finish).
-
-    Block lines: position; basis (forward, up, right: 9 floats); parameters (first int = type);
-    the two end points of the line (6 floats). Returns {"start": {...}, "finish": {...}} with the
-    nearest road slice."""
-    path = os.path.splitext(src)[0] + "_fstart.scn"
-    if not os.path.exists(path):
-        return {}
-    lines = [ln.split() for ln in open(path, encoding="latin1") if ln.strip()]
+    """Start and finish lines (scn.start_finish) in glTF space, each with the nearest road slice."""
     gates = {}
-    for i, ln in enumerate(lines):
-        if ln[0] != "TRIGGER_ELEMENT":
-            continue
-        kind = {"2": "start", "1": "finish"}.get(lines[i + 3][0])
-        if kind is None or kind in gates:
-            continue
-        pos = to_gltf([float(x) for x in lines[i + 1]])
-        basis = [float(x) for x in lines[i + 2]]
-        ends = [float(x) for x in lines[i + 4]]
+    for kind, trigger in scn.start_finish(src).items():
+        pos = to_gltf(trigger["position"])
+        ends = trigger["line"]
         nearest = min(range(len(slices)), key=lambda k: math.dist(slices[k]["position"], pos), default=-1)
         gates[kind] = {"slice": nearest, "position": [round(x, 4) for x in pos],
-                       "forward": [round(x, 4) for x in to_gltf(basis[0:3])],
+                       "forward": [round(x, 4) for x in to_gltf(trigger["basis"][0:3])],
                        "line": [[round(x, 4) for x in to_gltf(ends[k:k + 3])] for k in (0, 3)]}
     return gates
 
@@ -174,7 +119,7 @@ def centerline_prims(slices, segments, lift=0.05):
 
 def convert(src, out_path, level=0, library=False):
     d, arts, misc = parse_crp(open(src, "rb").read())
-    animdefs = load_animdefs(os.path.dirname(src))
+    animdefs = scn.read_animdefs(os.path.dirname(src))
     out_dir = os.path.dirname(os.path.abspath(out_path))
     os.makedirs(out_dir, exist_ok=True)
     stem = os.path.splitext(os.path.basename(out_path))[0]
@@ -217,7 +162,7 @@ def convert(src, out_path, level=0, library=False):
         offset, prims = mesh
         if placed:
             node = f"{len(props):03d} {name}"  # unique; _objects.json refers to it
-            tag = object_tag(d, art)
+            tag = base_info(d, art)["tag"]
             info = animdefs.get(tag, {"collide": "static" if not tag else "cylinder", "mass": 0.0, "drivethrough": False})
             props.append({"node": node, "name": name, "tag": tag, **info,
                           "position": [round(x, 3) for x in matrix[12:15]]})
