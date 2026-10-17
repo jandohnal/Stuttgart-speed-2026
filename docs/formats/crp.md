@@ -50,7 +50,7 @@ Za tabulkou článků následují rovnou položky misc.
 | `nm` | dtto | normály (f32 ×4) |
 | `uv` | úroveň | texturové souřadnice (f32 ×2) |
 | `pr` | úroveň << 12 \| číslo dílu | díl (trojúhelníky jednoho materiálu) |
-| `tr` | úroveň | matice 4×4 (f32), u aut jen posun (dveře, kapota, kola) |
+| `tr` | úroveň | matice 4×4 (f32, Direct3D, řádky = osy, posun ve floatech 12–14); u aut jen posun (dveře, kapota, kola), u objektů tratí úplné umístění (rotace, měřítko, poloha) |
 | `$n` | úroveň | culling |
 | `dz` | úroveň | zóny poškození |
 | `ef` | | efekt (světlo, odlesk) – nemá geometrii |
@@ -61,7 +61,7 @@ Za tabulkou článků následují rovnou položky misc.
 
 | Offset | Typ | Význam |
 | --- | --- | --- |
-| 0x00 | u16 | typ primitivy: 3 = seznam trojúhelníků, 1 = pruh (triangle strip), 4 = bez indexů (zatím nečteno) |
+| 0x00 | u16 | typ primitivy: 3 = seznam trojúhelníků, 1 = pruh (triangle strip), 4 = seznam čtyřúhelníků |
 | 0x02 | i16 | 0x200 textura, \| 1 okno |
 | 0x04 | i16 | index materiálu (`mt` v misc) |
 | 0x08 | f32[4] | obalová koule |
@@ -70,7 +70,11 @@ Za tabulkou článků následují rovnou položky misc.
 | … | 8 B × m | indexový řádek: index, typ (`vI` 0x4976 vrcholy, `uI` 0x4975 UV), offset do pole indexů |
 | … | u8 × m × počet | indexy (1 bajt!) |
 
-Index vrcholu = bajt + (offset info řádku typu 0) / 16, index UV = bajt + (offset typu 2) / 8. U typu 3 tvoří každé 3 indexy trojúhelník. U pruhu (typ 1) tvoří trojúhelník každá trojice sousedních indexů, liché trojúhelníky mají prohozené první dva vrcholy (stejné pořadí oběhu) a trojúhelníky s opakovaným vrcholem se zahazují. Auta mají jen typ 3. Tratě mají pruhy v terénu: farmland 72 dílů, skidpad 13, často s počtem indexů nedělitelným třemi. Dokud se četly jako seznam, posunuly všechny další trojúhelníky téhož materiálu a v terénu byly díry a rubové plochy (ověřeno snímkem u řezu 1284). Pruh potvrzuje orientace: 91 % jeho trojúhelníků míří nahoru, při čtení jako seznam 50 %. Typ 4 mají hlavně objekty knihovny (cedule, krabice, postava), 28 dílů. Levá a pravá polovina dílu bývají dva díly se stejnými UV, ale jiným materiálem.
+Index vrcholu = bajt + (offset info řádku typu 0) / 16, index UV = bajt + (offset typu 2) / 8. U typu 3 tvoří každé 3 indexy trojúhelník. U pruhu (typ 1) tvoří trojúhelník každá trojice sousedních indexů, liché trojúhelníky mají prohozené první dva vrcholy (stejné pořadí oběhu) a trojúhelníky s opakovaným vrcholem se zahazují. Auta mají jen typ 3. Tratě mají pruhy v terénu: farmland 72 dílů, skidpad 13, často s počtem indexů nedělitelným třemi. Dokud se četly jako seznam, posunuly všechny další trojúhelníky téhož materiálu a v terénu byly díry a rubové plochy (ověřeno snímkem u řezu 1284). Pruh potvrzuje orientace: 91 % jeho trojúhelníků míří nahoru, při čtení jako seznam 50 %.
+
+Typ 4 je seznam čtyřúhelníků: každé 4 po sobě jdoucí rohy jsou jeden čtyřúhelník (v rovině: odchylka 0–0,03 proti 0,22 u posunutých čtveřic), převádí se na trojúhelníky (a, b, c) a (a, c, d). Mají ho hlavně objekty knihovny (desky dopravních značek, krabice, postava, vrtulník v alps), farmland 28 dílů.
+
+**Díly bez indexových řádků** (typ 3 i 4, délka položky jen 0x30 + 4 info řádky): vrcholy a UV jdou za sebou od offsetů v info řádcích 0 a 2 (např. `Sweeper`, typ 3, 252 + 240 vrcholů). Auto 356 má takové 2 trojúhelníky. Levá a pravá polovina dílu bývají dva díly se stejnými UV, ale jiným materiálem.
 
 ### Misc
 
@@ -121,7 +125,25 @@ Stejný kontejner (`"karT"`), stejné články `Arti` s `Name`, `Base`, `vt`, `u
 
 Podle jména: `RD…` silnice, `CNK…` krajina po úsecích (v závorce obsah, např. `GRDRAILNPOST_LOD0`, `TREE11_LOD0`), `MESH`, `FARMMID`, `HILL` terén, `tree`, `OAK`, `SHRUB(S)`, `TREEWALL` vegetace, ostatní objekty.
 
-Články s `tr` jsou **knihovna objektů** (kužele, auta, lidé, šipky …): leží v počátku s nulovým posunem a ve hře se rozmisťují jinde (pozice zatím neznámé). Odpovídají jim cesty v misc `Desc` (`I:\NFS5Tracks\ModelLibrary\Objects\Smackable\…`). Skidpad: 70 článků, 41 z nich má geometrii.
+Články s `tr` jsou **objekty** s vlastní maticí; vrcholy mají v lokálních souřadnicích. Odpovídají jim cesty v misc `Desc` (`I:\NFS5Tracks\ModelLibrary\Objects\Smackable\…`). Jsou dvojího druhu:
+
+- **Rozmístěné**: `tr` nese skutečnou polohu na trati (vodorovně dál než 50 m od počátku). Farmland 72: 66 dopravních značek (`OBJ0048R (1 curveleft_Rigid1_SGN)` …, značka SIGN), 4 ležící sloupy (`COLUMN_HORIZONTAL`, CLMH) a 2 animované „sweepery“ (SWEE, `Anim`/`Anqt`).
+- **Předlohy**: v počátku, jen s malým posunem pivotu (úlomky bedny ±0,7 m, šipky 13 m nahoře). Kužel, auta provozu, nákladní auta, lidé, bedny, šipky, cílová čára, hydrant … Rozmisťují je úlohy (`GEOM_ELEMENT` v `<trať>_st*.scn`, [scn.md](scn.md)) a nejspíš provoz. Farmland 70, skidpad 70 (rozmístěné nemá žádné).
+
+### `Base` článku (trať, 112 B; silnice 136 B)
+
+| Offset | Typ | Význam | Příklad |
+| --- | --- | --- | --- |
+| 0x00 | u16 | příznaky: 0x0601 objekt, 0x0610 animovaný objekt, 0x0611 terén, 0x8601/0x8610 předloha | |
+| 0x0C | i32 | počet úrovní detailu | silnice 3, ostatní 1 |
+| 0x14 | f32[3] | obalový kvádr min | |
+| 0x20 | f32[3] | obalový kvádr max | |
+| 0x2C | f32[3] | střed | |
+| 0x38 | f32 | 1.0 | |
+| 0x3C, 0x40 | f32 | poloměr obalové koule (2×) | značka 1,94 m |
+| 0x44 | char[4] | **značka objektu** = klíč do `animdefs.txt` (kolize, hmotnost, zvuk) a do `GEOM_ELEMENT` v `.scn` | `SIGN`, `CONE`, `SWEE`, `FNSH`, `CLMH`, `BUS` |
+
+Terén a silnice mají značku prázdnou.
 
 ### Misc
 
@@ -171,10 +193,12 @@ python3 tools/track2gltf.py sources/GameData/Track/skidpad.crp decomposed/GameDa
 ```
 
 - Výstup: `.gltf` + `.bin` + `<trať>_road.json` (všechny řezy `SimD`, `segments` = úseky `{first, last, length_m, closed}`, `start`/`finish` z `_fstart.scn` s nejbližším řezem); textury jsou PNG z `fsh2png` ve stejné složce (chybí-li `index.json`, převedou se).
-- Uzly ve skupinách `road`, `terrain`, `vegetation`, `objects`, `simd` (červený poloprůhledný pás podle `SimD` pro kontrolu), s `--library` i `library` (objekty v řadě na z = −60 m).
+- Uzly ve skupinách `road`, `terrain`, `vegetation`, `objects`, `props` (rozmístěné objekty s maticí `tr`, jméno uzlu začíná pořadím `000 …`), `simd` (červený poloprůhledný pás podle `SimD` pro kontrolu), s `--library` i `library` (předlohy v řadě na z = −60 m).
+- `<trať>_objects.json`: pro každý uzel `props` jméno, značka, typ kolize (`smackable`, `box`, `cylinder`, `none`, `static`), hmotnost a průjezdnost z `animdefs.txt`, poloha.
+- Matice `tr` se zrcadlí stejně jako vrcholy: S·M·S se S = diag(−1, 1, 1, 1), tedy změna znaménka u prvků 1, 2, 3, 4, 8, 12. Těch 16 floatů čtených po sloupcích je přímo matice glTF.
 - `--level` 0–3 (skidpad: 7 314 / 2 636 trojúhelníků pro úroveň 0 / 2).
 - Metry, osa Y nahoru, osa X zrcadlená z levotočivých dat (viz výše, týká se i vektorů `SimD`). `Opaque` → neprůhledné, ostatní render metody → alpha MASK.
 - Zkontrolováno renderem v Blenderu (pohled shora a zblízka): trať, pneumatikové zdi, pole, stromy, budovy i textury sedí.
-- Farmland (Normandie, „French Farmland“): 997 článků (silnice 239, terén 367, vegetace 216, objekty 174), 65 664 trojúhelníků, 244/245 textur, 1 995 řezů v 10 úsecích, knihovna 142 článků. Ve hře (Godot) ověřeno jízdou a snímky.
+- Farmland (Normandie, „French Farmland“): silnice 239, terén 367, vegetace 216, objekty 175, rozmístěné objekty 72, předlohy 70; 66 538 trojúhelníků, 244/245 textur, 1 995 řezů v 10 úsecích. Ve hře (Godot) ověřeno jízdou, snímky a nárazem do dopravní značky.
 - Trojúhelníky otočené dolů (18 % vodorovných v terénu) jsou koruny stromů nad silnicí a střechy (materiály `cbb`, `shrb`, 3 m a víc nad silnicí), jsou tedy správně. Materiály jsou oboustranné.
-- Zbývá: díly typu 4, ostatních 13 tratí, význam `df`, šířek a příznaků `SimD`, rozmístění knihovny objektů, animace, `Vis`, `CmAn`.
+- Zbývá: ostatních 13 tratí, význam `df`, šířek a příznaků `SimD`, animace (`Anim`, `Anqt`, snímky `vt` s indexem animace), předlohy z úloh (`.scn`), `Vis`, `CmAn`.

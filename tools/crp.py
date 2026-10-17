@@ -13,7 +13,8 @@ from refpack import decompress  # noqa: E402
 
 INDEX_VERTEX = 0x4976  # "vI"
 INDEX_UV = 0x4975  # "uI"
-PRIM_STRIP = 1  # pr header u16 at 0x00: 3 = triangle list, 1 = triangle strip, 4 = unindexed (not read)
+PRIM_STRIP = 1  # pr header u16 at 0x00: 3 = triangle list, 1 = triangle strip, 4 = quad list
+PRIM_QUADS = 4
 
 
 class Entry:
@@ -101,6 +102,30 @@ def to_gltf(v):
     return (-v[0], v[1], v[2])
 
 
+def quads_to_list(corners):
+    """Unindexed quad list (4 consecutive corners each) -> list of corner triples."""
+    out = []
+    for i in range(0, len(corners) - 3, 4):
+        a, b, c, e = corners[i:i + 4]
+        out += [a, b, c, a, c, e]
+    return out
+
+
+def article_matrix(d, art):
+    """The article's tr matrix (placed objects) as a glTF column-major matrix, mirrored like to_gltf.
+
+    tr holds a Direct3D row-vector matrix (rows = axes, translation in floats 12..14); the same 16
+    floats read column-major give the glTF matrix, and S M S with S = diag(-1, 1, 1, 1) flips the
+    elements that mix X with another axis."""
+    tr = find(art.sub, "tr")
+    if tr is None:
+        return None
+    m = list(struct.unpack_from("<16f", d, tr.data))
+    for i in (1, 2, 3, 4, 8, 12):
+        m[i] = -m[i]
+    return m
+
+
 def article_mesh(d, art, level, part_level, materials):
     """Return (translation, {material key: (positions, normals, uvs, indices)}) or None.
 
@@ -125,17 +150,22 @@ def article_mesh(d, art, level, part_level, materials):
             break
         part_no += 1
         prim, mat, infos, rows, raw = parse_part(d, pe)
-        if INDEX_VERTEX not in rows:
-            continue
-        vt_off, vt_adj = rows[INDEX_VERTEX], infos.get(0, 0)
-        uv_off, uv_adj = rows.get(INDEX_UV), infos.get(2, 0)
         key = materials.get(mat, -1)
+        if INDEX_VERTEX not in rows:
+            # No index rows: vertices and UVs run on from the offsets in the info rows.
+            vt_adj, uv_adj = infos.get(0, 0), infos.get(2, 0)
+            corners = [(vt_adj + k, uv_adj + k if uvs is not None else -1) for k in range(pe.count)]
+        else:
+            vt_off, vt_adj = rows[INDEX_VERTEX], infos.get(0, 0)
+            uv_off, uv_adj = rows.get(INDEX_UV), infos.get(2, 0)
+            corners = [(raw[vt_off + k] + vt_adj,
+                        raw[uv_off + k] + uv_adj if uvs is not None and uv_off is not None else -1)
+                       for k in range(pe.count)]
         pos, nrm, tex, idx, seen = prims.setdefault(key, ([], [], [], [], {}))
-        corners = [(raw[vt_off + k] + vt_adj,
-                    raw[uv_off + k] + uv_adj if uvs is not None and uv_off is not None else -1)
-                   for k in range(pe.count)]
         if prim == PRIM_STRIP:
             corners = strip_to_list(corners)
+        elif prim == PRIM_QUADS:
+            corners = quads_to_list(corners)
         else:
             corners = corners[:len(corners) - len(corners) % 3]
         for t in range(0, len(corners), 3):
@@ -180,7 +210,8 @@ def smooth_normals(pos, idx):
 def write_gltf(out_path, nodes_data, material_spec, generator):
     """Write <out>.gltf + <out>.bin.
 
-    nodes_data: list of dicts {name, offset, prims, group (optional)}; nodes with a group become
+    nodes_data: list of dicts {name, offset, prims, group (optional), matrix (optional, glTF
+    column-major, replaces offset)}; nodes with a group become
     children of one empty node per group.
     material_spec(key) -> {"name": str, "uri": png file or None, "alpha": glTF alphaMode or None}.
     """
@@ -236,7 +267,9 @@ def write_gltf(out_path, nodes_data, material_spec, generator):
                 "material": material(key)})
         gl["meshes"].append(mesh)
         node = {"name": nd["name"], "mesh": len(gl["meshes"]) - 1}
-        if any(nd["offset"]):
+        if nd.get("matrix"):
+            node["matrix"] = list(nd["matrix"])
+        elif any(nd["offset"]):
             node["translation"] = list(nd["offset"])
         node_i = len(gl["nodes"])
         gl["nodes"].append(node)

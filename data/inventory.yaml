@@ -58,7 +58,8 @@ items:
     count: 94
     format: ini/text
     status: readable
-    notes: "Tónování, zvukové prvky, kamery, startovní pozice, vlastnosti objektů (hmotnost, průjezdnost)"
+    doc: docs/formats/scn.md
+    notes: "Tónování, zvukové prvky, kamery, startovní pozice, vlastnosti objektů (hmotnost, průjezdnost). .scn: GEOM_ELEMENT (značka objektu jako 4CC), TRIGGER_ELEMENT (start/cíl); animdefs.txt: collideType, mass podle značky"
     use: "Předloha atmosféry a interakce s objekty"
 
   - id: crp_container
@@ -92,7 +93,7 @@ items:
     tool: tools/track2gltf.py
     output: "decomposed/GameData/Track/<trať>/<trať>.gltf + <trať>_road.json"
     status: partial
-    notes: "Ověřeno na skidpad a farmland (Normandie). SimD = řezy silnice (pozice, vektory, šířky) v úsecích, start/cíl z *_fstart.scn"
+    notes: "Ověřeno na skidpad a farmland (Normandie). SimD = řezy silnice (pozice, vektory, šířky) v úsecích, start/cíl z *_fstart.scn, rozmístěné objekty z matice tr se značkou v Base 0x44 (*_objects.json)"
     use: "Jen náhled pro inspiraci stylem (D-005)"
 
   - id: track_binary_data

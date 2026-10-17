@@ -2,11 +2,12 @@ extends Node3D
 ## Phase 2 prototype (D-009): the original 356 A on an original track (farmland = Normandie by
 ## default, or skidpad), both loaded at run time from decomposed/. Track: project setting
 ## stuttgart/track, overridden by the user argument --track=<name>; --slice=<n> starts on road
-## slice n instead of the start line; --windowed=1 keeps a window. F3 toggles the steering assist,
+## slice n instead of the start line; --windowed=1 keeps a window. F3 toggles the steering assist, F4 the ABS,
 ## F11 full screen. F2 records telemetry to
 ## user://telemetry_*.csv for comparing with the original game.
 
 const DEFAULT_TRACK := "farmland"
+const TrackProps := preload("res://scripts/track_props.gd")
 const CAR_MODEL := "GameData/CarModel/356a/356a.gltf"
 const CAR_PHYSICS := "GameData/Simulation/cars.json"
 const CAR_KEY := "356Acoupe16"
@@ -20,6 +21,7 @@ const ACTIONS := {
 	"reset_car": [KEY_R],
 	"telemetry": [KEY_F2],
 	"steering_assist": [KEY_F3],
+	"brake_assist": [KEY_F4],
 	"fullscreen": [KEY_F11],
 }
 const LOG_FIELDS := ["time", "speed_kmh", "rpm", "gear", "throttle", "brake", "steer_deg", "lat_g", "long_g"]
@@ -31,6 +33,7 @@ var track_name := ""
 var road_slices: Array = []
 var road_segments: Array = []
 var start_slice := 0
+var prop_counts := {}  ## placed objects per collision type (TrackProps)
 var _log: FileAccess
 var _log_time := 0.0
 
@@ -51,6 +54,9 @@ func _ready() -> void:
 	if track != null:
 		add_child(track)
 		_add_track_collision(track)
+		var objects: Variant = OriginalAssets.load_json(folder + track_name + "_objects.json")
+		if objects is Dictionary:
+			prop_counts = TrackProps.build(track, objects["objects"])
 		var simd := track.find_child("simd", true, false) as Node3D
 		if simd != null:
 			simd.visible = false  # road data overlay from track2gltf, only for checking
@@ -102,6 +108,11 @@ func _add_track_collision(track: Node3D) -> void:
 			continue
 		for child in node.find_children("*", "MeshInstance3D", true, false):
 			(child as MeshInstance3D).create_trimesh_collision()
+		# Two-sided: objects resting on the thin terrain must not drop through its back.
+		for shape in node.find_children("*", "CollisionShape3D", true, false):
+			var concave := (shape as CollisionShape3D).shape as ConcavePolygonShape3D
+			if concave != null:
+				concave.backface_collision = true
 
 
 func _reset_car(slice_index: int) -> void:
@@ -151,6 +162,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		_toggle_log()
 	elif event.is_action_pressed("steering_assist"):
 		car.steering_assist = not car.steering_assist
+	elif event.is_action_pressed("brake_assist"):
+		car.brake_assist = not car.brake_assist
 	elif event.is_action_pressed("fullscreen"):
 		var full := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if full else DisplayServer.WINDOW_MODE_FULLSCREEN)

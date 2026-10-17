@@ -23,6 +23,7 @@ const AIR_DENSITY := 1.225
 @export var grip_base := 0.444  ## mu = grip_base + grip_per_sim * 0x0F4 (356 A 1.15 -> 0.85, 2.0 -> 1.15)
 @export var grip_per_sim := 0.353
 @export var peak_slip_ratio := 0.12  ## longitudinal slip with the most force
+@export var rear_grip := 1.12  ## rear tyre grip vs front (axle geometry, tyre pressures): mild understeer, lost under braking
 @export var slide_grip := 0.75  ## share of the peak force left when fully sliding
 @export var load_sensitivity := 0.1  ## mu drops by this share per +100 % load over the static load
 @export var rolling_resistance := 0.015  ## times the wheel load
@@ -32,8 +33,24 @@ const AIR_DENSITY := 1.225
 @export var wheel_substeps := 8
 @export var max_steer_deg := 30.0
 @export var steering_assist := true  ## limit front wheel angle to the tyres' peak slip angle
+@export var brake_assist := true  ## ABS: wheels do not lock under the foot brake (the original does not lock them)
+@export var abs_slip := 0.8  ## ABS releases a front wheel above this share of the peak slip ratio (keeps steering)
+@export var abs_slip_rear := 1.2  ## same for the rear, past the peak: the unloaded rear slides and steps out but does not lock
 @export var assist_margin := 1.1  ## allowed front slip angle, times the peak slip angle
-@export var steer_rate := 2.5  ## rad/s
+@export var steer_rate := 4.0  ## rad/s, how fast the front wheels follow the (filtered) steering input
+@export_group("Keyboard input")
+## Keys are on/off: like the arcade racers of the time, the pedals and the steering wheel move
+## gradually while a key is held. Off for analog input (gamepad, wheel) and physics tests.
+@export var digital_input := true
+@export var throttle_rise_time := 0.3  ## s from 0 to full throttle
+@export var throttle_fall_time := 0.1
+@export var brake_rise_time := 0.6  ## s from 0 to full brake: a tap only brushes the brakes
+@export var brake_fall_time := 0.15
+@export var steer_time_slow := 0.25  ## s from centre to full lock at a standstill
+@export var steer_time_fast := 0.8  ## s from centre to full lock at steer_fast_speed
+@export var steer_fast_speed := 41.7  ## m/s (150 km/h)
+@export var steer_return_time := 0.2  ## s from full lock back to centre
+@export_group("")
 @export var brake_decel_g := 0.8  ## brake torque, as deceleration it would give without slip (drums ~0.8 g)
 @export var drivetrain_efficiency := 0.85
 @export var drag_area := 0.6  ## Cd * frontal area, m2 (356: ~0.37 * 1.6)
@@ -69,6 +86,9 @@ var telemetry: Dictionary = {}
 
 var _shift_timer := 0.0
 var _since_shift := 10.0
+var _accel_key := 0.0  ## keyboard pedal values after the ramps
+var _brake_key := 0.0
+var _steer_key := 0.0
 var _clutch_slipping := false  ## engine still being pulled to the new gear after a shift
 var _last_velocity := Vector3.ZERO
 
@@ -144,6 +164,9 @@ func reset_to(xf: Transform3D) -> void:
 	_clutch_slipping = false
 	for w in wheels:
 		w.omega = 0.0
+	_accel_key = 0.0
+	_brake_key = 0.0
+	_steer_key = 0.0
 
 
 # --- setup helpers -----------------------------------------------------------------------
@@ -278,25 +301,47 @@ func _physics_process(delta: float) -> void:
 
 
 func _read_input(delta: float) -> void:
-	var accel := Input.get_action_strength("accelerate")
-	var brk := Input.get_action_strength("brake")
+	var accel_raw := Input.get_action_strength("accelerate")
+	var brk_raw := Input.get_action_strength("brake")
+	var steer_raw := Input.get_action_strength("steer_left") - Input.get_action_strength("steer_right")
+	var accel := accel_raw
+	var brk := brk_raw
+	var steer_input := steer_raw
+	if digital_input:
+		# In reverse the keys swap roles, so each key ramps as the pedal it currently drives.
+		var accel_is_brake := gear == -1
+		_accel_key = _ramp(_accel_key, accel_raw, brake_rise_time if accel_is_brake else throttle_rise_time,
+			brake_fall_time if accel_is_brake else throttle_fall_time, delta)
+		_brake_key = _ramp(_brake_key, brk_raw, throttle_rise_time if accel_is_brake else brake_rise_time,
+			throttle_fall_time if accel_is_brake else brake_fall_time, delta)
+		accel = _accel_key
+		brk = _brake_key
+		var away := absf(steer_raw) > absf(_steer_key) and signf(steer_raw) == signf(_steer_key) or _steer_key == 0.0
+		var turn_time := lerpf(steer_time_slow, steer_time_fast, clampf(absf(forward_speed) / steer_fast_speed, 0.0, 1.0))
+		_steer_key = move_toward(_steer_key, steer_raw, delta / (turn_time if away else steer_return_time))
+		steer_input = _steer_key
 	handbrake = Input.is_action_pressed("handbrake")
 	if gear == -1:
 		throttle = brk
 		brake = accel
-		if accel > 0.1 and forward_speed > -0.5:
+		if accel_raw > 0.1 and forward_speed > -0.5:
 			gear = 1
 	else:
 		throttle = accel
 		brake = brk
-		if brk > 0.1 and accel < 0.1 and absf(forward_speed) < 0.5:
+		if brk_raw > 0.1 and accel_raw < 0.1 and absf(forward_speed) < 0.5:
 			gear = -1  # arcade style: holding brake at standstill reverses
-	var steer_input := Input.get_action_strength("steer_left") - Input.get_action_strength("steer_right")
 	var lock := deg_to_rad(max_steer_deg)
 	var target := steer_input * lock
 	if steering_assist:
 		target = _assisted_steer(target, lock)
 	steer = move_toward(steer, target, steer_rate * delta)
+
+
+## Moves a key's pedal value towards the key state: rise_time from 0 to 1, fall_time back.
+func _ramp(value: float, target: float, rise_time: float, fall_time: float, delta: float) -> float:
+	var time := rise_time if target > value else fall_time
+	return move_toward(value, target, delta / maxf(time, 0.001))
 
 
 ## Steering assist: keeps the front wheels within assist_margin x peak slip angle of the
@@ -417,6 +462,8 @@ func _update_contact(w: Wheel, delta: float) -> void:
 func _apply_wheel(w: Wheel, delta: float, drive_torque: float, inertia: float) -> void:
 	var brake_torque := brake * brake_decel_g * mass * GRAVITY * wheel_radius \
 		* (brake_front_bias if w.front else 1.0 - brake_front_bias) / 2.0
+	var abs_on := brake_assist and (w.front or not handbrake)
+	var abs_limit := (abs_slip if w.front else abs_slip_rear) * peak_slip_ratio
 	if handbrake and not w.front:
 		brake_torque = maxf(brake_torque, mass * GRAVITY * wheel_radius)
 	if throttle < 0.05 and absf(forward_speed) < 0.5:
@@ -452,7 +499,7 @@ func _apply_wheel(w: Wheel, delta: float, drive_torque: float, inertia: float) -
 	var v_lat := v.dot(right)
 	var static_load := mass * GRAVITY / 4.0
 	var load_factor := 1.0 - load_sensitivity * (w.normal_load / static_load - 1.0)
-	var max_force := mu * clampf(load_factor, 0.5, 1.2) * w.normal_load
+	var max_force := mu * (1.0 if w.front else rear_grip) * clampf(load_factor, 0.5, 1.2) * w.normal_load
 	# Slip angle with a speed floor: at a standstill the tyre acts as a stiff damper.
 	w.slip_angle = atan2(v_lat, maxf(absf(v_long), 3.0))
 	var slip_y := tan(w.slip_angle) / tan(peak_slip_angle)
@@ -462,8 +509,12 @@ func _apply_wheel(w: Wheel, delta: float, drive_torque: float, inertia: float) -
 	var h := delta / steps
 	var f := Vector2.ZERO
 	for i in steps:
-		var tyre := _tyre_force((w.omega * wheel_radius - v_long) / maxf(absf(v_long), 2.0), slip_y, max_force)
-		w.omega = _spin_wheel(w.omega, drive_torque - tyre.x * wheel_radius, brake_torque, inertia, h)
+		var slip := (w.omega * wheel_radius - v_long) / maxf(absf(v_long), 2.0)
+		var tyre := _tyre_force(slip, slip_y, max_force)
+		var braking := brake_torque
+		if abs_on and absf(v_long) > 1.0 and slip * signf(v_long) < -abs_limit:
+			braking = 0.0  # ABS: release this substep, the wheel spins back up
+		w.omega = _spin_wheel(w.omega, drive_torque - tyre.x * wheel_radius, braking, inertia, h)
 		f += tyre
 	f /= steps
 	w.slip_ratio = (w.omega * wheel_radius - v_long) / maxf(absf(v_long), 2.0)
@@ -515,6 +566,7 @@ func _update_telemetry(delta: float) -> void:
 		"brake": snappedf(brake, 0.01),
 		"steer_deg": snappedf(rad_to_deg(steer), 0.1),
 		"assist": steering_assist,
+		"abs": brake_assist,
 		"lat_g": snappedf(local.x / GRAVITY, 0.001),
 		"long_g": snappedf(-local.z / GRAVITY, 0.001),
 	}

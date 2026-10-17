@@ -40,6 +40,7 @@ func _ready() -> void:
 	main.track_name = main._track_from_args() if _has_track_arg() else "skidpad"
 	add_child(main)
 	car = main.get_node("Car") as Car
+	car.digital_input = false  # the scripted driver is analog; measure the car, not the key ramps
 	car.contact_monitor = true
 	car.max_contacts_reported = 8
 
@@ -51,6 +52,8 @@ func _physics_process(delta: float) -> void:
 	prev_speed = speed
 	for body in car.get_colliding_bodies():
 		var what := "%s/%s" % [body.get_parent().get_parent().name, body.get_parent().name]
+		if body.get_parent().name == "props":
+			what = "props/%s" % body.name
 		var entry := "%s at %.1f s (%s, %s), %.0f km/h" % [what, t, phase, car.global_position.snapped(Vector3.ONE * 0.1), speed]
 		if collisions.size() < 10 and not collisions.has(entry) and not ",".join(collisions).contains(what):
 			collisions.append(entry)
@@ -190,8 +193,8 @@ func _finish() -> void:
 			track_parts += child.get_child_count()
 	print("DRIVE TEST")
 	print("  car: %s, %.0f kg, wheel radius %.3f m" % [car.params.get("name", "?"), car.mass, car.wheel_radius])
-	print("  track %s: groups loaded %d, road slices %d, start slice %d" % [
-		main.track_name, track_parts, main.road_slices.size(), main.start_slice])
+	print("  track %s: groups loaded %d, road slices %d, start slice %d, props %s" % [
+		main.track_name, track_parts, main.road_slices.size(), main.start_slice, main.prop_counts])
 	print("  settle: ", settle_report)
 	print("  0-100 km/h: %s" % ("%.1f s" % t_100 if t_100 >= 0.0 else "not reached"))
 	print("  speed after %.0f s: %.0f km/h (max %.0f), max lateral %.2f g" % [ACCEL_TIME, end_speed, top_speed, max_lat_g])

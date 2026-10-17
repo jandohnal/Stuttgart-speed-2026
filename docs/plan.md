@@ -46,7 +46,8 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Převod CSV nastavení AI do JSON ([tools/ai_csv2json.py](../tools/ai_csv2json.py))
 - [x] Exportér tratí CRP → glTF + data silnice `SimD`, zatím skidpad ([tools/track2gltf.py](../tools/track2gltf.py))
 - [x] Exportér tratí: farmland (Normandie), úseky `SimD` a start/cíl z `_fstart.scn`
-- [ ] Exportér tratí: ostatních 13 tratí, význam šířek `SimD`, spojení úseků (`.jnc`), rozmístění knihovny objektů
+- [x] Objekty kolem trati: umístění z matice `tr`, značka v `Base` 0x44, vlastnosti z `animdefs.txt`, díly typu 4 a bez indexů ([formats/scn.md](formats/scn.md))
+- [ ] Exportér tratí: ostatních 13 tratí, význam šířek `SimD`, spojení úseků (`.jnc`), předlohy z úloh (`_stNN.scn`), animace objektů
 - [ ] Spustit originál na Macu přes Wine jako referenci
 
 ## Fáze 2 – Prototyp jízdy
@@ -57,9 +58,10 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Import vybrané trati z `decomposed/` (glTF + data silnice `SimD`), kolize z geometrie
 - [x] Skutečná trať pro jízdní pocit: farmland (Normandie), start na startovní čáře originálu
 - [x] Raycast podvozek, model pneumatik, motor a převodovka z dat JSON (pneumatiky: skluz, rotace kol, setrvačnost motoru; 0–100 km/h 15,8 s proti reálným ~16 s)
-- [ ] Doladit pneumatiky a řízení proti originálu přes Wine (přilnavost 0x0F4 a setrvačnost 0x058 jsou hypotézy), asistent řízení pro klávesnici hotový (F3)
+- [ ] Doladit pneumatiky a řízení proti originálu přes Wine (přilnavost 0x0F4 a setrvačnost 0x058 jsou hypotézy), asistent řízení pro klávesnici hotový (F3); ABS (F4) a zadní přilnavost 1,12 naladěné podle ruční jízdy proti originálu (smyk zádí při brzdění v zatáčce); klávesy s náběhem pedálů a volantu jako v tehdejších hrách
 - [x] HUD: kulatý rychloměr (s počítadlem km) a otáčkoměr v klasickém stylu (kreslené procedurálně, stupnice z dat auta, ručička s tlumenou setrvačností); otáčky motoru při řazení klesají a stoupají plynule (spojka)
-- [ ] Kolize a zóny poškození, deformace meshe
+- [x] Kolize s objekty kolem trati: sražitelné značky (dynamická tělesa s původní hmotností), ostatní statické
+- [ ] Zóny poškození auta, deformace meshe
 - [ ] Srovnávací jízdy s originálem přes Wine: zrychlení, brzdná dráha, rychlost v zatáčkách
 - [ ] Rozhodnout definitivně o enginu (D-002)
 
