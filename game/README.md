@@ -59,7 +59,7 @@ Samostatně spuštěná hra běží přes celou obrazovku (ne v náhledu editoru
 | `scripts/main.gd` | načtení trati (kolize z mesh skupin `road`, `terrain`, `objects`), auta, start na řezu silnice, ovládání, záznam telemetrie |
 | `scripts/car.gd` | auto: raycast podvozek nad `RigidBody3D` (D-003), motor a automatická převodovka z `cars.json`, model pneumatik (skluz, rotace kol, setrvačnost motoru) |
 | `scripts/follow_camera.gd`, `scripts/hud.gd` | kamera za autem, údaje o jízdě |
-| `scripts/car_damage.gd` | poškození: impulsy kontaktů karoserie sečtené za prvních 0,1 s nárazu, nad prahem promáčknou zóny u bodu nárazu (blend shapes `dz0`–`dz9` z `<auto>_damage.json`); při 100 % zóny odpadnou její díly jako volná tělesa; následky čte `car.gd` |
+| `scripts/car_damage.gd` | poškození: impulsy kontaktů karoserie sečtené za prvních 0,1 s nárazu, nad prahem promáčknou zóny u bodu nárazu (blend shapes `dz0`–`dz9` z `<auto>_damage.json`); díly odpadají nebo visí na pantech (`HingeJoint3D`); následky čte `car.gd` |
 | `scripts/track_props.gd` | fyzika objektů kolem trati (skupina `props`, `<trať>_objects.json`): sražitelné jako `RigidBody3D` s původní hmotností, zmrazené, dokud se nepřiblíží pohyblivé těleso (1 m), ostatní statické; kolize z konvexního obalu, ploché jako kvádr 10 cm |
 | `scripts/gauge.gd` | kulatý budík (otáčkoměr, rychloměr) kreslený v `_draw()`; stupnice nastaví `hud.gd` podle redline a převodů auta |
 
@@ -95,12 +95,13 @@ Samotný náběh brzdy chování originálu nevyvolá, bez ABS přední kola po 
 - motor (356: zóny zádě): moment −35 %,
 - průměrné poškození: odpor vzduchu +15 %,
 - předek uprostřed: rejstřík řízení −20 %,
-- **odpadající díly**: při 100 % zóny odpadnou díly, které v ní mají nejvíc vrcholů (kapota → předek uprostřed, víko motoru → záď uprostřed, dveře se zrcátkem → bok, světla, blinkry, zástěry a výfuk po stranách → rohy, značka → záď). Letí s pohybem auta a 1,5 m/s od něj,
+- **odpadající díly**: světla, blinkry, zástěry, výfuk a značka odpadnou při 100 % své zóny (nejvíc vrcholů v ní). Letí s pohybem auta a 1,5 m/s od něj,
+- **díly na pantech**: kapota (panty vzadu u čelního skla) se uvolní při poškození předku nad 50 % a volně se pohybuje (`RigidBody3D` na `HingeJoint3D`, 0–80°). Kryt motoru (panty nahoře u zadního okna) totéž při poškození zádi nad 50 % (0–70°). Tvrdý náraz z 100 km/h a víc (rychlost auta ve směru normály kontaktu těsně před nárazem) utrhne kapotu (náraz předkem) nebo kryt motoru (náraz zádí). Dveře (panty vpředu) se uvolní při poškození předku nebo zádi nad 50 % nebo po tvrdém nárazu a v zatáčkách se odstředivou silou otevírají a zavírají (0–70°). Utrhnou se při 100 % svého boku,
 - **kola**: od 50 % poškození rohu se kolo viklá a hází (náklon osy obíhá s otáčením, 8° při 100 %, kmitá i sbíhavost a auto se třese). Při 100 % rohu a zároveň 100 % příslušného boku kolo upadne a auto si sedne na roh karoserie. Upadlé poháněné kolo nedostává moment, druhé kolo nápravy pohání dál (zjednodušení).
 
 F5 vrátí všechny díly a kola na místo.
 
-Test nárazu do zdi (bez okna) na vlastní ploše 500 m pod skidpadem, volby `--speed=km/h`, `--rear` (couvání), `--damage=zóna:hodnota,…` (nastaví poškození přímo, bez zdi, a 3 s jede), v okně `--shot=<složka>` uloží snímek poškozeného auta. Bez okna nakonec zkusí opravu (F5) a ověří, že nic nezůstalo odpojené:
+Test nárazu do zdi (bez okna) na vlastní ploše 500 m pod skidpadem, volby `--speed=km/h`, `--rear` (couvání), `--damage=zóna:hodnota,…` (nastaví poškození přímo, bez zdi, pak 4 s rozjezd a 6 s slalom s výpisem otevření dílů na pantech), `--hard=front|rear` (k tomu tvrdý náraz), v okně `--shot=<složka>` uloží snímek poškozeného auta. Bez okna nakonec zkusí opravu (F5) a ověří, že nic nezůstalo odpojené:
 
 ```bash
 ~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/damage_test.tscn -- --speed=50
@@ -115,6 +116,10 @@ Test nárazu do zdi (bez okna) na vlastní ploše 500 m pod skidpadem, volby `--
 
 | čelně 100 km/h | | předek 1,0 | odpadnou světla, blinkry a přední zástěry na obou stranách, přední kola se viklají 8° |
 | `--damage=0:1,7:1` | | levý přední roh + levý bok | odpadnou levé dveře, levé přední díly a levé přední kolo, auto se nakloní o 3° a jede dál |
+| `--damage=1:0.6` | | předek 60 % | kapota a obě dveře na pantech; ve slalomu (4 s rozjezd, pak střídavě plné řízení) dveře 0–71°, kapota 0–24° |
+| `--damage=1:0.6 --hard=front` | | předek 60 % + tvrdý náraz | kapota utržená, dveře na pantech |
+| `--damage=5:0.6 --hard=rear` | | záď 60 % + tvrdý náraz | kryt motoru utržený, dveře na pantech |
+| čelně 110 km/h | 26 300 N·s | předek 1,0 | kapota utržená, dveře na pantech, světla a zástěry pryč |
 | `--damage=3:1,4:1,5:1,6:1` | | záď + pravý bok | odpadne víko motoru, výfuky, značka, zadní světla a zástěry, pravé dveře a pravé zadní kolo, motor 65 % |
 
 Jízdní testy na obou tratích a náraz do značky (80 kg, 44 km/h) končí bez poškození.

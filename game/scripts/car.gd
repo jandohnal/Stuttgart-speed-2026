@@ -708,4 +708,5 @@ func _damage_summary() -> Dictionary:
 		"rear": maxf(damage.zone(5), maxf(damage.zone(4), damage.zone(6))),
 		"left": damage.zone(7), "right": damage.zone(3), "roof": damage.zone(8),
 		"engine": 1.0 - engine_health(),
-		"lost": damage.detached_count() + wheels.filter(func(w: Wheel) -> bool: return w.detached).size()}
+		"lost": damage.detached_count() + wheels.filter(func(w: Wheel) -> bool: return w.detached).size(),
+		"loose": damage.hinged_count()}

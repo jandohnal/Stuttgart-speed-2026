@@ -14,13 +14,14 @@ První verze poškození (fáze 2) má mírné následky: sbíhavost a přilnavo
 
 ## Hotovo (17. 10. 2026, `car_damage.gd`, `car.gd`)
 
-- **Odpadající díly původního modelu**: kapota, víko motoru, dveře se zrcátkem, světla, blinkry, zadní světla, zástěry, výfuk a značka odpadnou při 100 % své zóny.
+- **Odpadající díly původního modelu**: světla, blinkry, zadní světla, zástěry, výfuk a značka odpadnou při 100 % své zóny, dveře při 100 % boku.
+- **Díly na pantech**: kapota a kryt motoru se uvolní nad 50 % předku / zádi a utrhnou při nárazu z 100 km/h, dveře se uvolní nad 50 % předku nebo zádi nebo po tvrdém nárazu a v zatáčkách se otevírají a zavírají.
 - **Kola**: házení od 50 % poškození rohu, upadnutí při 100 % rohu i příslušného boku.
 
 ## Návrhy
 
 - **Nárazníky a blatníky**: v modelech originálu jsou součástí meshe karoserie a pod nimi nic není. Pro vlastní auta (D-004) modelovat od začátku jako oddělené díly s kotevními body, vnitřními plochami a mezí utržení.
-- **Postupné uvolnění**: díl nejdřív visí (kapota se otevře a klape, dveře se pootevřou) a odpadne až dalším nárazem nebo rychlostí.
+- **Aerodynamika volných dílů**: uvolněná kapota by se při rychlosti zvedla proudem vzduchu, otevřené dveře by vzduch přivíral.
 - **Ohnutá náprava**: kromě sbíhavosti i odklon a vibrace řízení podle rychlosti.
 - **Motor**: prasklé chlazení (u 356 vzduchem, tedy spíš poškozené dmychadlo) → přehřívání, pokles výkonu v čase, nakonec zhasnutí.
 - **Převodovka**: po nárazu zezadu (motor vzadu) zaseknutý nebo vypadávající převod.

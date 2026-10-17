@@ -62,7 +62,8 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] HUD: kulatý rychloměr (s počítadlem km) a otáčkoměr v klasickém stylu (kreslené procedurálně, stupnice z dat auta, ručička s tlumenou setrvačností); otáčky motoru při řazení klesají a stoupají plynule (spojka)
 - [x] Kolize s objekty kolem trati: sražitelné značky (dynamická tělesa s původní hmotností), ostatní statické
 - [x] Poškození auta: zóny `dz` a posuny `vt` 0x8000 jako blend shapes, náraz podle impulsu, následky (sbíhavost a přilnavost kol, výkon motoru, odpor vzduchu, rejstřík řízení)
-- [x] Odpadající díly (kapota, víko motoru, dveře, světla, značka, výfuk, zástěry) a kola: házení od 50 % rohu, upadnutí při 100 % rohu i boku
+- [x] Odpadající díly (světla, značka, výfuk, zástěry) a kola: házení od 50 % rohu, upadnutí při 100 % rohu i boku
+- [x] Díly na pantech: kapota / kryt motoru se uvolní nad 50 % předku / zádi a utrhnou při nárazu z 100 km/h, dveře se uvolní a v zatáčkách otevírají
 - [ ] Naladit poškození a jeho následky proti originálu (Wine); textury poškození; další vážné následky ([IDEA-006](../ideas/severe-damage-wheel-loss.md))
 - [ ] Srovnávací jízdy s originálem přes Wine: zrychlení, brzdná dráha, rychlost v zatáčkách
 - [ ] Rozhodnout definitivně o enginu (D-002)

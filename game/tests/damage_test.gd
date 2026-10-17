@@ -1,7 +1,9 @@
 extends Node
 ## Crash test for the car damage (CarDamage):
 ##   godot --headless --path game res://tests/damage_test.tscn [-- --speed=50 --rear]
-##   godot --headless --path game res://tests/damage_test.tscn -- --damage=0:1,7:1   (preset damage, drive 3 s)
+##   godot --headless --path game res://tests/damage_test.tscn -- --damage=0:1,7:1 [--hard=front]
+##     preset damage (and a simulated hard impact), then a slalom for PRESET_TIME reporting how far
+##     the swinging hood, engine lid and doors open
 ##   godot --path game res://tests/damage_test.tscn -- --shot=<folder>   (window: saves damage.png)
 ## On a flat test ground 500 m below the skidpad (away from its tyre walls) a static wall stands
 ## ahead (or behind with --rear), far enough to reach the speed; the car
@@ -17,7 +19,11 @@ var target_kmh := 50.0
 var rear := false
 var shot_dir := ""
 var preset := {}  ## zone -> damage from --damage=z:v,...: no wall, drive for PRESET_TIME instead
-const PRESET_TIME := 3.0
+const PRESET_TIME := 10.0  ## 4 s straight run-up, then the slalom
+const SWINGING := ["hood", "engine_lid", "door_left", "door_right"]
+var hard := ""
+var max_open := {}
+var min_open := {}
 var t := 0.0
 var hit_time := -1.0
 var hit_kmh := 0.0
@@ -35,6 +41,8 @@ func _ready() -> void:
 			for pair in arg.trim_prefix("--damage=").split(","):
 				var kv := pair.split(":")
 				preset[kv[0].to_int()] = kv[1].to_float()
+		elif arg.begins_with("--hard="):
+			hard = arg.trim_prefix("--hard=")
 		elif arg.begins_with("--shot="):
 			shot_dir = arg.trim_prefix("--shot=")
 	main = preload("res://scenes/main.tscn").instantiate() as Node3D
@@ -76,11 +84,27 @@ func _physics_process(delta: float) -> void:
 	if not preset.is_empty():
 		if t > 0.5 and hit_time < 0.0:
 			for z: int in preset:
-				car.damage.set_damage(z, preset[z])
+				car.damage.set_damage(z, preset[z], hard)
 			hit_time = t
 			wall.position.y -= 100.0  # out of the way
 		if hit_time >= 0.0:
-			Input.action_press("accelerate", 0.5)
+			# Run-up, then a slalom: full steering left and right every second.
+			Input.action_press("accelerate")
+			if t - hit_time > 4.0:
+				var left := fmod(t - hit_time, 2.0) < 1.0
+				Input.action_release("steer_right" if left else "steer_left")
+				Input.action_press("steer_left" if left else "steer_right")
+			for g: String in SWINGING:
+				var a: float = car.damage.opening_deg(g)
+				if a > -1.0 or car.damage.parts.any(func(p): return p["group"] == g and p["state"] == "hinged"):
+					max_open[g] = maxf(max_open.get(g, -999.0), a)
+					min_open[g] = minf(min_open.get(g, 999.0), a)
+			if fmod(t - hit_time, 0.5) < delta:
+				var now := PackedStringArray()
+				for g: String in SWINGING:
+					if max_open.has(g):
+						now.append("%s %.0f°" % [g, car.damage.opening_deg(g)])
+				print("  t %.1f  %.0f km/h  %s" % [t - hit_time, speed, "  ".join(now)])
 			if t - hit_time >= PRESET_TIME:
 				Input.action_release("accelerate")
 				_report()
@@ -145,9 +169,12 @@ func _report() -> void:
 	print("  wheels: ", " | ".join(wheels))
 	print("  engine torque %.0f %%, total damage %.2f" % [car.engine_health() * 100.0, d.total()])
 	var lost := PackedStringArray()
+	var loose := PackedStringArray()
 	for part in d.parts:
-		if part["body"] != null:
+		if part["state"] == "off":
 			lost.append("%s (%.1f m away)" % [part["group"], (part["body"] as Node3D).global_position.distance_to(car.global_position)])
+		elif part["state"] == "hinged":
+			loose.append("%s %.0f°" % [part["group"], d.opening_deg(part["group"])])
 	for w in car.wheels:
 		if w.detached:
 			lost.append("wheel %s%s (%.1f m away)" % ["F" if w.front else "R", "L" if w.center.x < 0.0 else "R",
@@ -155,6 +182,11 @@ func _report() -> void:
 		elif w.wobble > 0.0:
 			lost.append("wheel %s%s wobbles %.1f°" % ["F" if w.front else "R", "L" if w.center.x < 0.0 else "R", rad_to_deg(w.wobble)])
 	print("  parts off: ", ", ".join(lost) if not lost.is_empty() else "none")
+	print("  on hinges now: ", ", ".join(loose) if not loose.is_empty() else "none")
+	var swinging := PackedStringArray()
+	for g in max_open:
+		swinging.append("%s %.0f..%.0f°" % [g, min_open[g], max_open[g]])
+	print("  swinging on hinges (min..max opening): ", ", ".join(swinging) if not swinging.is_empty() else "none")
 	print("  car: %.0f km/h, roll %.1f°, pitch %.1f°" % [car.forward_speed * 3.6,
 		rad_to_deg(car.global_basis.get_euler().z), rad_to_deg(car.global_basis.get_euler().x)])
 	if shot_dir.is_empty():
