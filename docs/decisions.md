@@ -73,3 +73,9 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
 - **Stav:** accepted
 - **Rozhodnutí:** Projekt nepoužívá placené doplňky (Godot Asset Library, itch.io, Blender Market apod.). Funkce, které by doplněk řešil, se implementují vlastním kódem nebo se použije bezplatný open-source doplněk s kompatibilní licencí (MIT, BSD, Apache, CC0).
 - **Důsledky:** Rozbíjení objektů, látky, částice a podobné systémy se staví z vestavěných funkcí Godotu 4.7 a vlastních skriptů. Použitý open-source doplněk se eviduje i s licencí. Nástroje mimo hru (Blender a jeho vestavěné doplňky, Python knihovny) musí být také zdarma.
+
+## D-014 Výchozí grafické nastavení prototypu
+- **Stav:** accepted
+- **Rozhodnutí:** Prototyp používá `PhysicalSkyMaterial` (okolní světlo a odrazy z oblohy), tonemapping AgX, SSAO, glow a výškovou mlhu se sun scatter. Slunce pozdního odpoledne má PSSM 4 rozdělení do 500 m, `light_angular_distance` 0,5 a atlas 8192 se středním filtrem měkkých stínů. MSAA 4×, anizotropie 16×, na macOS upscaling MetalFX spatial 0,75. SDFGI, SSR a TAA jsou vypnuté. Materiály modelů originálu doplňuje za běhu `game/scripts/materials.gd` (lak, chrom, sklo, guma, detailní šum trati), bez nových assetů.
+- **Důvod:** Měření z 17. 10. 2026 ([IDEA-009](../ideas/graphics-lighting-effects.md), `game/README.md`): na M1 Pro při 3600 × 2260 dá nastavení 55 FPS (kokpit 47) proti 35 FPS s plnou kvalitou. MetalFX 0,75 je na snímcích k nerozeznání od nativního rozlišení, SDFGI stojí třetinu FPS a skoro není vidět, TAA nic nepřidá.
+- **Důsledky:** Cílových 60 FPS zatím nejsou. Zbytek dorovnají předvolby kvality (IDEA-009, krok 5): stíny, SSAO, glow a měřítko upscalingu. Na jiných platformách zůstává nativní rozlišení.

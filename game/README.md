@@ -175,3 +175,19 @@ Na farmlandu auto 40 s jede po silnici z kopce bez kolize. Odvážnější řidi
 - Kolize karoserie je konvexní obal jejích meshů bez kol (zaoblené rohy, skutečný práh 0,19 m). Box přes celou šířku zavadil předním rohem o klopenou silnici.
 - Objekty kolem trati (farmland 66 značek, 4 sloupy) kolidují, značky jdou srazit. Terén a silnice mají oboustrannou kolizi (`backface_collision`), jinak jimi objekty propadaly. Animované objekty („sweepery“) stojí, předlohy z úloh (kužely, šipky) se zatím nerozmisťují.
 - Poškození zatím bez textur (odřený lak). Nárazníky a blatníky jsou součástí meshe karoserie a neodpadávají (potřebují vlastní modely, [IDEA-006](../ideas/severe-damage-wheel-loss.md)). Zvuk motoru zatím bez prolínací mřížky originálu (jen dvě nejbližší smyčky), zvuky v `SND_coll.bnk` jsou vybrané podle signálu a potvrzené poslechem, okolí tratí zatím bez zvuku.
+
+## Grafika (IDEA-009)
+
+Materiály modelů nastavuje `scripts/materials.gd`: u auta podle stránky `.tpg` (lak s clearcoatem, chrom, světla, sklo s průhlednou tabulí, interiér, kola s chromem nebo gumou podle jasu textury), u trati anizotropní filtrování a procedurální detailní šum (triplanárně na UV2) na silnici a terénu. Prostředí: `PhysicalSkyMaterial`, AgX, SSAO, glow, výšková mlha se sun scatter, slunce pozdního odpoledne s PSSM 4 do 500 m a měkkými stíny.
+
+Snímky a FPS (okno, tři pohledy, vsync vypnutý, `--env|--sky|--sun|--vp=vlastnost:hodnota` pro pokusy):
+
+```bash
+~/Downloads/Godot.app/Contents/MacOS/Godot --path game res://tests/graphics_test.tscn -- /cesta/ke/složce --slice=1284
+```
+
+| 17. 10. 2026, M1 Pro, 3600 × 2260, farmland řez 1284 | Za autem | Kokpit | Jízda |
+| --- | --- | --- | --- |
+| před (Filmic, ProceduralSky, stíny 250 m) | 85 | 80 | 85 |
+| po, plná kvalita (filtr stínů vysoký, nativní rozlišení) | 35 | 27 | 34 |
+| po, výchozí (filtr střední, MetalFX spatial 0,75) | 56 | 47 | 55 |

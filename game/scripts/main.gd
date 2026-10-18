@@ -9,6 +9,7 @@ extends Node3D
 const DEFAULT_TRACK := "farmland"
 const TrackProps := preload("res://scripts/track_props.gd")
 const CarAudio := preload("res://scripts/car_audio.gd")
+const Materials := preload("res://scripts/materials.gd")
 const ENGINE_SOUND := "GameData/Sounds/sd1a"  ## 356 A: lowest of the three 356 sets (idle note 29), confirmed by ear
 const SFX_BANK := "GameData/Sounds/SND_coll"
 const CAR_MODEL := "GameData/CarModel/356a/356a.gltf"
@@ -57,6 +58,7 @@ func _ready() -> void:
 	var folder := "GameData/Track/%s/" % track_name
 	var track := OriginalAssets.load_gltf(folder + track_name + ".gltf")
 	if track != null:
+		Materials.setup_track(track)
 		add_child(track)
 		_add_track_collision(track)
 		var objects: Variant = OriginalAssets.load_json(folder + track_name + "_objects.json")
@@ -76,7 +78,9 @@ func _ready() -> void:
 			start_slice = clampi(arg.to_int(), 0, road_slices.size() - 1)
 	var cars: Variant = OriginalAssets.load_json(CAR_PHYSICS)
 	if cars is Dictionary and cars.has(CAR_KEY):
-		car.setup(OriginalAssets.load_gltf(CAR_MODEL), cars[CAR_KEY])
+		var model := OriginalAssets.load_gltf(CAR_MODEL)
+		Materials.setup_car(model)
+		car.setup(model, cars[CAR_KEY])
 		var damage: Variant = OriginalAssets.load_json(CAR_MODEL.get_basename() + "_damage.json")
 		if damage is Dictionary:
 			car.setup_damage(damage)

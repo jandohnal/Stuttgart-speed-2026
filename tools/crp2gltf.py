@@ -233,8 +233,20 @@ def convert(src, out_path, level=1, include_all=False, tpg=None):
                             acc[k] += verts[vi][k] + offset[k]
                         acc[3] += 1
 
+    pages = read_tpg(tpg) or []
+
+    def page_kind(tpage):
+        """Texture file of a page without extension (exterior, glass, intglass ...); the game picks materials by it."""
+        if not 0 <= tpage < len(pages):
+            return ""
+        p = pages[tpage]
+        if "mirror_of" in p and 0 <= p["mirror_of"] < len(pages):
+            p = pages[p["mirror_of"]]
+        return os.path.splitext(p.get("name") or "")[0].lower()
+
     def material_spec(tpage):
-        return {"name": f"tpage{tpage + 1}" if tpage >= 0 else "untextured", "uri": pngs.get(tpage), "alpha": "MASK"}
+        name = f"tpage{tpage + 1} {page_kind(tpage)}".strip() if tpage >= 0 else "untextured"
+        return {"name": name, "uri": pngs.get(tpage), "alpha": "MASK"}
 
     # Left and right copies of a part (doors, wheels) share a name: suffix the side so every node is unique.
     counts = Counter(n["name"] for n in nodes)
