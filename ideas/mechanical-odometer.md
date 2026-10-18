@@ -2,7 +2,7 @@
 type: idea
 id: IDEA-005
 title: "Mechanické válečkové počitadlo kilometrů na tachometru"
-status: idea            # idea | accepted | rejected | done
+status: accepted        # idea | accepted | rejected | done
 created: 2026-10-17
 related: [IDEA-004]
 tags: [dashboard, hud, odometer, cockpit, atmosphere, shader]
@@ -50,8 +50,8 @@ Referenci k přístrojovým deskám originálu lze najít v `decomposed/GameData
 
 ## Další kroky (pokud se nápad přijme)
 
-- [ ] Prototyp shaderu jednoho válečku a přenosové logiky v samostatné scéně
-- [ ] Napojení na otáčky kol z jízdního modelu
-- [ ] Ukládání nájezdu per auto v kariéře
-- [ ] Varianty vzhledu podle ér
-- [ ] Zapsat jako rozhodnutí do `docs/decisions.md`
+- [x] Prototyp válečků a přenosové logiky v samostatné scéně (`game/tests/odometer_test.tscn`; kresleno v `_draw()` místo shaderu, viz D-013)
+- [x] Napojení na otáčky kol z jízdního modelu
+- [ ] Ukládání nájezdu per auto v kariéře (zatím `user://odometer.cfg` mimo kariéru, D-013)
+- [x] Varianty vzhledu podle ér (éra z roku auta v `cars.json`), jemné chvění válečků nad 75 % redline
+- [x] Zapsat jako rozhodnutí do `docs/decisions.md` (D-013)

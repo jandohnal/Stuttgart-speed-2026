@@ -30,9 +30,23 @@ Zvuk (zatím zvuky originálu, D-011):
 python3 tools/snd2wav.py sources/GameData/Sounds decomposed/GameData/Sounds
 ```
 
+Druhé auto a trať pro srovnání (935 „Moby Dick“, Monte Carlo):
+
+```bash
+python3 tools/crp2gltf.py sources/GameData/CarModel/935.crp decomposed/GameData/CarModel/935/935.gltf
+```
+
+```bash
+python3 tools/track2gltf.py sources/GameData/Track/monaco1.crp decomposed/GameData/Track/monaco1/monaco1.gltf
+```
+
 ## Spuštění
 
 Otevřít `game/project.godot` v Godotu 4.7 a spustit (F5). Fyzika Jolt, 120 Hz, renderer Forward+ přes Metal.
+
+Hra začíná **hlavním menu** (`scenes/menu.tscn`): výběr auta (356 A coupe 1.6, 935 Moby Dick) a trati (Farmland = Normandie, Monaco) a tlačítko Play. Seznamy jsou v `main.gd` (`CARS` s názvem pro menu, `TRACKS`), další trať stačí přidat do `TRACKS`. Položka, jejíž data v `decomposed/` chybí, je neaktivní s poznámkou „chybí data“. Výběr předá autoload `GameSettings` (`scripts/game_settings.gd`) a uloží se do `user://settings.cfg`, příště je předvybraný. Ovládání menu: šipky / D-pad posouvají fokus, mezerník / A otevře seznam, Enter (kdekoli) nebo Start spustí hru, Esc hru ukončí. Esc při jízdě vrátí do menu.
+
+Spuštění přímo `scenes/main.tscn` (F6 v editoru, testy) menu přeskočí: trať a auto pak určí výběr z menu, je-li v `GameSettings`, jinak argumenty a nastavení projektu níže.
 
 Trať určuje nastavení projektu `stuttgart/track` (výchozí `farmland`), z příkazové řádky přepíše argument `-- --track=skidpad`. Argument `--slice=<n>` postaví auto na řez silnice n (kontrola konkrétního místa trati). Auto startuje na startovní čáře originálu (`start` v `_road.json`), na skidpadu na řezu 0.
 
@@ -46,8 +60,10 @@ Trať určuje nastavení projektu `stuttgart/track` (výchozí `farmland`), z p�
 | F3 | asistent řízení zapnout / vypnout (stav je v HUD, výchozí zapnuto) |
 | F4 | ABS zapnout / vypnout (stav je v HUD, výchozí zapnuto) |
 | F5 | oprava auta (vynuluje poškození, prototyp) |
+| T | vynulovat denní počitadlo (trip), válečky dojedou zpět na nulu |
 | M | zvuk vypnout / zapnout (stav v HUD) |
 | F11 | celá obrazovka / okno |
+| Esc | zpět do hlavního menu (v menu: ukončit hru) |
 
 Samostatně spuštěná hra běží přes celou obrazovku (ne v náhledu editoru, ne v testech bez okna). Okno si vynutí argument `-- --windowed=1`. HUD se škáluje se zvětšením okna (základ 1152 × 648).
 
@@ -61,6 +77,8 @@ Samostatně spuštěná hra běží přes celou obrazovku (ne v náhledu editoru
 
 | Soubor | Obsah |
 | --- | --- |
+| `scenes/menu.tscn`, `scripts/menu.gd` | hlavní menu: výběr auta a trati, Play (hlavní scéna projektu) |
+| `scripts/game_settings.gd` | autoload `GameSettings`: výběr z menu, poslední výběr v `user://settings.cfg` |
 | `scenes/main.tscn` | scéna: prostředí, slunce, auto, kamera, HUD |
 | `scripts/original_assets.gd` | načítání glTF a JSON z `decomposed/` |
 | `scripts/main.gd` | načtení trati (kolize z mesh skupin `road`, `terrain`, `objects`), auta, start na řezu silnice, ovládání, záznam telemetrie |
@@ -70,6 +88,27 @@ Samostatně spuštěná hra běží přes celou obrazovku (ne v náhledu editoru
 | `scripts/car_audio.gd` | zvuk auta: smyčky motoru podle otáček (výška, prolínání dvou nejbližších) a plynu (load / coast), pískání pneumatik podle skluzu, vítr, drhnutí, nárazy a díly ze signálů `CarDamage`; sběrnice `Engine` a `Sfx` |
 | `scripts/track_props.gd` | fyzika objektů kolem trati (skupina `props`, `<trať>_objects.json`): sražitelné jako `RigidBody3D` s původní hmotností, zmrazené, dokud se nepřiblíží pohyblivé těleso (1 m), ostatní statické; kolize z konvexního obalu, ploché jako kvádr 10 cm |
 | `scripts/gauge.gd` | kulatý budík (otáčkoměr, rychloměr) kreslený v `_draw()`; stupnice nastaví `hud.gd` podle redline a převodů auta |
+| `scripts/odometer.gd`, `scripts/odometer_logic.gd` | mechanické válečkové počitadlo v rychloměru (D-013); nájezd z poháněných kol, ukládaný pro každé auto do `user://odometer.cfg` (jen ve hře, ne v testech) |
+
+Auto: nastavení projektu `stuttgart/car` nebo argument `-- --car=<klíč v cars.json>` (výchozí `356Acoupe16`, ověřené i `935race`). Model a zvuková sada auta jsou v `CARS` v `main.gd` (přiřazení sady k autu je v originále v programu, ne v datech). Například 935 v Monaku:
+
+```bash
+~/Downloads/Godot.app/Contents/MacOS/Godot --path game -- --windowed=1 --car=935race --track=monaco1
+```
+
+**Nastavení odvozená z dat** (`Car.derive_from_data`, hypotézy pro neznámá pole `.sim`):
+
+| Nastavení | Odvození | 356 A | 935 |
+| --- | --- | --- | --- |
+| odpor vzduchu Cd·A | při maximální rychlosti z dat pokryje nejvyšší výkon motoru odpor vzduchu a valení | 0,59 m² | 0,79 m² |
+| brzdy | 0,8 g × 0x104 / 6,5 | 0,80 g | 1,42 g |
+| doba řazení | 0,35 s × 0x054 / 8 | 0,35 s | 0,17 s |
+| přítlak Cl·A vpředu / vzadu | (0x10C − 1) a (0x110 − 1) × 1,2 m² | 0 | 0,9 / 1,2 m² |
+| pérování | 1,7 Hz × √(140 / 0x124 světlá výška mm); zdvih nahoru nejvýš 75 % světlé výšky | 1,7 Hz, 8 cm | 2,6 Hz, 4,5 cm |
+| setrvačnost kola | 1,2 kg·m² × (poloměr / 0,292)² × šířka / 145 | 1,2 | 2,8 |
+| zadní přilnavost | motor vpředu 1,0, jinak 1,12 | 1,12 | 1,12 |
+| přilnavost μ | 0,444 + 0,353 × 0x0F4 | 0,85 | 1,34 |
+| kolize karoserie | obal nezasahuje pod světlou výšku 0x124 | (obal od 0,19 m) | od 0,06 m |
 
 ## Testy
 
@@ -144,11 +183,38 @@ Náraz do objektu (bez okna): auto se rozjede na první dopravní značku na far
 ~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/prop_test.tscn
 ```
 
+Počitadlo kilometrů: bez okna ověří polohy válečků a přenos (např. 999,95 → tři válečky v půlce přenosu). S oknem (bez `--headless`) pak 6 s ukazuje rychloměry všech tří ér s přetočením 99 999,5 → 100 000,5 km, ve druhé polovině s chvěním válečků. Jízdní test navíc porovnává počitadlo s ujetou dráhou (17. 10. 2026: +0,9 %, rozdíl dělá prokluz kol) a ověří nulování tripu klávesou T.
+
+```bash
+~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/odometer_test.tscn
+```
+
+Hlavní menu: bez okna ověří, že seznamy odpovídají `CARS` a `TRACKS`, položky s daty jsou aktivní a předvybrané a chybějící data položku jen zneaktivní.
+
+```bash
+~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/menu_test.tscn
+```
+
 Snímky obrazovky (otevře okno na pár sekund, PNG uloží do zadané složky):
 
 ```bash
 ~/Downloads/Godot.app/Contents/MacOS/Godot --path game res://tests/screenshot.tscn -- /tmp --track=farmland --slice=1284
 ```
+
+Test na rovině (bez okna): 8 km dlouhá plocha 500 m pod skidpadem, plný plyn 60 s s držením směru, pak plná brzda. Vypíše odvozená nastavení, 0–100, 0–200 a 0–300 km/h, maximální rychlost a brzdné dráhy.
+
+```bash
+~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/straight_test.tscn -- --car=935race
+```
+
+| 17. 10. 2026 | 0–100 | 0–200 | Maximum | Brzdění 200–0 / 100–0 |
+| --- | --- | --- | --- | --- |
+| 356 A 1.6 (skutečnost ~16 s, 160 km/h) | 15,5 s | – | 145 km/h po 60 s, ještě stoupá | – / 51 m |
+| 935 Moby Dick (data 354 km/h) | 4,1 s | 9,1 s | 299 km/h, omezovač na 4. stupeň | 113 / 30 m |
+
+935 na nejvyšší stupeň při 8 000 ot/min dosáhne jen 304 km/h, data uvádějí 354 km/h. Převody jsou krátké nebo zadní kola větší, než udává `.sim` (285/40 R16 odpovídá spíš přední pneumatice, přední kola modelu mají střed ve 0,28 m, zadní 0,31 m).
+
+Monte Carlo (`monaco1`, okruh 3,7 km ze 4 úseků): 935 v jízdním testu (`-- --track=monaco1 --car=935race`) zrychlí na 100 km/h za 4,0 s a řadí 15×, na dnech sjezdů drhne spodkem zádi (6 cm nad zemí, bez poškození, výpis `--log-impacts`). Po 22 s narazí do svodidla, protože testovací řidič vyjíždí ze zatáček s plným plynem, což s 689 Nm na zadních kolech nejde. Zvuk 935 je sada `sdxc` pro šestiválec do 8 000 ot/min.
 
 Výsledky (Godot 4.7.2, Apple M1 Pro), reálná 356 A 1600 pro srovnání: 0–100 km/h asi 16 s, maximum 160 km/h.
 
@@ -168,7 +234,7 @@ Na farmlandu auto 40 s jede po silnici z kopce bez kolize. Odvážnější řidi
 - Model pneumatik (`car.gd`): každé kolo má vlastní rotaci se setrvačností 1,2 kg·m², poháněná kola navíc setrvačnost motoru přes převod (0x058 / 1000 kg·m², hypotéza). Podélný skluz a úhel skluzu tvoří jeden normovaný vektor skluzu. Síla roste k vrcholu (délka 1), pak klesá na 75 % (smyk). Vrchol: skluz 0,12, úhel 3° + 0,08° × profilové číslo (356: 8,6°). Přilnavost μ = 0,444 + 0,353 × `.sim` 0x0F4 (356: 0,85, hypotéza), citlivost na zatížení 10 %, valivý odpor 0,015. Kola se integrují v 8 podkrocích. Brzdy působí momentem (max. 0,8 g jako bubnové brzdy, 58 % vpředu), bez ABS mohou kola zablokovat. Zadní pneumatiky mají 1,12× přilnavost předních (geometrie zadní nápravy, tlaky): bez brzdy je auto mírně nedotáčivé, při brzdění se zatížení přesune dopředu a záď ztratí rezervu. Se stejnou přilnavostí se auto se 56 % váhy vzadu roztočilo už při plném řízení bez brzdy, motor brzdí 12 % maximálního momentu. Převodovka řadí nahoru, když vyšší stupeň dá na kolech víc síly. Ladění proti originálu přes Wine zbývá.
 - Stabilizátory: vpředu 1,0 × tuhost pružiny, vzadu 0,3 (356 měla stabilizátor jen vpředu). Se stejně tuhým vzadu se zadní vnitřní kolo při brzdění v zatáčce odlehčovalo a auto se roztáčelo.
 - Kamera je 6 m za autem a 2,4 m nad ním.
-- Parametry z `.sim`: hmotnost, převody, stálý převod, křivka momentu, otáčky omezovače, rozměr pneumatik, rozdělení pohonu, poloha motoru (posun těžiště). Hypotézy: přilnavost (0x0F4), setrvačnost motoru (0x058). Odhadem: odpor vzduchu (Cd·A 0,6), pérování (vlastní frekvence 1,7 Hz, zdvih 8 cm nahoru a 10 cm dolů od výšky modelu), stabilizátory, dorazy.
+- Parametry z `.sim`: hmotnost, převody, stálý převod, křivka momentu, otáčky omezovače, rozměr pneumatik, rozdělení pohonu, poloha motoru (posun těžiště). Hypotézy: přilnavost (0x0F4), setrvačnost motoru (0x058). Odvozené z dat (tabulka výše): odpor vzduchu, brzdy, řazení, přítlak, pérování, setrvačnost kol. Odhadem: stabilizátory, dorazy, zdvih dolů 10 cm.
 - Vestavěné tlumení `RigidBody3D` je vypnuté (výchozích 0,1 bralo autu ~1 600 N), odpory se modelují explicitně.
 - Pružiny mají předpětí: v klidu nesou čtvrtinu váhy přesně ve výšce modelu (spodek karoserie 0,19 m nad silnicí, kola v podbězích jako v originálu). Dřív byla pružina v klidu stlačená o celý zdvih 12 cm a karoserie si sedala.
 - Paprsky kol se počítají v každém kroku znovu (`force_raycast_update`). Výsledek uzlu `RayCast3D` byl o dva kroky fyziky starý: při 120 km/h ležel bod dotyku 0,57 m za kolem, podvozek se zdál natažený a karoserie klesala až k silnici, kola mizela v podbězích.

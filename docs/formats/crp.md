@@ -234,4 +234,6 @@ python3 tools/track2gltf.py sources/GameData/Track/skidpad.crp decomposed/GameDa
 - Zkontrolováno renderem v Blenderu (pohled shora a zblízka): trať, pneumatikové zdi, pole, stromy, budovy i textury sedí.
 - Farmland (Normandie, „French Farmland“): silnice 239, terén 367, vegetace 216, objekty 175, rozmístěné objekty 72, předlohy 70; 66 538 trojúhelníků, 244/245 textur, 1 995 řezů v 10 úsecích. Ve hře (Godot) ověřeno jízdou, snímky a nárazem do dopravní značky.
 - Trojúhelníky otočené dolů (18 % vodorovných v terénu) jsou koruny stromů nad silnicí a střechy (materiály `cbb`, `shrb`, 3 m a víc nad silnicí), jsou tedy správně. Materiály jsou oboustranné.
-- Zbývá: ostatních 13 tratí, význam `df`, šířek a příznaků `SimD`, animace (`Anim`, `Anqt`, snímky `vt` s indexem animace), předlohy z úloh (`.scn`), `Vis`, `CmAn`.
+- Navazující úseky: úsek pokračuje do úseku, jehož začátek je do 20 m od jeho konce se stejným směrem (`next` v `segments`). Okruh z úseku 0 je v `lap` (segments, length_m). Monte Carlo má trasy uložené mimo pořadí: `monaco1` = úseky 0 → 2 → 1 → 3 → 0, 3 713 m. Monaco nemá `_fstart.scn` (start a cíl), auto startuje na řezu 0.
+- Ověřené tratě: skidpad, farmland, monaco1 (také monaco2–5 se převedou, okruhy 3,6–5,0 km).
+- Zbývá: ostatní tratě, význam `df`, šířek a příznaků `SimD`, animace (`Anim`, `Anqt`, snímky `vt` s indexem animace), předlohy z úloh (`.scn`), `Vis`, `CmAn`.

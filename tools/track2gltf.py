@@ -30,6 +30,7 @@ GROUPS = [
 ]
 PLACED_MIN_DISTANCE = 50.0  # m
 SIMD_SIZE = 80
+SEGMENT_LINK = 20.0  # m; a segment continues into the one that starts this close to its end (same direction)
 SEGMENT_GAP = 30.0  # m; slices are ~6 m apart, a bigger jump starts the next road segment (alternative routes)
 CENTERLINE = "__road_centerline"
 
@@ -83,8 +84,31 @@ def road_segments(slices):
         last = end - 1
         length = sum(math.dist(slices[i]["position"], slices[i + 1]["position"]) for i in range(first, last))
         closed = last > first and math.dist(slices[first]["position"], slices[last]["position"]) <= SEGMENT_GAP
-        out.append({"first": first, "last": last, "length_m": round(length, 1), "closed": closed})
+        out.append({"first": first, "last": last, "length_m": round(length, 1), "closed": closed, "next": None})
+    # SimD does not store a route in driving order: Monte Carlo's segments are joined end to start.
+    for seg in out:
+        end = slices[seg["last"]]
+        best = None
+        for j, other in enumerate(out):
+            start = slices[other["first"]]
+            d = math.dist(end["position"], start["position"])
+            if other is not seg and d <= SEGMENT_LINK and sum(a * b for a, b in zip(end["forward"], start["forward"])) > 0.5:
+                if best is None or d < best[0]:
+                    best = (d, j)
+        if best:
+            seg["next"] = best[1]
     return out
+
+
+def road_lap(segments):
+    """The segments of a closed lap from segment 0 (following "next"), or None."""
+    order, j = [], 0
+    while j is not None and j not in order:
+        order.append(j)
+        j = segments[j]["next"]
+    if j != 0 or len(order) < 2:
+        return None
+    return {"segments": order, "length_m": round(sum(segments[k]["length_m"] for k in order), 1)}
 
 
 def race_gates(src, slices):
@@ -194,11 +218,12 @@ def convert(src, out_path, level=0, library=False):
     write_gltf(out_path, nodes, material_spec, "stuttgart-speed track2gltf")
 
     length = sum(seg["length_m"] for seg in segments)
+    lap = road_lap(segments)
     gates = race_gates(src, slices)
     with open(os.path.join(out_dir, stem + "_road.json"), "w") as fh:
         json.dump({"source": os.path.basename(src), "slice_count": len(slices), "length_m": round(length, 1),
                    "fields": "position, up, forward, right (unit vectors), flags [int0, int13..15], widths [4] m",
-                   "segments": segments, **gates,
+                   "segments": segments, "lap": road_lap(segments), **gates,
                    "slices": [{k: [round(x, 4) if isinstance(x, float) else x for x in v] for k, v in s.items()}
                               for s in slices]}, fh)
 
@@ -213,7 +238,8 @@ def convert(src, out_path, level=0, library=False):
     for n in nodes:
         groups[n["group"]] = groups.get(n["group"], 0) + 1
     print(f"{src}: {len(nodes)} parts {groups}, {tris} triangles, textures {found}/{len(mat_info)}, "
-          f"road {len(slices)} slices in {len(segments)} segments {length:.0f} m, "
+          f"road {len(slices)} slices in {len(segments)} segments {length:.0f} m"
+          + (f" (lap of {len(lap['segments'])} segments {lap['length_m']:.0f} m), " if lap else ", ") +
           f"start/finish slice {gates.get('start', {}).get('slice', '-')}/{gates.get('finish', {}).get('slice', '-')}, "
           f"placed objects {len(props)}, library prototypes skipped {stats['library_skipped']}")
 

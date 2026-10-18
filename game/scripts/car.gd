@@ -66,6 +66,13 @@ const AIR_DENSITY := 1.225
 @export var drivetrain_efficiency := 0.85
 @export var drag_area := 0.6  ## Cd * frontal area, m2 (356: ~0.37 * 1.6)
 @export var shift_time := 0.35  ## s without drive while shifting
+## Fill in from the car's data (setup): drag area from top speed and power, brakes (0x104),
+## shift time (0x054), downforce (0x10C / 0x110), spring rate and bump travel (ground clearance
+## 0x124), wheel inertia (tyre size), rear grip (engine position). Off: the values above are used as they are.
+@export var derive_from_data := true
+@export var downforce_area_per_unit := 1.2  ## m2 of Cl*A per unit of .sim 0x10C / 0x110 above 1
+var downforce_front := 0.0  ## Cl*A, m2 (front axle)
+var downforce_rear := 0.0
 @export var rev_drop_rate := 2500.0  ## rpm/s, engine falling off throttle with the clutch open
 @export var rev_rise_rate := 6000.0  ## rpm/s, throttle blip on a downshift
 @export var clutch_sync_rate := 6000.0  ## rpm/s, engine pulled to the new gear as the clutch closes
@@ -95,6 +102,7 @@ var brake := 0.0
 var handbrake := false
 var steer := 0.0
 var forward_speed := 0.0
+var odometer_m := 0.0  ## total distance, driven by the driven wheels' rotation like a gearbox-driven odometer
 var telemetry: Dictionary = {}
 
 var _shift_timer := 0.0
@@ -158,6 +166,8 @@ func setup(model: Node3D, car_params: Dictionary) -> void:
 	var unknown: Dictionary = params.get("unknown", {})
 	mu = (grip_base + grip_per_sim * float(unknown.get("0x0F4", 1.15))) * grip
 	engine_inertia = float(unknown.get("0x058", 90.0)) / 1000.0
+	if derive_from_data:
+		_derive_from_data(unknown)
 	spring_rate = mass / 4.0 * pow(TAU * ride_frequency, 2.0)
 	damper_rate = 2.0 * damping_ratio * sqrt(spring_rate * mass / 4.0)
 	_model = model
@@ -172,6 +182,31 @@ func setup(model: Node3D, car_params: Dictionary) -> void:
 			if other != w and other.front == w.front and signf(other.center.x) != signf(w.center.x):
 				w.partner = other
 	_set_center_of_mass()
+
+
+## Settings the .sim data implies (hypotheses for the unknown fields: docs/formats/sim.md).
+func _derive_from_data(unknown: Dictionary) -> void:
+	var ref := 6.5  # 356 A 1.6, the car the hand tuning was done on
+	brake_decel_g = 0.8 * float(unknown.get("0x104", ref)) / ref
+	shift_time = 0.35 * float(unknown.get("0x054", 8)) / 8.0
+	downforce_front = maxf(0.0, float(unknown.get("0x10C", 1.0)) - 1.0) * downforce_area_per_unit
+	downforce_rear = maxf(0.0, float(unknown.get("0x110", 1.0)) - 1.0) * downforce_area_per_unit
+	var clearance := maxf(float(unknown.get("0x124", 140.0)), 30.0)  # mm
+	ride_frequency = 1.7 * sqrt(140.0 / clearance)
+	bump_travel = minf(bump_travel, 0.75 * clearance / 1000.0)  # the body must not reach the road first
+	var tyre: Dictionary = params["tyre"]
+	wheel_inertia = 1.2 * pow(wheel_radius / 0.292, 2.0) * float(tyre["width_mm"]) / 145.0
+	rear_grip = 1.0 if str(params.get("engine_position", "rear")) == "front" else 1.12
+	# Drag: at the listed top speed the engine's best power just covers air and rolling resistance.
+	var top := float(params.get("top_speed_mph", 0.0)) * 0.44704
+	var power := 0.0
+	for i in torque_curve.size():
+		var r := 500.0 * i
+		if r <= redline:
+			power = maxf(power, torque_curve[i] * r * TAU / 60.0)
+	if top > 10.0 and power > 0.0:
+		var rolling := rolling_resistance * mass * GRAVITY * top
+		drag_area = clampf((power * drivetrain_efficiency - rolling) / (0.5 * AIR_DENSITY * top * top * top), 0.2, 2.0)
 
 
 ## Enables damage from <car>_damage.json (tools/crp2gltf.py): zones and detachable parts.
@@ -293,7 +328,8 @@ func _relative_transform(node: Node, root: Node) -> Transform3D:
 
 
 ## Body collision: convex hull of the body meshes (wheels excluded, they are rays), so the
-## rounded corners and the real sill height (356: 0.19 m) are kept.
+## rounded corners and the real sill height (356: 0.19 m) are kept. Nothing reaches below the
+## ground clearance of the data (.sim 0x124, mm): the 935's underbody panel sits at 3 cm.
 func _build_collision(model: Node3D) -> void:
 	var points := PackedVector3Array()
 	for child in model.find_children("*", "MeshInstance3D", true, false):
@@ -301,10 +337,13 @@ func _build_collision(model: Node3D) -> void:
 		if _is_wheel_part(mi.name) or mi.mesh == null:
 			continue
 		var xf := _relative_transform(mi, model)
+		var clearance := float(params.get("unknown", {}).get("0x124", 0.0)) / 1000.0
 		for surface in mi.mesh.get_surface_count():
 			var arrays := mi.mesh.surface_get_arrays(surface)
 			for p: Vector3 in arrays[Mesh.ARRAY_VERTEX]:
-				points.append(xf * p)
+				var q := xf * p
+				q.y = maxf(q.y, clearance)
+				points.append(q)
 	var col := CollisionShape3D.new()
 	if points.is_empty():
 		var box := BoxShape3D.new()
@@ -361,6 +400,16 @@ func _add_wheel(center: Vector3, front: bool) -> Wheel:
 	return w
 
 
+func _axle_z(front: bool) -> float:
+	var z := 0.0
+	var n := 0
+	for w in wheels:
+		if w.front == front:
+			z += w.center.z
+			n += 1
+	return z / maxi(n, 1)
+
+
 func _set_center_of_mass() -> void:
 	var front_z := 0.0
 	var rear_z := 0.0
@@ -410,6 +459,13 @@ func _physics_process(delta: float) -> void:
 	var v := linear_velocity
 	var drag := drag_area * (1.0 + damage_drag_gain * (damage.total() if damage != null else 0.0))
 	apply_central_force(-v * v.length() * 0.5 * AIR_DENSITY * drag)
+	if downforce_front > 0.0 or downforce_rear > 0.0:
+		# Downforce on each axle, from the speed along the car (wings work in one direction).
+		var q := 0.5 * AIR_DENSITY * pow(maxf(forward_speed, 0.0), 2.0)
+		var down := -global_basis.y
+		apply_force(down * q * downforce_front, global_basis * Vector3(0.0, 0.0, _axle_z(true)))
+		apply_force(down * q * downforce_rear, global_basis * Vector3(0.0, 0.0, _axle_z(false)))
+	_update_odometer(delta)
 	_update_telemetry(delta)
 
 
@@ -683,12 +739,25 @@ func _update_visual(w: Wheel) -> void:
 		w.visuals[i].transform = Transform3D(steer_basis * wobble_basis * spin_basis * rest.basis, rest.origin + Vector3.UP * lift)
 
 
+## Counts like a mechanical odometer: wheelspin adds distance, locked wheels in a slide do not.
+func _update_odometer(delta: float) -> void:
+	var omega := 0.0
+	var driven := 0
+	for w in wheels:
+		if _drive_share(w) > 0.0:
+			omega += w.omega
+			driven += 1
+	if driven > 0:
+		odometer_m += absf(omega / driven) * wheel_radius * delta
+
+
 func _update_telemetry(delta: float) -> void:
 	var accel := (linear_velocity - _last_velocity) / delta
 	_last_velocity = linear_velocity
 	var local := global_basis.transposed() * accel
 	telemetry = {
 		"speed_kmh": snappedf(forward_speed * 3.6, 0.01),
+		"odometer_m": odometer_m,
 		"rpm": roundi(rpm),
 		"gear": gear,
 		"throttle": snappedf(throttle, 0.01),

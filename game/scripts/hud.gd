@@ -1,6 +1,7 @@
 extends CanvasLayer
 ## Rev counter and speedometer dials plus a small telemetry readout.
 
+const Odometer := preload("res://scripts/odometer.gd")
 const GAUGE_SIZE := 210.0
 const MARGIN := 16.0
 const GAUGE_OPACITY := 0.6
@@ -13,7 +14,10 @@ const GAUGE_OPACITY := 0.6
 var rpm_gauge := Gauge.new()
 var speed_gauge := Gauge.new()
 var _scales_set := false
-var _distance_m := 0.0
+const TRIP_RESET_TIME := 0.8  ## s for the trip drums to roll back to zero
+
+var _trip_start_m := 0.0
+var _trip_reset: Tween
 var _gauge_box := HBoxContainer.new()
 
 
@@ -57,10 +61,14 @@ func _set_scales() -> void:
 		var wheel_rpm := car.redline / (car.gear_ratios[-1] * car.final_drive)
 		top_kmh = maxf(top_kmh, wheel_rpm * TAU / 60.0 * car.wheel_radius * 3.6)
 	speed_gauge.max_value = ceilf(top_kmh / 20.0) * 20.0
+	_trip_start_m = car.odometer_m  # mileage is loaded with the car; the trip starts at zero
+	var year := str(car.params.get("name", "")).get_slice(" ", 0)
+	if year.is_valid_int():
+		speed_gauge.odo_era = Odometer.era_for_year(year.to_int())
 	_scales_set = true
 
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	if car == null or car.telemetry.is_empty():
 		return
 	if not _scales_set:
@@ -69,14 +77,27 @@ func _process(delta: float) -> void:
 	rpm_gauge.value = t["rpm"]
 	speed_gauge.value = absf(t["speed_kmh"])
 	rpm_gauge.sub_text = "R" if int(t["gear"]) == -1 else str(t["gear"])
-	_distance_m += absf(float(t["speed_kmh"])) / 3.6 * delta
-	speed_gauge.odo_text = "%06d" % floori(_distance_m / 1000.0)
-	speed_gauge.trip_text = "%05d" % floori(_distance_m / 100.0)  # last digit is tenths of a km
+	speed_gauge.odo_m = car.odometer_m
+	speed_gauge.odo_shake = clampf((car.rpm / car.redline - 0.75) / 0.25, 0.0, 1.0)
+	if _trip_reset == null or not _trip_reset.is_running():
+		speed_gauge.trip_m = car.odometer_m - _trip_start_m
 	label.text = "lat %.2f g   long %.2f g   steer %.1f°   steering assist %s   ABS %s   sound %s\n" % [
 		t["lat_g"], t["long_g"], t["steer_deg"], "ON" if t["assist"] else "OFF", "ON" if t["abs"] else "OFF",
 		"OFF" if AudioServer.is_bus_mute(0) else "ON",
 	] + _damage_text(t.get("damage", {})) \
-		+ "W/S throttle/brake  A/D steer  Space handbrake  R reset  F2 telemetry  F3 assist  F4 ABS  F5 repair  M sound  F11 full screen"
+		+ "W/S throttle/brake  A/D steer  Space handbrake  R reset  F2 telemetry  F3 assist  F4 ABS  F5 repair  T trip  M sound  F11 full screen"
+
+
+## Trip reset: like pressing the knob, the drums roll back to zero instead of jumping.
+func _unhandled_input(event: InputEvent) -> void:
+	if car == null or not event.is_action_pressed("trip_reset"):
+		return
+	_trip_start_m = car.odometer_m
+	if _trip_reset != null:
+		_trip_reset.kill()
+	_trip_reset = create_tween()
+	_trip_reset.tween_property(speed_gauge, "trip_m", 0.0, TRIP_RESET_TIME) \
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 
 func _damage_text(d: Dictionary) -> String:

@@ -39,10 +39,13 @@ DETACHABLE = {"HoodOut": "hood", "HoodIn": "hood", "DecalHood": "hood",
               "DoorOut": "door", "DoorIn": "door", "DoorWindow": "door", "Handle": "door",
               "InteriorDoorGlass": "door", "SideMirrorLeft": "door", "License": "license",
               "Light1": "headlight", "Light3": "front_light", "Light2": "tail_light",
-              "SkirtF": "front_apron", "SkirtR": "rear_apron", "Exhaust": "exhaust"}
+              "SkirtF": "front_apron", "SkirtR": "rear_apron", "Exhaust": "exhaust", "Spoiler": "spoiler"}
+# Lids and the wing belong to their end of the car whatever their vertices say (935: hood mostly "left", wing "roof").
+FIXED_ZONE = {"hood": 1, "engine_lid": 5, "spoiler": 5}
 SPLIT_SIDES = {"Light1", "Light2", "Light3", "SkirtF", "SkirtR", "Exhaust"}  # one mesh for both sides
 DETACH_MASS = {"hood": 12.0, "engine_lid": 10.0, "door": 25.0, "license": 0.5, "headlight": 1.5,
-               "front_light": 1.0, "tail_light": 1.0, "front_apron": 4.0, "rear_apron": 4.0, "exhaust": 4.0}
+               "front_light": 1.0, "tail_light": 1.0, "front_apron": 4.0, "rear_apron": 4.0, "exhaust": 4.0,
+               "spoiler": 8.0}
 
 
 def split_sides(prims, sources):
@@ -264,7 +267,7 @@ def convert(src, out_path, level=1, include_all=False, tpg=None):
               "centroid": [round(acc[k] / acc[3], 3) for k in range(3)], "vertices": acc[3],
               "max_offset_m": round(acc[4], 3)} for z, acc in sorted(zone_acc.items()) if acc[3]]
     detachable = [{"group": g, "kind": e["kind"], "nodes": e["nodes"],
-                   "zone": max(sorted(e["zones"]), key=lambda z: e["zones"][z]) if e["zones"] else -1,
+                   "zone": FIXED_ZONE.get(e["kind"], max(sorted(e["zones"]), key=lambda z: e["zones"][z]) if e["zones"] else -1),
                    "mass_kg": DETACH_MASS.get(e["kind"], 3.0)} for g, e in sorted(detach.items())]
     with open(os.path.join(out_dir, stem + "_damage.json"), "w") as fh:
         json.dump({"source": os.path.basename(src),

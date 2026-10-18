@@ -14,6 +14,7 @@ const SFX := {  ## SND_coll.bnk indices
 }
 const GLASS_KINDS := ["headlight", "front_light", "tail_light"]
 
+var rpm_scale := 1.0  ## loop rpm from engine.json (written for a four cylinder) times this
 var master_db := 0.0
 var engine_db := -2.0
 var sfx_db := -4.0
@@ -41,7 +42,7 @@ func setup(car: Car, engine: Dictionary, engine_dir: String, sfx_dir: String) ->
 				var stream := _load_stream(engine_dir.path_join(loop["file"]), int(loop["loop_start"]), int(loop["loop_end"]))
 				if stream == null:
 					continue
-				loops.append({"player": _player(stream, "Engine"), "rpm": float(loop["rpm"])})
+				loops.append({"player": _player(stream, "Engine"), "rpm": float(loop["rpm"]) * rpm_scale})
 			if not loops.is_empty():
 				_layers.append({"group": group, "loops": loops})
 	_squeal = _sfx_loop(SFX["squeal"])

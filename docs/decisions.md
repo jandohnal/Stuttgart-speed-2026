@@ -74,6 +74,12 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
 - **Rozhodnutí:** Projekt nepoužívá placené doplňky (Godot Asset Library, itch.io, Blender Market apod.). Funkce, které by doplněk řešil, se implementují vlastním kódem nebo se použije bezplatný open-source doplněk s kompatibilní licencí (MIT, BSD, Apache, CC0).
 - **Důsledky:** Rozbíjení objektů, látky, částice a podobné systémy se staví z vestavěných funkcí Godotu 4.7 a vlastních skriptů. Použitý open-source doplněk se eviduje i s licencí. Nástroje mimo hru (Blender a jeho vestavěné doplňky, Python knihovny) musí být také zdarma.
 
+## D-013 Mechanické válečkové počitadlo kilometrů
+- **Stav:** accepted
+- **Rozhodnutí:** Rychloměr má mechanické válečkové počitadlo podle [IDEA-005](../ideas/mechanical-odometer.md): nejnižší váleček (stovky metrů) se otáčí plynule, vyšší se pootočí jen při přenosu z 9 na 0, a k tomu trip s nulováním. Vzdálenost se počítá z otáčení poháněných kol (`Car.odometer_m`), ne z pohybu karoserie. Kreslí se procedurálně v `_draw()` (bez shaderu a textur) ve stylu éry auta podle roku výroby (50., 70., 90. léta). Nájezd se ukládá pro každé auto do `user://odometer.cfg`.
+- **Důvod:** Mechanický charakter přístrojů je součást atmosféry dané éry. Procedurální kreslení zapadá do budíků (`gauge.gd`), je ostré v každém rozlišení a nepotřebuje assety.
+- **Důsledky:** Při protáčení kol počitadlo přičítá, při smyku s blokovanými koly ne. Kariéra, mise s nájezdem a kokpitový pohled zůstávají jako další kroky v IDEA-005.
+
 ## D-014 Výchozí grafické nastavení prototypu
 - **Stav:** accepted
 - **Rozhodnutí:** Prototyp používá `PhysicalSkyMaterial` (okolní světlo a odrazy z oblohy), tonemapping AgX, SSAO, glow a výškovou mlhu se sun scatter. Slunce pozdního odpoledne má PSSM 4 rozdělení do 500 m, `light_angular_distance` 0,5 a atlas 8192 se středním filtrem měkkých stínů. MSAA 4×, anizotropie 16×, na macOS upscaling MetalFX spatial 0,75. SDFGI, SSR a TAA jsou vypnuté. Materiály modelů originálu doplňuje za běhu `game/scripts/materials.gd` (lak, chrom, sklo, guma, detailní šum trati), bez nových assetů.

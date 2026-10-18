@@ -60,13 +60,16 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Raycast podvozek, model pneumatik, motor a převodovka z dat JSON (pneumatiky: skluz, rotace kol, setrvačnost motoru; 0–100 km/h 15,8 s proti reálným ~16 s)
 - [ ] Doladit pneumatiky a řízení proti originálu přes Wine (přilnavost 0x0F4 a setrvačnost 0x058 jsou hypotézy), asistent řízení pro klávesnici hotový (F3); ABS (F4) a zadní přilnavost 1,12 naladěné podle ruční jízdy proti originálu (smyk zádí při brzdění v zatáčce); klávesy s náběhem pedálů a volantu jako v tehdejších hrách
 - [x] HUD: kulatý rychloměr (s počítadlem km) a otáčkoměr v klasickém stylu (kreslené procedurálně, stupnice z dat auta, ručička s tlumenou setrvačností); otáčky motoru při řazení klesají a stoupají plynule (spojka)
+- [x] Mechanické válečkové počitadlo kilometrů a trip (D-013): vzdálenost z poháněných kol, nájezd uložený pro každé auto, vzhled podle éry auta
 - [x] Kolize s objekty kolem trati: sražitelné značky (dynamická tělesa s původní hmotností), ostatní statické
 - [x] Poškození auta: zóny `dz` a posuny `vt` 0x8000 jako blend shapes, náraz podle impulsu, následky (sbíhavost a přilnavost kol, výkon motoru, odpor vzduchu, rejstřík řízení)
 - [x] Odpadající díly (světla, značka, výfuk, zástěry) a kola: házení od 50 % rohu, upadnutí při 100 % rohu i boku
 - [x] Díly na pantech: kapota / kryt motoru se uvolní nad 50 % předku / zádi a utrhnou při nárazu z 100 km/h, dveře se uvolní a v zatáčkách otevírají
 - [x] Zvuk motoru a auta ze zvuků originálu (lokálně, D-011): smyčky podle otáček a plynu, pneumatiky, vítr, nárazy, díly ([formats/bnk.md](formats/bnk.md))
 - [ ] Naladit poškození a jeho následky proti originálu (Wine); textury poškození; další vážné následky ([IDEA-006](../ideas/severe-damage-wheel-loss.md))
-- [ ] Srovnávací jízdy s originálem přes Wine: zrychlení, brzdná dráha, rychlost v zatáčkách
+- [x] Srovnávací jízdy s originálem (ruční jízda na druhém počítači 17. 10. 2026): hratelné a podobné originálu
+- [x] Druhé auto a trať: 935 Moby Dick v Monte Carlu, nastavení odvozená z dat místo ladění na 356 (test na rovině `straight_test`)
+- [x] Hlavní menu prototypu: výběr auta a trati, Play, Esc zpět do menu, poslední výběr uložený
 - [ ] Rozhodnout definitivně o enginu (D-002)
 
 ## Fáze 3 – První vlastní trať

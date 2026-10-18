@@ -18,6 +18,10 @@ static func path(relative: String) -> String:
 	return data_root().path_join(relative)
 
 
+static func exists(relative: String) -> bool:
+	return FileAccess.file_exists(path(relative))
+
+
 static func load_gltf(relative: String) -> Node3D:
 	var file := path(relative)
 	if not FileAccess.file_exists(file):

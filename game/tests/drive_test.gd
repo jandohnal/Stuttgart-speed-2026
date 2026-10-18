@@ -1,6 +1,6 @@
 extends Node
 ## Headless drive test for the phase 2 prototype:
-##   godot --headless --path game res://tests/drive_test.tscn [-- --track=farmland]
+##   godot --headless --path game res://tests/drive_test.tscn [-- --track=farmland --car=935race --log-impacts]
 ## Loads the main scene, lets the car settle, then drives flat out along the road (skidpad unless
 ## --track is given; steering towards road slices ahead, braking only for corners ahead that
 ## need more than CORNER_G at the current speed), measures 0-100 km/h, speed after ACCEL_TIME and the
@@ -33,6 +33,9 @@ var prev_rpm := -1.0
 var max_rpm_step := 0.0  ## largest engine speed change in one physics tick while accelerating, rpm
 var shifts := 0
 var prev_gear := 1
+var odo_start := -1.0  ## car.odometer_m when accelerating starts
+var path_m := 0.0  ## distance travelled by the body since then
+var last_pos := Vector3.ZERO
 
 
 func _ready() -> void:
@@ -41,6 +44,8 @@ func _ready() -> void:
 	add_child(main)
 	car = main.get_node("Car") as Car
 	car.digital_input = false  # the scripted driver is analog; measure the car, not the key ramps
+	if car.damage != null and "--log-impacts" in OS.get_cmdline_user_args():
+		car.damage.log_impacts = true
 	car.contact_monitor = true
 	car.max_contacts_reported = 8
 
@@ -50,6 +55,9 @@ func _physics_process(delta: float) -> void:
 	var speed := car.forward_speed * 3.6
 	var last := prev_speed
 	prev_speed = speed
+	if odo_start >= 0.0:
+		path_m += car.global_position.distance_to(last_pos)
+		last_pos = car.global_position
 	for body in car.get_colliding_bodies():
 		var what := "%s/%s" % [body.get_parent().get_parent().name, body.get_parent().name]
 		if body.get_parent().name == "props":
@@ -72,6 +80,9 @@ func _physics_process(delta: float) -> void:
 				phase = "accelerate"
 				t = 0.0
 		"accelerate":
+			if odo_start < 0.0:
+				odo_start = car.odometer_m
+				last_pos = car.global_position
 			_steer_along_road()
 			if prev_rpm >= 0.0:
 				max_rpm_step = maxf(max_rpm_step, absf(car.rpm - prev_rpm))
@@ -187,6 +198,7 @@ func _settle_report() -> String:
 
 
 func _finish() -> void:
+	phase = "done"  # the trip check below waits, the report must run once
 	var track_parts := 0
 	for child in main.get_children():
 		if child is Node3D and child != car and not (child is Camera3D) and not (child is DirectionalLight3D):
@@ -198,6 +210,8 @@ func _finish() -> void:
 	print("  settle: ", settle_report)
 	print("  0-100 km/h: %s" % ("%.1f s" % t_100 if t_100 >= 0.0 else "not reached"))
 	print("  speed after %.0f s: %.0f km/h (max %.0f), max lateral %.2f g" % [ACCEL_TIME, end_speed, top_speed, max_lat_g])
+	print("  odometer: %.0f m from the wheels, %.0f m travelled (%+.1f %%)" % [
+		car.odometer_m - odo_start, path_m, ((car.odometer_m - odo_start) / maxf(path_m, 1.0) - 1.0) * 100.0])
 	print("  gear shifts: %d, max engine speed change per tick %.0f rpm" % [shifts, max_rpm_step])
 	print("  braking for corners: %.1f s" % (corner_brakes / float(Engine.physics_ticks_per_second)))
 	print("  suspension: max wheel lift %.3f m of %.2f, bump stop %.1f s" % [
@@ -208,6 +222,15 @@ func _finish() -> void:
 	print("  body collisions: ", collisions if not collisions.is_empty() else "none")
 	print("  braking 100-0 km/h: %s" % ("%.1f m" % brake_distance if brake_distance >= 0.0 else "n/a"))
 	print("  distance from road at end: %.1f m" % _distance_from_road())
+	# Trip reset (T): the trip drums roll back to zero.
+	var gauge: Gauge = main.get_node("HUD").speed_gauge
+	var trip_before := gauge.trip_m
+	var press := InputEventAction.new()
+	press.action = "trip_reset"
+	press.pressed = true
+	Input.parse_input_event(press)
+	await get_tree().create_timer(1.0).timeout
+	print("  trip reset: %.0f m -> %.0f m" % [trip_before, gauge.trip_m])
 	get_tree().quit()
 
 
