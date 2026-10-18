@@ -4,7 +4,7 @@ extends Node3D
 ## Normandie); car: stuttgart/car or --car=<key in cars.json> (default 356Acoupe16; CARS maps it to
 ## the model and engine sound). --slice=<n> starts on road slice n instead of the start line;
 ## --windowed=1 keeps a window. F2 records telemetry to user://telemetry_*.csv, F3 toggles the
-## steering assist, F4 the ABS, F5 repairs the car, M mutes the sound, F11 full screen, Esc goes
+## steering assist, F4 the ABS, F5 repairs the car, F6 toggles traction control, M mutes the sound, F11 full screen, Esc goes
 ## back to the menu (scenes/menu.tscn, which sets GameSettings.car_key / track_name).
 
 const DEFAULT_TRACK := "farmland"
@@ -41,13 +41,16 @@ const ACTIONS := {
 	"telemetry": [KEY_F2],
 	"steering_assist": [KEY_F3],
 	"brake_assist": [KEY_F4],
+	"traction_control": [KEY_F6],
 	"repair": [KEY_F5],
 	"mute": [KEY_M],
 	"trip_reset": [KEY_T],
 	"fullscreen": [KEY_F11],
 	"menu": [KEY_ESCAPE],
 }
-const LOG_FIELDS := ["time", "speed_kmh", "rpm", "gear", "throttle", "brake", "steer_deg", "lat_g", "long_g"]
+const LOG_FIELDS := ["time", "speed_kmh", "rpm", "gear", "throttle", "brake", "steer_deg", "lat_g", "long_g",
+	"engine_nm", "load_f", "load_r", "slip_fl", "slip_fr", "slip_rl", "slip_rr",
+	"angle_fl", "angle_fr", "angle_rl", "angle_rr", "tc_cut", "boost", "clutch_slip"]
 
 @onready var car: Car = $Car
 
@@ -291,6 +294,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		car.steering_assist = not car.steering_assist
 	elif event.is_action_pressed("brake_assist"):
 		car.brake_assist = not car.brake_assist
+	elif event.is_action_pressed("traction_control"):
+		car.traction_control = not car.traction_control
 	elif event.is_action_pressed("repair"):
 		car.repair()
 	elif event.is_action_pressed("mute"):

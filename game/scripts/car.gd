@@ -53,7 +53,9 @@ const AIR_DENSITY := 1.225
 ## Keys are on/off: like the arcade racers of the time, the pedals and the steering wheel move
 ## gradually while a key is held. Off for analog input (gamepad, wheel) and physics tests.
 @export var digital_input := true
-@export var throttle_rise_time := 0.3  ## s from 0 to full throttle
+@export var throttle_rise_time := 0.4  ## s from 0 to full throttle when starting off in first gear
+@export var throttle_rise_time_fast := 0.15  ## at throttle_fast_speed or in top gear
+@export var throttle_fast_speed := 27.8  ## m/s (100 km/h)
 @export var throttle_fall_time := 0.1
 @export var brake_rise_time := 0.6  ## s from 0 to full brake: a tap only brushes the brakes
 @export var brake_fall_time := 0.15
@@ -73,6 +75,31 @@ const AIR_DENSITY := 1.225
 @export var downforce_area_per_unit := 1.2  ## m2 of Cl*A per unit of .sim 0x10C / 0x110 above 1
 var downforce_front := 0.0  ## Cl*A, m2 (front axle)
 var downforce_rear := 0.0
+@export_group("Driver aids and drivetrain")
+## Traction control: cuts a driven wheel's torque as its combined slip (normalised: 1 = the
+## tyre's peak) goes from tc_slip_start to tc_slip_full, so wheelspin stays at the grip peak.
+@export var traction_control := true
+@export var tc_slip_start := 0.8
+@export var tc_slip_full := 1.05
+## Launch clutch: in first gear and reverse the driver holds the engine at up to launch_rpm
+## (with full throttle) and slips the clutch until the wheels catch up. 0 = launch_rpm_share x redline.
+@export var launch_clutch := true
+@export var launch_rpm_share := 0.4
+## Limited slip differential (clutch type) on the driven axle: up to lsd_lock x the axle torque
+## goes to the slower wheel. Derived from the data: race cars (.sim 0x10C >= 1.3) 0.6, others open.
+@export var lsd_lock := 0.0
+## Turbo (.sim 0x04C): the .sim curve is the torque with the boost built up. Boost follows the
+## engine speed with a lag (boost_rise_time at boost_full_rpm, slower below it) and falls in
+## boost_fall_time off throttle and while shifting. Without boost the engine gives boost_base
+## of the boosted torque. Derived from the car's year (era of the turbo) and the curve.
+var turbo := false
+@export var boost_rise_time := 0.8
+@export var boost_fall_time := 0.3
+@export var boost_base := 0.5
+var boost_full_rpm := 4000.0  ## first rpm where the curve reaches 90 % of its peak
+var boost := 0.0  ## 0..1, built-up share of the full boost
+var launch_rpm := 2400.0
+@export_group("")
 @export var rev_drop_rate := 2500.0  ## rpm/s, engine falling off throttle with the clutch open
 @export var rev_rise_rate := 6000.0  ## rpm/s, throttle blip on a downshift
 @export var clutch_sync_rate := 6000.0  ## rpm/s, engine pulled to the new gear as the clutch closes
@@ -104,6 +131,7 @@ var steer := 0.0
 var forward_speed := 0.0
 var odometer_m := 0.0  ## total distance, driven by the driven wheels' rotation like a gearbox-driven odometer
 var telemetry: Dictionary = {}
+var engine_torque_nm := 0.0  ## torque the engine gives this tick (after throttle), for telemetry
 
 var _shift_timer := 0.0
 var _since_shift := 10.0
@@ -111,6 +139,9 @@ var _accel_key := 0.0  ## keyboard pedal values after the ramps
 var _brake_key := 0.0
 var _steer_key := 0.0
 var _clutch_slipping := false  ## engine still being pulled to the new gear after a shift
+var _launch_slip := false  ## launch clutch slipping: engine held above the wheel speed
+var tc_cut := 0.0  ## share of the drive torque traction control took this tick (HUD, telemetry)
+var _tc_on := false  ## traction control acts this tick: on, and the engine drives (not engine braking)
 var _last_velocity := Vector3.ZERO
 
 
@@ -166,8 +197,14 @@ func setup(model: Node3D, car_params: Dictionary) -> void:
 	var unknown: Dictionary = params.get("unknown", {})
 	mu = (grip_base + grip_per_sim * float(unknown.get("0x0F4", 1.15))) * grip
 	engine_inertia = float(unknown.get("0x058", 90.0)) / 1000.0
+	turbo = bool(params.get("turbo", false))
+	for i in torque_curve.size():
+		if torque_curve[i] >= 0.9 * torque_peak:
+			boost_full_rpm = 500.0 * i
+			break
 	if derive_from_data:
 		_derive_from_data(unknown)
+	launch_rpm = maxf(IDLE_RPM, launch_rpm_share * redline)
 	spring_rate = mass / 4.0 * pow(TAU * ride_frequency, 2.0)
 	damper_rate = 2.0 * damping_ratio * sqrt(spring_rate * mass / 4.0)
 	_model = model
@@ -197,6 +234,12 @@ func _derive_from_data(unknown: Dictionary) -> void:
 	var tyre: Dictionary = params["tyre"]
 	wheel_inertia = 1.2 * pow(wheel_radius / 0.292, 2.0) * float(tyre["width_mm"]) / 145.0
 	rear_grip = 1.0 if str(params.get("engine_position", "rear")) == "front" else 1.12
+	lsd_lock = 0.6 if float(unknown.get("0x10C", 1.0)) >= 1.3 else 0.0
+	# Turbo lag by era: KKK single turbos of the 1970s (930, 935) lag badly, 1980s water cooled
+	# and sequential units less, 1990s twin turbos little. Race engines run more boost (lower base).
+	var year := str(params.get("name", "")).left(4).to_int()
+	boost_rise_time = 0.8 if year < 1980 else (0.5 if year < 1995 else 0.3)
+	boost_base = (0.5 if year < 1980 else (0.6 if year < 1995 else 0.65)) - (0.1 if lsd_lock > 0.0 else 0.0)
 	# Drag: at the listed top speed the engine's best power just covers air and rolling resistance.
 	var top := float(params.get("top_speed_mph", 0.0)) * 0.44704
 	var power := 0.0
@@ -308,6 +351,8 @@ func reset_to(xf: Transform3D) -> void:
 	steer = 0.0
 	_shift_timer = 0.0
 	_clutch_slipping = false
+	_launch_slip = false
+	boost = 0.0
 	for w in wheels:
 		w.omega = 0.0
 	_accel_key = 0.0
@@ -436,26 +481,40 @@ func _physics_process(delta: float) -> void:
 	_update_damage()
 	_update_gearbox(delta)
 	var engaged := _shift_timer <= 0.0
+	_update_boost(delta, engaged)
 	var gearing := _gear_ratio() * final_drive
 	var engine_torque := 0.0
 	if engaged:
 		engine_torque = _engine_torque() * throttle
 		if throttle < 0.05:
-			engine_torque = -engine_brake * torque_peak * rpm / redline
-	# Engine inertia seen at the wheels; shared by the driven wheels (open differential).
+			# Engine braking; pulling away the clutch pedal is still down.
+			engine_torque = 0.0 if _launch_slip else -engine_brake * torque_peak * rpm / redline
+	engine_torque_nm = engine_torque
+	_tc_on = traction_control and engine_torque > 0.0
+	# Engine inertia seen at the wheels; shared by the driven wheels.
 	var driven := 0
 	for w in wheels:
 		if _drive_share(w) > 0.0:
 			driven += 1
 	var engine_inertia_at_wheel := 0.0
-	if engaged and driven > 0:
+	if engaged and driven > 0 and not _launch_slip:  # a slipping clutch holds the engine apart
 		engine_inertia_at_wheel = engine_inertia * gearing * gearing / driven
 	for w in wheels:
 		_update_contact(w, delta)
+	var drive_torque := {}
+	for w in wheels:
+		drive_torque[w] = engine_torque * gearing * (drivetrain_efficiency if engine_torque > 0.0 else 1.0) * _drive_share(w)
+	if lsd_lock > 0.0:
+		_limited_slip(drive_torque, wheel_inertia + engine_inertia_at_wheel, delta)
+	var drive_sum := 0.0
+	var cut_sum := 0.0
 	for w in wheels:
 		var share := _drive_share(w)
-		var torque := engine_torque * gearing * (drivetrain_efficiency if engine_torque > 0.0 else 1.0) * share
-		_apply_wheel(w, delta, torque, wheel_inertia + (engine_inertia_at_wheel if share > 0.0 else 0.0))
+		var torque: float = drive_torque[w]
+		var used := _apply_wheel(w, delta, torque, wheel_inertia + (engine_inertia_at_wheel if share > 0.0 else 0.0))
+		drive_sum += absf(torque)
+		cut_sum += absf(torque - used)
+	tc_cut = cut_sum / drive_sum if drive_sum > 1.0 else 0.0
 	var v := linear_velocity
 	var drag := drag_area * (1.0 + damage_drag_gain * (damage.total() if damage != null else 0.0))
 	apply_central_force(-v * v.length() * 0.5 * AIR_DENSITY * drag)
@@ -479,9 +538,13 @@ func _read_input(delta: float) -> void:
 	if digital_input:
 		# In reverse the keys swap roles, so each key ramps as the pedal it currently drives.
 		var accel_is_brake := gear == -1
-		_accel_key = _ramp(_accel_key, accel_raw, brake_rise_time if accel_is_brake else throttle_rise_time,
+		# Gentle off the line, quicker at speed and in the higher gears (less wheelspin to fear).
+		var pace := clampf(maxf(absf(forward_speed) / throttle_fast_speed,
+			float(gear - 1) / maxf(gear_ratios.size() - 1, 1.0)), 0.0, 1.0)
+		var throttle_rise := lerpf(throttle_rise_time, throttle_rise_time_fast, pace)
+		_accel_key = _ramp(_accel_key, accel_raw, brake_rise_time if accel_is_brake else throttle_rise,
 			brake_fall_time if accel_is_brake else throttle_fall_time, delta)
-		_brake_key = _ramp(_brake_key, brk_raw, throttle_rise_time if accel_is_brake else brake_rise_time,
+		_brake_key = _ramp(_brake_key, brk_raw, throttle_rise if accel_is_brake else brake_rise_time,
 			throttle_fall_time if accel_is_brake else brake_fall_time, delta)
 		accel = _accel_key
 		brk = _brake_key
@@ -572,7 +635,18 @@ func _update_gearbox(delta: float) -> void:
 			_shift(gear - 1)
 		if _shift_timer > 0.0:
 			wheel_rpm *= _gear_ratio() / ratio  # the gear just selected
-	_update_engine_speed(delta, clampf(wheel_rpm, IDLE_RPM, redline))
+	var target := clampf(wheel_rpm, IDLE_RPM, redline)
+	var was_slipping := _launch_slip
+	_launch_slip = false
+	if launch_clutch and absi(gear) == 1 and _shift_timer <= 0.0 and not _clutch_slipping:
+		# Pulling away: the driver revs up to the launch speed and slips the clutch.
+		var hold := lerpf(IDLE_RPM, launch_rpm, clampf(throttle, 0.0, 1.0))
+		if hold > wheel_rpm + 1.0 or (was_slipping and rpm > wheel_rpm + 1.0):
+			_launch_slip = true
+			var rate := rev_rise_rate if hold > rpm else rev_drop_rate
+			rpm = maxf(move_toward(rpm, hold, rate * delta), wheel_rpm)
+			return
+	_update_engine_speed(delta, target)
 
 
 ## Engine speed. Locked to the driven wheels while the clutch is engaged; during a shift the
@@ -599,7 +673,49 @@ func _shift(to: int) -> void:
 func _engine_torque() -> float:
 	if rpm >= redline:
 		return 0.0  # rev limiter
-	return _torque_at(rpm) * engine_health()
+	return _torque_at(rpm) * engine_health() * boost_factor()
+
+
+## Boost the turbo would build at this engine speed with full throttle (the .sim curve's state).
+func _boost_at(r: float) -> float:
+	return smoothstep(0.4 * boost_full_rpm, boost_full_rpm, r)
+
+
+## Turbo boost: rises towards the full-throttle level for the engine speed (slower at low rpm,
+## less exhaust), falls off throttle and while the clutch is open for a shift.
+func _update_boost(delta: float, engaged: bool) -> void:
+	if not turbo:
+		boost = 1.0
+		return
+	var target := _boost_at(rpm) * (clampf(throttle, 0.0, 1.0) if engaged else 0.0)
+	var tau := boost_fall_time
+	if target > boost:
+		tau = boost_rise_time * clampf(boost_full_rpm / maxf(rpm, 1.0), 1.0, 3.0)
+	boost += (target - boost) * (1.0 - exp(-delta / maxf(tau, 0.01)))
+
+
+## Torque now vs the .sim curve (which has the boost built up): 1 without a turbo or at steady
+## full throttle, down to boost_base / steady level while the turbo spools up.
+func boost_factor() -> float:
+	if not turbo:
+		return 1.0
+	var steady := boost_base + (1.0 - boost_base) * _boost_at(rpm)
+	return minf((boost_base + (1.0 - boost_base) * boost) / steady, 1.0)
+
+
+## Clutch type limited slip differential: the faster wheel of the driven axle hands torque to
+## the slower one, up to lsd_lock x the axle torque (plus a small preload), so the inside wheel
+## does not spin away on a corner exit. Stiff enough to nearly lock within one tick.
+func _limited_slip(drive_torque: Dictionary, inertia: float, delta: float) -> void:
+	for w: Wheel in drive_torque:
+		var o := w.partner
+		if o == null or w.center.x > 0.0 or _drive_share(w) <= 0.0 or w.detached or o.detached:
+			continue
+		var axle: float = drive_torque[w] + drive_torque[o]
+		var limit := lsd_lock * absf(axle) + 0.05 * torque_peak
+		var transfer := clampf(0.5 * inertia / delta * (w.omega - o.omega) / 2.0, -limit / 2.0, limit / 2.0)
+		drive_torque[w] -= transfer
+		drive_torque[o] += transfer
 
 
 ## Full-throttle torque (Nm) at engine speed r, from the .sim curve.
@@ -633,13 +749,14 @@ func _update_contact(w: Wheel, delta: float) -> void:
 	w.compression = compression
 
 
-func _apply_wheel(w: Wheel, delta: float, drive_torque: float, inertia: float) -> void:
+## Returns the mean drive torque the wheel actually got (traction control may take some).
+func _apply_wheel(w: Wheel, delta: float, drive_torque: float, inertia: float) -> float:
 	if w.detached:
 		w.normal_load = 0.0
 		w.force = Vector2.ZERO
 		w.slip_ratio = 0.0
 		w.slip_angle = 0.0
-		return
+		return 0.0
 	var brake_torque := brake * brake_decel_g * mass * GRAVITY * wheel_radius \
 		* (brake_front_bias if w.front else 1.0 - brake_front_bias) / 2.0
 	var abs_on := brake_assist and (w.front or not handbrake)
@@ -656,7 +773,7 @@ func _apply_wheel(w: Wheel, delta: float, drive_torque: float, inertia: float) -
 		w.omega = _spin_wheel(w.omega, drive_torque, brake_torque, inertia, delta)
 		w.spin = fmod(w.spin + w.omega * delta, TAU)
 		_update_visual(w)
-		return
+		return drive_torque
 	# Preloaded spring: carries a quarter of the weight at the model's ride height (lift 0).
 	var lift := w.compression - droop_travel
 	var wheel_load := mass * GRAVITY / 4.0 + spring_rate * lift + damper_rate * w.compression_speed
@@ -689,13 +806,20 @@ func _apply_wheel(w: Wheel, delta: float, drive_torque: float, inertia: float) -
 	var steps := maxi(wheel_substeps, 1)
 	var h := delta / steps
 	var f := Vector2.ZERO
+	var used := 0.0
 	for i in steps:
 		var slip := (w.omega * wheel_radius - v_long) / maxf(absf(v_long), 2.0)
 		var tyre := _tyre_force(slip, slip_y, max_force)
 		var braking := brake_torque
 		if abs_on and absf(v_long) > 1.0 and slip * signf(v_long) < -abs_limit:
 			braking = 0.0  # ABS: release this substep, the wheel spins back up
-		w.omega = _spin_wheel(w.omega, drive_torque - tyre.x * wheel_radius, braking, inertia, h)
+		var drive := drive_torque
+		if _tc_on and drive * slip > 0.0:
+			# Wheelspin in the direction of the drive: combined slip past the peak takes torque away.
+			var s := Vector2(slip / peak_slip_ratio, slip_y).length()
+			drive *= clampf((tc_slip_full - s) / (tc_slip_full - tc_slip_start), 0.0, 1.0)
+		used += drive
+		w.omega = _spin_wheel(w.omega, drive - tyre.x * wheel_radius, braking, inertia, h)
 		f += tyre
 	f /= steps
 	w.slip_ratio = (w.omega * wheel_radius - v_long) / maxf(absf(v_long), 2.0)
@@ -704,6 +828,7 @@ func _apply_wheel(w: Wheel, delta: float, drive_torque: float, inertia: float) -
 	w.force = f
 	w.spin = fmod(w.spin + w.omega * delta, TAU)
 	_update_visual(w)
+	return used / steps
 
 
 ## Combined tyre force (x along the wheel, y to its right) from slip ratio and normalised lateral
@@ -768,7 +893,25 @@ func _update_telemetry(delta: float) -> void:
 		"damage": _damage_summary(),
 		"lat_g": snappedf(local.x / GRAVITY, 0.001),
 		"long_g": snappedf(-local.z / GRAVITY, 0.001),
+		"engine_nm": roundi(engine_torque_nm),
+		"tc": traction_control,
+		"tc_cut": snappedf(tc_cut, 0.01),
+		"boost": snappedf(boost, 0.01) if turbo else 0.0,
+		"clutch_slip": _launch_slip,
 	}
+	var axle_load := {"load_f": 0.0, "load_r": 0.0}
+	for w in wheels:
+		var tag := wheel_tag(w)
+		telemetry["slip_" + tag] = snappedf(w.slip_ratio, 0.001)
+		telemetry["angle_" + tag] = snappedf(rad_to_deg(w.slip_angle), 0.1)
+		axle_load["load_f" if w.front else "load_r"] += w.normal_load
+	telemetry["load_f"] = roundi(axle_load["load_f"])
+	telemetry["load_r"] = roundi(axle_load["load_r"])
+
+
+## "fl", "fr", "rl", "rr": front / rear, left / right (car space: -x is left).
+func wheel_tag(w: Wheel) -> String:
+	return ("f" if w.front else "r") + ("l" if w.center.x < 0.0 else "r")
 
 
 func _damage_summary() -> Dictionary:

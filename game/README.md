@@ -60,6 +60,7 @@ Trať určuje nastavení projektu `stuttgart/track` (výchozí `farmland`), z p�
 | F3 | asistent řízení zapnout / vypnout (stav je v HUD, výchozí zapnuto) |
 | F4 | ABS zapnout / vypnout (stav je v HUD, výchozí zapnuto) |
 | F5 | oprava auta (vynuluje poškození, prototyp) |
+| F6 | kontrola trakce zapnout / vypnout (stav v HUD, při zásahu i podíl ubraného momentu, výchozí zapnuto) |
 | T | vynulovat denní počitadlo (trip), válečky dojedou zpět na nulu |
 | M | zvuk vypnout / zapnout (stav v HUD) |
 | F11 | celá obrazovka / okno |
@@ -67,7 +68,15 @@ Trať určuje nastavení projektu `stuttgart/track` (výchozí `farmland`), z p�
 
 Samostatně spuštěná hra běží přes celou obrazovku (ne v náhledu editoru, ne v testech bez okna). Okno si vynutí argument `-- --windowed=1`. HUD se škáluje se zvětšením okna (základ 1152 × 648).
 
-**Klávesnice** funguje jako v tehdejších arkádových hrách: klávesa je zapnuto/vypnuto, ale pedály a volant se pohybují postupně, dokud ji držíš. Plyn naběhne za 0,3 s (puštění 0,1 s), brzda za 0,6 s (0,15 s), takže ťuknutí jen lehce přibrzdí. Volant jde ze středu na doraz za 0,25 s v klidu až 0,8 s ve 150 km/h, zpět do středu za 0,2 s. Analogový vstup (`Car.digital_input = false`, testy fyziky, později gamepad) jde přímo.
+**Klávesnice** funguje jako v tehdejších arkádových hrách: klávesa je zapnuto/vypnuto, ale pedály a volant se pohybují postupně, dokud ji držíš. Plyn naběhne při rozjezdu na jedničku za 0,4 s, se stoupající rychlostí a stupněm rychleji (od 100 km/h nebo na nejvyšší stupeň 0,15 s), puštění 0,1 s, brzda za 0,6 s (0,15 s), takže ťuknutí jen lehce přibrzdí. Volant jde ze středu na doraz za 0,25 s v klidu až 0,8 s ve 150 km/h, zpět do středu za 0,2 s. Analogový vstup (`Car.digital_input = false`, testy fyziky, později gamepad) jde přímo.
+
+**Kontrola trakce** (F6, D-015) bere poháněnému kolu moment, když jeho kombinovaný skluz (podélný a boční dohromady, 1 = vrchol síly pneumatiky) překročí 0,8. Při 1,05 už kolo nedostává nic. Kolo se tak drží kolem vrcholu přilnavosti i v zatáčce. Působí v každém podkroku kola a na každé kolo zvlášť (jako brzdová kontrola trakce), na brzdění motorem ne.
+
+**Rozjezd a pohon** (`Car`, skupina „Driver aids and drivetrain“):
+
+- **Spojka při rozjezdu**: na jedničku a zpátečku řidič vytočí motor až na 40 % omezovače (podle plynu, 356: 2 320 ot/min, 935: 3 200 ot/min) a pouští spojku, dokud ho kola nedoženou. Bez plynu je spojka sešlápnutá (motor nebrzdí). Dřív motor stál při rozjezdu na volnoběhu.
+- **Turbo** (`.sim` 0x04C): křivka `.sim` je moment s plným tlakem. Tlak se k úrovni pro dané otáčky (plný od otáček, kde křivka dosáhne 90 % maxima, 935: 5 000 ot/min) blíží s časovou konstantou podle éry: do roku 1979 0,8 s, do 1994 0,5 s, později 0,3 s. Pod plnými otáčkami pomaleji (až 3×). Bez plynu a při řazení klesá za 0,3 s. Bez tlaku dává motor 50 / 60 / 65 % momentu podle éry, závodní auta o 10 % méně. U 930 a 935 je tak výrazná turbodíra. HUD ukazuje tlak v procentech.
+- **Samosvorný diferenciál** u závodních aut (`.sim` 0x10C ≥ 1,3: 935, GT1, GT2, GT3): rychlejší kolo nápravy předá pomalejšímu až 60 % momentu nápravy. Ostatní auta mají otevřený diferenciál.
 
 **Asistent řízení** omezuje natočení předních kol na 1,1× vrchol úhlu skluzu pneumatiky (356: 8,6°) kolem směru, kterým se přední náprava skutečně pohybuje. Plné řízení z klávesnice tak znamená „zatáčej, jak nejvíc to jde“, ne „natoč kola na doraz“ (přední kola by skluzovala a auto by nedotáčelo). Ve smyku zadní nápravy dovolí kontrovat. Pod 2 m/s nepůsobí, do 6 m/s se postupně zapíná. Vypnutý = jen mechanický doraz 30°.
 
@@ -82,7 +91,7 @@ Samostatně spuštěná hra běží přes celou obrazovku (ne v náhledu editoru
 | `scenes/main.tscn` | scéna: prostředí, slunce, auto, kamera, HUD |
 | `scripts/original_assets.gd` | načítání glTF a JSON z `decomposed/` |
 | `scripts/main.gd` | načtení trati (kolize z mesh skupin `road`, `terrain`, `objects`), auta, start na řezu silnice, ovládání, záznam telemetrie |
-| `scripts/car.gd` | auto: raycast podvozek nad `RigidBody3D` (D-003), motor a automatická převodovka z `cars.json`, model pneumatik (skluz, rotace kol, setrvačnost motoru) |
+| `scripts/car.gd` | auto: raycast podvozek nad `RigidBody3D` (D-003), motor a automatická převodovka z `cars.json`, model pneumatik (skluz, rotace kol, setrvačnost motoru), spojka při rozjezdu, turbo, samosvor, kontrola trakce a ABS |
 | `scripts/follow_camera.gd`, `scripts/hud.gd` | kamera za autem, údaje o jízdě |
 | `scripts/car_damage.gd` | poškození: impulsy kontaktů karoserie sečtené za prvních 0,1 s nárazu, nad prahem promáčknou zóny u bodu nárazu (blend shapes `dz0`–`dz9` z `<auto>_damage.json`); díly odpadají nebo visí na pantech (`HingeJoint3D`); následky čte `car.gd` |
 | `scripts/car_audio.gd` | zvuk auta: smyčky motoru podle otáček (výška, prolínání dvou nejbližších) a plynu (load / coast), pískání pneumatik podle skluzu, vítr, drhnutí, nárazy a díly ze signálů `CarDamage`; sběrnice `Engine` a `Sfx` |
@@ -195,6 +204,26 @@ Hlavní menu: bez okna ověří, že seznamy odpovídají `CARS` a `TRACKS`, pol
 ~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/menu_test.tscn
 ```
 
+Rozjezd z místa (bez okna): plný plyn klávesou (s náběhem, `--keyboard=0` přímo) na rovině pod skidpadem, po 0,1 s vypíše poměr prokluzu a úhel skluzu každého kola, moment motoru a zatížení náprav, nakonec 0–50 … 0–200 km/h a jak dlouho byla poháněná kola za vrcholem prokluzu. Volby `--turn=0..1` (rozjezd do zatáčky), `--set=vlastnost:hodnota` (např. `traction_control:false`). Telemetrie F2 zapisuje stejné údaje (`slip_*`, `angle_*`, `engine_nm`, `load_f`, `load_r`, `tc_cut`, `boost`, `clutch_slip`).
+
+```bash
+~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/launch_test.tscn -- --car=935race
+```
+
+| 18. 10. 2026, rozjezd klávesou | 0–50 | 0–100 | Kola za vrcholem | Max. poměr prokluzu |
+| --- | --- | --- | --- | --- |
+| 935, před změnou (náběh 0,3 s, bez spojky, turba a TC) | 2,19 s | 4,28 s | 1,38 s | 1,60 |
+| 935, kontrola trakce zapnutá | 1,72 s | 3,43 s | 0 s | 0,10 |
+| 935, kontrola trakce vypnutá | 1,72 s | 3,49 s | 0,28 s | 0,35 |
+| 935, přímý vstup, bez TC | 1,57 s | 3,35 s | 0,28 s | 0,33 |
+| 935, do zatáčky (`--turn=0.6`), TC, samosvor | 2,08 s | 4,50 s | 0 s | 0,11 (rozdíl zadních kol 0,06) |
+| 935, do zatáčky, TC, otevřený diferenciál | 1,95 s | 4,72 s | 0 s | 0,10 (rozdíl 0,08) |
+| 935, do zatáčky, bez TC | – | – | roztočí se | 14 |
+| 356 A 1.6, před změnou | 5,29 s | 15,67 s | 0 s | 0,06 |
+| 356 A 1.6, nyní (s TC i bez) | 4,81 s | 15,18 s | 0 s | 0,07 |
+
+Diagnostika před změnou: poměr prokluzu se nedělí nulou (jmenovatel je nejméně 2 m/s, úhel skluzu nejméně 3 m/s), přenos hmotnosti vzniká z pérování (935 při rozjezdu 73–82 % zatížení vzadu proti 58 % v klidu). 935 se rozjížděla na volnoběh (bez spojky), kolem 30 km/h moment vyskočil na 550–690 Nm, zadní náprava dostala 16,5 kN síly proti 11,6 kN, které unese, a kola se protočila až na poměr prokluzu 1,5. Protočená kola mají jen 75 % síly, takže motor ve dvojce došel do omezovače. 356 je pod vrcholem i s plným plynem. V zatáčce s otevřeným diferenciálem se vnitřní kolo 935 protáčelo dvakrát víc než vnější.
+
 Snímky obrazovky (otevře okno na pár sekund, PNG uloží do zadané složky):
 
 ```bash
@@ -211,10 +240,15 @@ Test na rovině (bez okna): 8 km dlouhá plocha 500 m pod skidpadem, plný plyn 
 | --- | --- | --- | --- | --- |
 | 356 A 1.6 (skutečnost ~16 s, 160 km/h) | 15,5 s | – | 145 km/h po 60 s, ještě stoupá | – / 51 m |
 | 935 Moby Dick (data 354 km/h) | 4,1 s | 9,1 s | 299 km/h, omezovač na 4. stupeň | 113 / 30 m |
+| 18. 10. 2026, spojka, turbo, TC, samosvor | | | | |
+| 356 A 1.6 | 15,0 s | – | 145 km/h | – / 51 m |
+| 935 Moby Dick | 3,3 s | 8,8 s | 299 km/h | 113 / 30 m |
+
+356 je teď o 0,5 s rychlejší, než bylo, a asi o 1 s rychlejší než skutečnost: rozjezd se spojkou na 2 300 ot/min dá od začátku 107 Nm místo 78 Nm na volnoběhu. Zbytek rozdílu je ve zbytku zrychlení (odpor, převody), ne v rozjezdu. Pro závodní 935/78 oficiální 0–100 neexistuje, pro srovnání sériová 930 Turbo 3.3 (1 300 kg, 221 kW) uvádí 5,4 s.
 
 935 na nejvyšší stupeň při 8 000 ot/min dosáhne jen 304 km/h, data uvádějí 354 km/h. Převody jsou krátké nebo zadní kola větší, než udává `.sim` (285/40 R16 odpovídá spíš přední pneumatice, přední kola modelu mají střed ve 0,28 m, zadní 0,31 m).
 
-Monte Carlo (`monaco1`, okruh 3,7 km ze 4 úseků): 935 v jízdním testu (`-- --track=monaco1 --car=935race`) zrychlí na 100 km/h za 4,0 s a řadí 15×, na dnech sjezdů drhne spodkem zádi (6 cm nad zemí, bez poškození, výpis `--log-impacts`). Po 22 s narazí do svodidla, protože testovací řidič vyjíždí ze zatáček s plným plynem, což s 689 Nm na zadních kolech nejde. Zvuk 935 je sada `sdxc` pro šestiválec do 8 000 ot/min.
+Monte Carlo (`monaco1`, okruh 3,7 km ze 4 úseků): 935 v jízdním testu (`-- --track=monaco1 --car=935race`) zrychlí na 100 km/h za 4,0 s (18. 10. 2026 s TC 3,2 s) a řadí 15×, na dnech sjezdů drhne spodkem zádi (6 cm nad zemí, bez poškození, výpis `--log-impacts`). Po 22 s narazí do svodidla, protože testovací řidič vyjíždí ze zatáček s plným plynem, což s 689 Nm na zadních kolech nejde. S kontrolou trakce (18. 10. 2026) naráží na stejném místě ve 22 s, ale pak se kola o svodidlo neprotáčejí (počitadlo +6 % proti +273 %). Náraz tedy nezpůsobuje prokluz, ale rychlost řidiče v zatáčce. Zvuk 935 je sada `sdxc` pro šestiválec do 8 000 ot/min.
 
 Výsledky (Godot 4.7.2, Apple M1 Pro), reálná 356 A 1600 pro srovnání: 0–100 km/h asi 16 s, maximum 160 km/h.
 

@@ -58,7 +58,7 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Import vybrané trati z `decomposed/` (glTF + data silnice `SimD`), kolize z geometrie
 - [x] Skutečná trať pro jízdní pocit: farmland (Normandie), start na startovní čáře originálu
 - [x] Raycast podvozek, model pneumatik, motor a převodovka z dat JSON (pneumatiky: skluz, rotace kol, setrvačnost motoru; 0–100 km/h 15,8 s proti reálným ~16 s)
-- [ ] Doladit pneumatiky a řízení proti originálu přes Wine (přilnavost 0x0F4 a setrvačnost 0x058 jsou hypotézy), asistent řízení pro klávesnici hotový (F3); ABS (F4) a zadní přilnavost 1,12 naladěné podle ruční jízdy proti originálu (smyk zádí při brzdění v zatáčce); klávesy s náběhem pedálů a volantu jako v tehdejších hrách
+- [ ] Doladit pneumatiky a řízení proti originálu přes Wine (přilnavost 0x0F4 a setrvačnost 0x058 jsou hypotézy), asistent řízení pro klávesnici hotový (F3); ABS (F4) a zadní přilnavost 1,12 naladěné podle ruční jízdy proti originálu (smyk zádí při brzdění v zatáčce); klávesy s náběhem pedálů a volantu jako v tehdejších hrách; kontrola trakce (F6), spojka při rozjezdu, turbodíra a samosvor závodních aut (D-015)
 - [x] HUD: kulatý rychloměr (s počítadlem km) a otáčkoměr v klasickém stylu (kreslené procedurálně, stupnice z dat auta, ručička s tlumenou setrvačností); otáčky motoru při řazení klesají a stoupají plynule (spojka)
 - [x] Mechanické válečkové počitadlo kilometrů a trip (D-013): vzdálenost z poháněných kol, nájezd uložený pro každé auto, vzhled podle éry auta
 - [x] Kolize s objekty kolem trati: sražitelné značky (dynamická tělesa s původní hmotností), ostatní statické
