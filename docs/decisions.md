@@ -1,6 +1,6 @@
 ---
 type: decisions
-updated: 2026-10-17
+updated: 2026-10-19
 format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), kontext a důsledky."
 ---
 
@@ -121,3 +121,9 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
 - **Rozhodnutí:** Vedle výběru auta je v menu výběr barvy laku. Nabízí „Původní“ (šedobílá textura beze změny, výchozí) a paletu modelu z `FEData/Data/nfs5.car` (19 barev, převodník `tools/car_colors.py`, [formats/car.md](formats/car.md)). Tovární barva varianty je označená „(továrna)“. Barví se jen exteriér, a to celá karoserie jednou barvou: lak (alfa atlasu 204), zóny pruhů (153, 166, 179, 230) a prahy s okraji pruhů (77). Barví se i texely karoserie, které používají obtisky (pruhy 935 na víku motoru). Chrom, světla, potisky obtisků a interiér zůstávají beze změny. Barva se ukládá s posledním výběrem do `user://settings.cfg`.
 - **Důvod:** Přání uživatele (18. 10. 2026): vybírat barvy z originálu, jen základní barvu bez obtisků. `.clr` u modelů jsou barvy pruhů, ne lak. Když se barvila jen alfa 204, zůstaly přes auto bílé pruhy (zóny pruhů jsou v textuře šedobílé).
 - **Důsledky:** Textura laku se pro zvolenou barvu přepočítá na CPU při načtení auta, jen jednou. Doplňkové barvy palety (pruhy) a barvy interiéru jsou v JSON, ale hra je nepoužívá. Platí jen pro prototyp s auty originálu (D-009). Fiktivní auta (D-004) budou mít vlastní palety.
+
+## D-021 Noční světla tratí z originálních září
+- **Stav:** accepted
+- **Rozhodnutí:** Světla tratí se berou z originálu: poloha z podpoložek `ef` článků trati (`<trať>_lights.json` z `tools/track2gltf.py`, [formats/crp.md](formats/crp.md#efekty-ef-článku)), vzhled a blikání z `GameData/Render/flare.dat` (`flares.json` z `tools/flare.py`, [formats/flare.md](formats/flare.md)). Hra (`game/scripts/track_lights.gd`) kreslí každou záři jako dva aditivní billboardy (jádro a svatozář, textury `common.fsh`). Záře ve světě jsou v jednom `MultiMesh` na ID a vrstvu, záře na rozmístěných objektech visí na jejich tělese a padají s ním (kozy). Blikající záře sdílí jeden čas (60 tiků/s, střídavé `wrna`/`wrnb`, běžící šipky). V noci 12 `OmniLight3D` bez stínů přeskakuje každých 0,25 s na rozsvícené záře nejblíž kameře, aby lampy svítily i na silnici. Ve dne záře svítí slaběji a bez světel. Tunel monaco1 a monaco2 záře nemá, lampy jsou namalované v textuře stěny. Ty zůstávají bez emise: strop tunelu používá pás lamp z textury, takže i slabá emise rozsvítila celý tunel do bíla (19. 10. 2026, připomínka uživatele). V noci svítí jako emise jen nejjasnější pixely oken (`win*`) a neonů (`neo*`) Monaka. Jen vestavěné funkce Godotu (D-012).
+- **Důvod:** Přání uživatele (19. 10. 2026): najít v datech originálu světla Monaka (blikající oranžová světla na kozách, světla v tunelu) a použít je. Data je mají pro všech 15 tratí, takže stejný kód svítí i na ostatních (autobahn 463 září, industrial 700).
+- **Důsledky:** Noc stojí 1–3 FPS navíc (M1 Pro, 3600 × 2260: monaco1 50,8 proti 52,7, industrial 48,1 proti 49,7). Rychlost tiků a jednotka velikosti jsou odhad, doladit proti originálu (Wine). Záře mají test hloubky, takže je zakryjí zdi, ale svítí i přes mlhu. Předlohy (kozy, kužely, `EndWall`) mají záře v `library` podle značky, pro rozestavení úloh z `_stNN.scn`. Zdroje částic (hydranty, fontány) a stíny `ef` hra zatím nepoužívá.

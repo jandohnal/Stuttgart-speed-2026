@@ -4,7 +4,7 @@
 # category: usable_now | unpack | to_write
 # priority: high | medium | low | none (podle docs/decisions.md)
 schema_version: 1
-updated: 2026-10-18
+updated: 2026-10-19
 install_size_mb: 540
 tracks: [alps, autobahn, canyon, castle, coastal, farmland, foothills, forest, industrial, monaco1, monaco2, monaco3, monaco4, monaco5, skidpad]
 
@@ -104,11 +104,24 @@ items:
     count: 15
     doc: docs/formats/crp.md
     tool: tools/track2gltf.py
-    output: "decomposed/GameData/Track/<trať>/<trať>.gltf + <trať>_road.json"
+    output: "decomposed/GameData/Track/<trať>/<trať>.gltf + <trať>_road.json + <trať>_objects.json + <trať>_lights.json"
     status: partial
     checked: "všech 15 převedeno, normály v pořádku, na hlavní trase bez děr; varování: spáry u okraje silnice, vedlejší úseky SimD mimo geometrii (docs/model-check.md)"
-    notes: "Převedeno všech 15 tratí. SimD = řezy silnice (pozice, vektory, šířky) v úsecích, start/cíl z *_fstart.scn, rozmístěné objekty z matice tr se značkou v Base 0x44 (*_objects.json)"
+    notes: "Převedeno všech 15 tratí. SimD = řezy silnice (pozice, vektory, šířky) v úsecích, start/cíl z *_fstart.scn, rozmístěné objekty z matice tr se značkou v Base 0x44 (*_objects.json), světelné záře a zdroje částic z podpoložek ef (*_lights.json, 0–700 září na trať)"
     use: "Jen náhled pro inspiraci stylem (D-005)"
+
+  - id: flares
+    category: usable_now
+    priority: low
+    path: GameData/Render/flare.dat
+    count: 1
+    format: flare
+    doc: docs/formats/flare.md
+    tool: tools/flare.py
+    output: decomposed/GameData/Render/flares.json
+    status: partial_decoded
+    notes: "39 září po 140 B: dvě vrstvy (textura z common.fsh, ARGB barva, velikost), blikání fáze/svítí/nesvítí. Jednotky velikosti a tiků odhadnuté. flarepos.dat (odlesky slunce), particle.ini/.dat nerozluštěné"
+    use: "Noční světla tratí v prototypu (D-021), předloha pro vlastní tratě"
 
   - id: track_binary_data
     category: to_write

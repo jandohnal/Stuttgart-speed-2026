@@ -50,7 +50,8 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Exportér tratí: převod všech 15 tratí, terén `WOBJ … _SECONDARY` ve skupině terrain
 - [x] Kontrola normál a děr všech aut a tratí ([tools/mesh_check.py](../tools/mesh_check.py), [model-check.md](model-check.md), D-016): orientace podle normál, terén nahoru
 - [ ] Spáry mezi silnicí a terénem a vedlejší úseky `SimD` mimo geometrii (varování z kontroly)
-- [ ] Exportér tratí: význam šířek `SimD`, spojení úseků (`.jnc`), předlohy z úloh (`_stNN.scn`), animace objektů
+- [x] Exportér tratí: světelné záře a zdroje částic z `ef` (`_lights.json`), vzhled září z `flare.dat` ([tools/flare.py](../tools/flare.py))
+- [ ] Exportér tratí: význam šířek `SimD`, spojení úseků (`.jnc`), předlohy z úloh (`_stNN.scn`), animace objektů, zdroje částic a stíny `ef`, `<trať>.map`
 - [ ] Spustit originál na Macu přes Wine jako referenci
 
 ## Fáze 2 – Prototyp jízdy
@@ -74,6 +75,7 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Druhé auto a trať: 935 Moby Dick v Monte Carlu, nastavení odvozená z dat místo ladění na 356 (test na rovině `straight_test`)
 - [x] Hlavní menu prototypu: výběr auta a trati, Play, Esc zpět do menu, poslední výběr uložený
 - [x] Barva laku z palety originálu vedle výběru auta (D-020)
+- [x] Noční světla tratí z originálu: záře `ef` a `flare.dat`, blikající výstražná světla, tunelová a pouliční světla (D-021, [formats/flare.md](formats/flare.md))
 - [ ] Rozhodnout definitivně o enginu (D-002)
 
 ## Fáze 3 – První vlastní trať

@@ -4,7 +4,7 @@ id: IDEA-009
 title: "Grafika: světlo, stíny, materiály, světla aut a efekty pneumatik"
 status: accepted        # idea | accepted | rejected | done
 created: 2026-10-17
-related: [D-002, D-012, D-014, D-019, IDEA-003, IDEA-007, IDEA-008]
+related: [D-002, D-012, D-014, D-019, D-021, IDEA-003, IDEA-007, IDEA-008]
 tags: [rendering, lighting, shadows, environment, materials, glass, particles, skidmarks, godot]
 ---
 
@@ -30,7 +30,8 @@ Výchozí stav (17. 10. 2026, `game/scenes/main.tscn`): `WorldEnvironment` s `Pr
 
 ### Denní doba a počasí
 - **Hotovo (D-019):** den a noc podle trati z HDRI (`PanoramaSkyMaterial`), slunce ve směru nejjasnějšího místa HDRI, noc s měsícem, volba v menu (`game/scripts/sky_lighting.gd`).
-- Pohyb slunce, barva světla, obloha a mlha podle času; noční tratě originálu.
+- **Hotovo (D-021):** noční světla tratí originálu: záře z `ef` a `flare.dat` (lampy, tunely, blikající výstražná světla, šipky), skupina `OmniLight3D` u nejbližších září, svítící okna a neony v texturách Monaka (`game/scripts/track_lights.gd`).
+- Pohyb slunce, barva světla, obloha a mlha podle času.
 - Déšť: mokrá silnice (nižší drsnost + SSR), kapky, sprška od kol, menší přilnavost (IDEA-008).
 
 ## 2. Materiály

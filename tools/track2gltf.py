@@ -3,7 +3,8 @@
 Format: docs/formats/crp.md (chapter "Tratě"). Verified on skidpad and farmland (Normandie).
 Writes next to <out>.gltf: <out>.bin, <stem>_road.json (SimD road slices split into segments,
 start/finish from <track>_fstart.scn), <stem>_objects.json (placed objects with their collision
-type and mass from animdefs.txt; their nodes are in the group "props") and uses the
+type and mass from animdefs.txt; their nodes are in the group "props"), <stem>_lights.json (ef
+flares and emitters: world ones, ones on placed objects, ones on library prototypes) and uses the
 track textures converted by tools/fsh2png.py (converted on the fly if missing).
 
 Usage:
@@ -21,7 +22,7 @@ import struct
 import fsh2png
 import scn
 from common import find_file
-from crp import STATS, article_matrix, article_mesh, base_info, entry_text, find, parse_crp, to_gltf, write_gltf
+from crp import EFFECT_FLARE, STATS, article_effects, article_matrix, article_mesh, base_info, entry_text, find, parse_crp, to_gltf, write_gltf
 
 GROUPS = [
     ("road", r"^RD"),
@@ -141,6 +142,14 @@ def centerline_prims(slices, segments, lift=0.05):
     return {CENTERLINE: (pos, nrm, tex, idx)} if idx else {}
 
 
+def light_entry(effect, article=None):
+    out = {"id": effect["id"], "position": [round(x, 3) for x in effect["position"]],
+           "direction": [round(x, 4) for x in effect["direction"]]}
+    if article:
+        out["article"] = article
+    return out
+
+
 def convert(src, out_path, level=0, library=False):
     d, arts, misc = parse_crp(open(src, "rb").read())
     STATS.clear()
@@ -158,6 +167,7 @@ def convert(src, out_path, level=0, library=False):
             mat_info[e.index] = (tex, method)
 
     nodes, props, lib_x, stats = [], [], 0.0, {"library_skipped": 0, "no_level": 0}
+    lights = {"world": [], "props": {}, "library": {}, "emitters": []}
     for art in arts:
         name_e = find(art.sub, "Name")
         if name_e is None:
@@ -171,6 +181,12 @@ def convert(src, out_path, level=0, library=False):
         # further than PLACED_MIN_DISTANCE from the origin horizontally.
         placed = matrix is not None and math.hypot(matrix[12], matrix[14]) > PLACED_MIN_DISTANCE
         is_library = matrix is not None and not placed
+        effects = article_effects(d, art)
+        if is_library:
+            tag = base_info(d, art)["tag"]
+            flares = [light_entry(e) for e in effects if e["kind"] == EFFECT_FLARE]
+            if tag and flares and tag not in lights["library"]:
+                lights["library"][tag] = flares
         if is_library and not library:
             stats["library_skipped"] += 1
             continue
@@ -188,12 +204,18 @@ def convert(src, out_path, level=0, library=False):
         offset, prims = mesh
         if placed:
             node = f"{len(props):03d} {name}"  # unique; _objects.json refers to it
+            flares = [light_entry(e) for e in effects if e["kind"] == EFFECT_FLARE]
+            if flares:
+                lights["props"][node] = flares
             tag = base_info(d, art)["tag"]
             info = animdefs.get(tag, {"collide": "static" if not tag else "cylinder", "mass": 0.0, "drivethrough": False})
             props.append({"node": node, "name": name, "tag": tag, **info,
                           "position": [round(x, 3) for x in matrix[12:15]]})
             nodes.append({"name": node, "offset": (0.0, 0.0, 0.0), "matrix": matrix, "prims": prims, "group": "props"})
             continue
+        if not is_library:
+            for e in effects:
+                (lights["world"] if e["kind"] == EFFECT_FLARE else lights["emitters"]).append(light_entry(e, name))
         if is_library:
             xs = [p[0] for pr in prims.values() for p in pr[0]]
             width = max(xs) - min(xs) if xs else 1.0
@@ -236,6 +258,16 @@ def convert(src, out_path, level=0, library=False):
                              "cylinder | none | static), mass kg and drivethrough from animdefs.txt",
                    "objects": props}, fh, indent=1)
 
+    with open(os.path.join(out_dir, stem + "_lights.json"), "w") as fh:
+        json.dump({"source": os.path.basename(src),
+                   "fields": "id = flare in GameData/Render/flare.dat (flares.json) or emitter tag; position and "
+                             "direction in glTF space: world, local to the prop node (props, keyed by node in "
+                             "group props) or local to a library prototype (library, keyed by object tag)",
+                   **lights}, fh, indent=1)
+    flare_ids = {}
+    for e in lights["world"] + [f for v in lights["props"].values() for f in v]:
+        flare_ids[e["id"]] = flare_ids.get(e["id"], 0) + 1
+
     tris = sum(len(p[3]) // 3 for n in nodes for p in n["prims"].values())
     groups = {}
     for n in nodes:
@@ -244,7 +276,8 @@ def convert(src, out_path, level=0, library=False):
           f"road {len(slices)} slices in {len(segments)} segments {length:.0f} m"
           + (f" (lap of {len(lap['segments'])} segments {lap['length_m']:.0f} m), " if lap else ", ") +
           f"start/finish slice {gates.get('start', {}).get('slice', '-')}/{gates.get('finish', {}).get('slice', '-')}, "
-          f"placed objects {len(props)}, library prototypes skipped {stats['library_skipped']}")
+          f"placed objects {len(props)}, library prototypes skipped {stats['library_skipped']}, "
+          f"flares {sum(flare_ids.values())} {dict(sorted(flare_ids.items()))}, emitters {len(lights['emitters'])}")
 
 
 def main():

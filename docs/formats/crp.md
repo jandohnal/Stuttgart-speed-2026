@@ -6,7 +6,7 @@ location: ["GameData/CarModel/*.crp", "GameData/Track/*.crp", "FEData/Models/*.c
 compression: "EA RefPack (QFS), magic 0x10FB"
 status: "komprese, kontejner a geometrie aut hotové; tratě: skidpad"
 tool: ["tools/archives.py", "tools/crp.py", "tools/crp2gltf.py", "tools/track2gltf.py"]
-updated: 2026-10-15
+updated: 2026-10-19
 ---
 
 # Formát `.crp` – modely aut a tratí
@@ -195,6 +195,39 @@ Terén a silnice mají značku prázdnou.
 | `Desc` | cesty ke zdrojovým modelům knihovny objektů |
 | `sn` | jméno souboru textur (`skidpad.fsh`) |
 
+### Efekty (`ef` článku)
+
+Podpoložka `ef` článku (stejně jako `Base`, `tr` …) popisuje světla a efekty. Jeden článek jich může mít několik. Převádí `article_effects` v `tools/crp.py`, `track2gltf.py` je zapíše do `<trať>_lights.json`.
+
+| Offset | Typ | Význam |
+| --- | --- | --- |
+| 0x00 | u32 | druh: **2 = světelná záře** (flare, 44 B), 3 = zdroj částic (56 B), 4 = stín (`Shadow#` na farmlandu, zatím nerozluštěno) |
+| 0x08 | f32[3] | poloha; u článku s `tr` lokální (sleduje objekt), jinak ve světě. Zrcadlí se X jako vrcholy |
+| druh 2: 0x14 | f32[3] | směr? Skoro vždy (0, 0, 1) |
+| druh 2: 0x24 | char[4] | **ID záře pozpátku** (`anrw` = `wrna`), klíč do `GameData/Render/flare.dat` ([flare.md](flare.md)) |
+| druh 2: 0x28 | u32 | náhodné hodnoty, nejspíš nevyplněno |
+| druh 3: 0x14 | f32 + f32[3×3]? | 1,0 a báze (fontány jsou natočené po 90°) |
+| druh 3: 0x30 | char[4] | značka zdroje částic **v normálním pořadí**: `HYDR`, `HYDB`, `HYDM` (hydrant), `CSF1`/`CSF2` (fontána u kasina), `BEXP`, `BEXO`, `BPST`, `TRSH` (úlomky) – nejspíš `GameData/Render/particle.ini` |
+
+Ověřeno: světové záře leží u vrcholů svého článku (medián 0,3–0,7 m na monaco1, monaco3, autobahn), záře na `tr` objektech jsou lokální (kozy `SAWH` ±0,44 m vlevo/vpravo, 1,12 m nahoře). Tunelová světla monaco3 jsou ve dvou řadách 6 m nad silnicí, 6,7 m od středu. Někdy záři nese jiný článek, než je lampa (silnice `RD… PRIMARY`, tunel), proto až 20 m od jeho vrcholů.
+
+Záře (druh 2) podle tratí, bez předloh. Navíc každá trať má předlohy `SawHorse_RIGID*` (2× `wrna`), `Pilon` (`wrna`) a `EndWall` (`arwa`–`arwe`) pro rozestavení úloh. `ambient` je z `<trať>.map` (~0,3 = tma):
+
+| Trať | ambient | Září | Hlavní ID (nositel) |
+| --- | --- | --- | --- |
+| monaco1–5 | 0,30 | 139–241 | `wrna` 14–42 (rozmístěné kozy), `arwa`–`arwe` (`FLASHERS##`, `R_ARROW#`), `strg`/`stry` (lampy `MNCOLAMPPOST`, `BLD_LIGHT`), `lamp` (`LAMP##`, kasino; monaco5 ne), `lmpy` (`HANGLAMP`), `tunb` 40 (tunel, jen monaco3–5) |
+| autobahn | 0,30 | 463 | `tuno` 198 (`SUPERTUNNEL`, silnice), `stry` 153 (`ABLAMPPOST`), `helw` 74 (`TUNNEL#B`), `wrna` 31 (kužely, kozy), `arw*` (`CRASHLIGHTS`) |
+| canyon | 0,30 | 119 | `cant` (`DOME_LITE`) |
+| foothills | 0,29 | 8 | `bldy` (zámek) |
+| forest | 0,29 | 0 | jen předlohy |
+| industrial | 0,73 | 700 | `bldy` 225, `strg`/`stry`/`strb`/`strr`, `lpol` 97 (`LIGHTPOLE`), `tunb` 37, `nred` 36 (kontejnery, jeřáby), `fred` 10 (blikající na jeřábu), `wrnb` 10 (`FLASHINGSIGN`), `wrna` 11 |
+| castle | 0,52 | 291 | `lmpy` 270 (`LAMPWALL`), `swht` 18 a `helr` 3 (tunely) |
+| alps | 1,23 | 82 | `tuny` 56 (silnice), `tunb` 20 (tunel), `helf`/`helr`/`helw` (`RESCUEHELI`), `swht` 3 |
+| coastal | 0,99 | 29 | `bldy` (`DOME_LITE`) |
+| farmland, skidpad | 0,70 / 0,57 | 0 | jen předlohy |
+
+Tunel monaco1 a monaco2 (`MONTUNCEN*`) záře nemá. Lampy jsou namalované v textuře stěny (`ttm1`–`ttm4`). Noční textury Monaka mají i rozsvícená okna (`win*`) a neony (`neo*`).
+
 ### `SimD` – řez silnice (80 B)
 
 | Offset | Typ | Význam | Skidpad |
@@ -242,4 +275,5 @@ python3 tools/track2gltf.py sources/GameData/Track/skidpad.crp decomposed/GameDa
 - Trojúhelníky otočené dolů (18 % vodorovných v terénu) jsou koruny stromů nad silnicí a střechy (materiály `cbb`, `shrb`, 3 m a víc nad silnicí), jsou tedy správně. Materiály jsou oboustranné.
 - Navazující úseky: úsek pokračuje do úseku, jehož začátek je do 20 m od jeho konce se stejným směrem (`next` v `segments`). Okruh z úseku 0 je v `lap` (segments, length_m). Monte Carlo má trasy uložené mimo pořadí: `monaco1` = úseky 0 → 2 → 1 → 3 → 0, 3 713 m. Monaco nemá `_fstart.scn` (start a cíl), auto startuje na řezu 0.
 - Ověřené tratě: skidpad, farmland, monaco1 (také monaco2–5 se převedou, okruhy 3,6–5,0 km).
-- Zbývá: ostatní tratě, význam `df`, šířek a příznaků `SimD`, animace (`Anim`, `Anqt`, snímky `vt` s indexem animace), předlohy z úloh (`.scn`), `Vis`, `CmAn`.
+- `<trať>_lights.json`: záře `world` (ve světě, s článkem), `props` (lokální, podle uzlu ve skupině props), `library` (lokální, podle značky předlohy), `emitters` (zdroje částic). Viz [Efekty](#efekty-ef-článku).
+- Zbývá: ostatní tratě, význam `df`, šířek a příznaků `SimD`, stíny `ef` druhu 4, animace (`Anim`, `Anqt`, snímky `vt` s indexem animace), předlohy z úloh (`.scn`), `Vis`, `CmAn`.

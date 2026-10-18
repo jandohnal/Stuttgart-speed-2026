@@ -46,6 +46,12 @@ python3 tools/crp2gltf.py sources/GameData/CarModel/935.crp decomposed/GameData/
 python3 tools/track2gltf.py sources/GameData/Track/monaco1.crp decomposed/GameData/Track/monaco1/monaco1.gltf
 ```
 
+Světla tratí (D-021): `track2gltf.py` zapíše i `<trať>_lights.json`. Vzhled září a jejich textury (`GameData/Render/common/*.png` z `fsh2png.py sources decomposed`):
+
+```bash
+python3 tools/flare.py sources/GameData/Render/flare.dat decomposed/GameData/Render/flares.json
+```
+
 ## Spuštění
 
 Otevřít `game/project.godot` v Godotu 4.7 a spustit (F5). Fyzika Jolt, 120 Hz, renderer Forward+ přes Metal.
@@ -203,6 +209,12 @@ Den a noc: bez okna ověří hledání HDRI (monaco1–5 → monaco), náhradní
 
 ```bash
 ~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/lighting_test.tscn
+```
+
+Světla trati (bez okna): na monaco1 v noci ověří, že jsou rozmístěné všechny záře z `monaco1_lights.json` (144), světla 12 koz visí na jejich tělesech 1,12 m nahoře a blikají jednou za sekundu, `wrna` a `wrnb` se střídají, šipky `arwa`–`arwe` se rozsvěcují postupně, pouliční lampy svítí stále, skupina `OmniLight3D` je u kamery a okna a neony svítí. Ve dne skupina světel chybí.
+
+```bash
+~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/track_lights_test.tscn
 ```
 
 Hlavní menu: bez okna ověří, že seznamy odpovídají `CARS`, `TRACKS` a `TIMES` (denní doba za tratí), položky s daty jsou aktivní a předvybrané a chybějící data položku jen zneaktivní. Vedle auta je výběr barvy: první „Původní“ (textura beze změny), pak paleta auta s tovární barvou; při změně auta zůstane barva, kterou má i nové auto.

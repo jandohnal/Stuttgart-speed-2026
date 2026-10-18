@@ -7,7 +7,8 @@ extends Node3D
 ## F11 full screen, Esc goes back to the menu (scenes/menu.tscn, which sets GameSettings.car_key /
 ## track_name, time_of_day and the options: steering assist, ABS, traction control, sound,
 ## diagnostics). Time of day: GameSettings.time_of_day, else --time=day|night or project setting
-## stuttgart/time (default day); the sky and sun come from SkyLighting, the car lamps from CarLights.
+## stuttgart/time (default day); the sky and sun come from SkyLighting, the car lamps from CarLights,
+## the track's lamps and warning lights from TrackLights.
 ## Paint: GameSettings.car_color, else --color=<#rrggbb>; empty = the body texture untinted.
 
 const DEFAULT_TRACK := "farmland"
@@ -16,6 +17,7 @@ const CarAudio := preload("res://scripts/car_audio.gd")
 const Materials := preload("res://scripts/materials.gd")
 const SkyLighting := preload("res://scripts/sky_lighting.gd")
 const CarLights := preload("res://scripts/car_lights.gd")
+const TrackLights := preload("res://scripts/track_lights.gd")
 const DEFAULT_TIME := "day"
 ## Times of day offered in the menu -> shown name.
 const TIMES := {"day": "Den", "night": "Noc"}
@@ -221,6 +223,7 @@ var car_key := ""
 var time_of_day := ""
 var hdri_sky := false  ## the sky is an HDRI (false: procedural fallback)
 var lights: Node3D  ## CarLights
+var track_lights: Node3D  ## TrackLights
 var road_slices: Array = []
 var road_segments: Array = []
 var start_slice := 0
@@ -248,6 +251,11 @@ func _ready() -> void:
 		var objects: Variant = OriginalAssets.load_json(folder + track_name + "_objects.json")
 		if objects is Dictionary:
 			prop_counts = TrackProps.build(track, objects["objects"])
+		var flares: Variant = OriginalAssets.load_json(folder + track_name + "_lights.json")
+		if flares is Dictionary:
+			track_lights = TrackLights.new()
+			add_child(track_lights)
+			track_lights.setup(track, flares, SkyLighting.entry(track_name), time_of_day == "night")
 		var simd := track.find_child("simd", true, false) as Node3D
 		if simd != null:
 			simd.visible = false  # road data overlay from track2gltf, only for checking
