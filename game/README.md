@@ -30,6 +30,12 @@ Zvuk (zatím zvuky originálu, D-011):
 python3 tools/snd2wav.py sources/GameData/Sounds decomposed/GameData/Sounds
 ```
 
+Barvy laku pro menu (bez nich nabízí menu jen původní texturu):
+
+```bash
+python3 tools/car_colors.py sources/FEData/Data/nfs5.car decomposed/FEData/Data/car_colors.json
+```
+
 Druhé auto a trať pro srovnání (935 „Moby Dick“, Monte Carlo):
 
 ```bash
@@ -44,7 +50,7 @@ python3 tools/track2gltf.py sources/GameData/Track/monaco1.crp decomposed/GameDa
 
 Otevřít `game/project.godot` v Godotu 4.7 a spustit (F5). Fyzika Jolt, 120 Hz, renderer Forward+ přes Metal.
 
-Hra začíná **hlavním menu** (`scenes/menu.tscn`): výběr auta (všech 44 modelů originálu) a trati (14 tratí bez skidpadu) a tlačítko Play. Seznamy jsou v `main.gd` (`CARS` s názvem pro menu, modelem, sadou zvuku motoru a klíčem fyziky `physics`, `TRACKS`), další trať stačí přidat do `TRACKS`. Policejní a „f“ modely jezdí s fyzikou svého silničního auta, provoz (`eas`, `eden`, `postship`) nemá vlastní `.sim` a jezdí s `default`. Sady zvuku motoru jsou u 356 A a 935 vybrané poslechem, u ostatních zatím odhadnuté podle pořadí sad. Pod výběrem trati je řádek přepínačů: asistent řízení, ABS, kontrola trakce, zvuk a diagnostika (údaje telemetrie v HUD: přetížení, úhel řízení, zásah kontroly trakce, plnicí tlak turba, poškození). Všechny jsou ve výchozím stavu zapnuté a nastavují se jen v menu, při jízdě je změnit nejde. Položka, jejíž data v `decomposed/` chybí, je neaktivní s poznámkou „chybí data“. Výběr i přepínače předá autoload `GameSettings` (`scripts/game_settings.gd`) a uloží se do `user://settings.cfg`, příště jsou předvybrané. Testy spouštějí `main.tscn` přímo a dostanou výchozí hodnoty, uložené nastavení hráče je neovlivní. Ovládání menu: šipky / D-pad posouvají fokus, mezerník / A otevře seznam, Enter (kdekoli) nebo Start spustí hru, Esc hru ukončí. Esc při jízdě vrátí do menu.
+Hra začíná **hlavním menu** (`scenes/menu.tscn`): výběr auta (všech 85 variant z `.sim`, např. '65 911 Coupé, '73 911 Carrera RS 2.7, '96 911 Turbo (993), plus policejní auta a provoz) a trati (14 tratí bez skidpadu) a tlačítko Play. Seznamy jsou v `main.gd` (`CARS` s názvem pro menu, modelem a klíčem fyziky `physics`; `MODELS` se sadou zvuku motoru modelu; `TRACKS`), další trať stačí přidat do `TRACKS`. Názvy variant a jejich modely jsou z `FEData/Data/nfs5.car` (Carrera RS 2.7 má model `f901`, 996 Turbo `f996`, Boxster 2.5 `fboxster`). Policejní auta jezdí s fyzikou svého silničního auta, provoz (`eas`, `eden`, `postship`) nemá vlastní `.sim` a jezdí s `default`. Sady zvuku motoru jsou u 356 A a 935 vybrané poslechem, u ostatních zatím odhadnuté podle pořadí sad. Pod výběrem trati je řádek přepínačů: asistent řízení, ABS, kontrola trakce, zvuk a diagnostika (údaje telemetrie v HUD: přetížení, úhel řízení, zásah kontroly trakce, plnicí tlak turba, poškození). Všechny jsou ve výchozím stavu zapnuté a nastavují se jen v menu, při jízdě je změnit nejde. Položka, jejíž data v `decomposed/` chybí, je neaktivní s poznámkou „chybí data“. Výběr i přepínače předá autoload `GameSettings` (`scripts/game_settings.gd`) a uloží se do `user://settings.cfg`, příště jsou předvybrané. Testy spouštějí `main.tscn` přímo a dostanou výchozí hodnoty, uložené nastavení hráče je neovlivní. Ovládání menu: šipky / D-pad posouvají fokus, mezerník / A otevře seznam, Enter (kdekoli) nebo Start spustí hru, Esc hru ukončí. Esc při jízdě vrátí do menu.
 
 Spuštění přímo `scenes/main.tscn` (F6 v editoru, testy) menu přeskočí: trať a auto pak určí výběr z menu, je-li v `GameSettings`, jinak argumenty a nastavení projektu níže.
 
@@ -58,7 +64,6 @@ Trať určuje nastavení projektu `stuttgart/track` (výchozí `farmland`), z p�
 | R | návrat na nejbližší řez silnice (`SimD`) |
 | F2 | záznam telemetrie do `user://telemetry_*.csv` (cesta se vypíše do konzole) |
 | F5 | oprava auta (vynuluje poškození, prototyp) |
-| T | vynulovat denní počitadlo (trip), válečky dojedou zpět na nulu |
 | F11 | celá obrazovka / okno |
 | Esc | zpět do hlavního menu (v menu: ukončit hru) |
 
@@ -95,7 +100,7 @@ Samostatně spuštěná hra běží přes celou obrazovku (ne v náhledu editoru
 | `scripts/gauge.gd` | kulatý budík (otáčkoměr, rychloměr) kreslený v `_draw()`; stupnice nastaví `hud.gd` podle redline a převodů auta |
 | `scripts/odometer.gd`, `scripts/odometer_logic.gd` | mechanické válečkové počitadlo v rychloměru (D-013); nájezd z poháněných kol, ukládaný pro každé auto do `user://odometer.cfg` (jen ve hře, ne v testech) |
 
-Auto: nastavení projektu `stuttgart/car` nebo argument `-- --car=<klíč v cars.json>` (výchozí `356Acoupe16`, ověřené i `935race`). Model a zvuková sada auta jsou v `CARS` v `main.gd` (přiřazení sady k autu je v originále v programu, ne v datech). Například 935 v Monaku:
+Auto: nastavení projektu `stuttgart/car` nebo argument `-- --car=<klíč v cars.json>` (výchozí `356Acoupe16`, ověřené i `935race`). Model auta je v `CARS`, zvuková sada modelu v `MODELS` v `main.gd` (přiřazení sady k autu je v originále v programu, ne v datech). Například 935 v Monaku:
 
 ```bash
 ~/Downloads/Godot.app/Contents/MacOS/Godot --path game -- --windowed=1 --car=935race --track=monaco1
@@ -188,16 +193,28 @@ Náraz do objektu (bez okna): auto se rozjede na první dopravní značku na far
 ~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/prop_test.tscn
 ```
 
-Počitadlo kilometrů: bez okna ověří polohy válečků a přenos (např. 999,95 → tři válečky v půlce přenosu). S oknem (bez `--headless`) pak 6 s ukazuje rychloměry všech tří ér s přetočením 99 999,5 → 100 000,5 km, ve druhé polovině s chvěním válečků. Jízdní test navíc porovnává počitadlo s ujetou dráhou (17. 10. 2026: +0,9 %, rozdíl dělá prokluz kol) a ověří nulování tripu klávesou T.
+Počitadlo kilometrů: bez okna ověří polohy válečků a přenos (např. 999,95 → tři válečky v půlce přenosu). S oknem (bez `--headless`) pak 6 s ukazuje rychloměry všech tří ér s přetočením 99 999,5 → 100 000,5 km, ve druhé polovině s chvěním válečků. Jízdní test navíc porovnává počitadlo s ujetou dráhou (17. 10. 2026: +0,9 %, rozdíl dělá prokluz kol).
 
 ```bash
 ~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/odometer_test.tscn
 ```
 
-Hlavní menu: bez okna ověří, že seznamy odpovídají `CARS` a `TRACKS`, položky s daty jsou aktivní a předvybrané a chybějící data položku jen zneaktivní.
+Den a noc: bez okna ověří hledání HDRI (monaco1–5 → monaco), náhradní procedurální oblohu bez HDRI, slunce nad obzorem ve směru nejjasnějšího místa HDRI a v noci dva reflektory se stíny a zadní světla, která zesílí při brzdění.
+
+```bash
+~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/lighting_test.tscn
+```
+
+Hlavní menu: bez okna ověří, že seznamy odpovídají `CARS`, `TRACKS` a `TIMES` (denní doba za tratí), položky s daty jsou aktivní a předvybrané a chybějící data položku jen zneaktivní. Vedle auta je výběr barvy: první „Původní“ (textura beze změny), pak paleta auta s tovární barvou; při změně auta zůstane barva, kterou má i nové auto.
 
 ```bash
 ~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/menu_test.tscn
+```
+
+Barva laku (bez okna): 356 A a 935 nabarví na červeno. Průměr texelů laku (alfa 204) i zón pruhů a prahů (77, 153, 166, 179, 230) musí být červený, ostatní texely atlasu, chrom a světla beze změny. Ve hře jde barvu zadat i jako `--color=#rrggbb`.
+
+```bash
+~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/paint_test.tscn
 ```
 
 Rozjezd z místa (bez okna): plný plyn klávesou (s náběhem, `--keyboard=0` přímo) na rovině pod skidpadem, po 0,1 s vypíše poměr prokluzu a úhel skluzu každého kola, moment motoru a zatížení náprav, nakonec 0–50 … 0–200 km/h a jak dlouho byla poháněná kola za vrcholem prokluzu. Volby `--turn=0..1` (rozjezd do zatáčky), `--set=vlastnost:hodnota` (např. `traction_control:false`). Telemetrie F2 zapisuje stejné údaje (`slip_*`, `angle_*`, `engine_nm`, `load_f`, `load_r`, `tc_cut`, `boost`, `clutch_slip`).
@@ -274,9 +291,19 @@ Na farmlandu auto 40 s jede po silnici z kopce bez kolize. Odvážnější řidi
 
 ## Grafika (IDEA-009)
 
-Materiály modelů nastavuje `scripts/materials.gd`: u auta podle stránky `.tpg` (lak s clearcoatem, chrom, světla, sklo s průhlednou tabulí, interiér, kola s chromem nebo gumou podle jasu textury), u trati anizotropní filtrování a procedurální detailní šum (triplanárně na UV2) na silnici a terénu. Prostředí: `PhysicalSkyMaterial`, AgX, SSAO, glow, výšková mlha se sun scatter, slunce pozdního odpoledne s PSSM 4 do 500 m a měkkými stíny.
+Materiály modelů nastavuje `scripts/materials.gd`: u auta podle stránky `.tpg` (lak s clearcoatem, chrom, světla, sklo s průhlednou tabulí, interiér, kola s chromem nebo gumou podle jasu textury), odrazy okolí v laku a sklech z `ReflectionProbe`, který jede s autem (auto na vizuální vrstvě 2, sklo s premultiplied alpha, D-018), u trati anizotropní filtrování a procedurální detailní šum (triplanárně na UV2) na silnici a terénu. Prostředí: obloha z HDRI podle trati a denní doby (viz níže, bez HDRI `PhysicalSkyMaterial`), AgX, SSAO, glow, výšková mlha se sun scatter, slunce ze směru slunce v HDRI s PSSM 4 do 500 m a měkkými stíny.
 
-Snímky a FPS (okno, tři pohledy, vsync vypnutý, `--env|--sky|--sun|--vp=vlastnost:hodnota` pro pokusy):
+### Den a noc (D-019)
+
+V menu se vedle auta a trati volí **denní doba** (Den / Noc), ukládá se do `user://settings.cfg` s ostatním nastavením. Bez menu: `-- --time=night` nebo nastavení projektu `stuttgart/time`.
+
+- **Obloha:** `scripts/sky_lighting.gd` načte za běhu HDRI `assets/hdri/<trať>_<day|night>.hdr` (složka v `.gitignore`, nastavení `stuttgart/hdri_root`). Trať bez číslice na konci: monaco1–5 sdílí `monaco_*`. Když vlastní soubor chybí, zkusí oblohu z Poly Haven podle `data/hdri.json` (`tools/fetch_hdri.py`). Obloha je `PanoramaSkyMaterial` a dává i okolní světlo a odrazy. Když HDRI chybí, zůstane procedurální obloha a v logu je hláška; hra nepadá.
+- **Slunce:** nejjasnější místo HDRI (na kopii širokou 256 px, zpřesněné v plném rozlišení) určí směr `DirectionalLight3D`, takže stíny sedí se sluncem na obloze. Výsledek se ukládá do `user://hdri_sun.cfg` (klíč: velikost a čas souboru). Slunce v těchto HDRI je oříznuté (≈ 20 proti obloze ≈ 1), proto má světlo pevnou energii 1,5 a obloha se přepočítá tak, aby její osvětlení vodorovné plochy byla třetina slunce. Špička mnohem jasnější než obloha (neoříznuté slunce, měsíc) se kolem sebe ořízne na 50× průměr oblohy, jinak by svítila do stínů podruhé přes okolní světlo.
+- **Noc:** slabé studené měsíční světlo (energie 0,1, stíny zapnuté) ze směru měsíce v HDRI, pokud je výš než 8°, jinak z pevného směru; obloha ztlumená na pevnou úroveň, expozice 1,0 místo 1,3, silnější glow.
+- **Světla auta:** `scripts/car_lights.gd` podle dílů `Light*` modelu (vpředu = −Z). V noci dva `SpotLight3D` se stíny (jeden na stranu, energie 17, dosah 200 m, útlum 1,0, sklon −2°: na silnici svítí asi 2× dál než první verze s energií 8, dosahem 90 m a sklonem −3°, spočteno podle útlumu světla v Godotu; 3–4× bylo moc). Stíny reflektorů mají větší bias (0,15, normálový 3,0), jinak téměř vodorovný paprsek kreslil na hrubém terénu ostré tmavé pruhy, a měkké okraje PCSS (`light_size` 0,2 m); obojí bez měřitelného rozdílu FPS a svítící skla předních světel; zadní světla svítí v noci a víc při brzdění (i ve dne), s malým červeným `OmniLight3D` na stranu. Světla auta nesvítí na vlastní vizuální vrstvu auta.
+- HDRI farmland a monaco jsou celá prostředí (stromy, domy), ne jen obloha: dole a mezi domy trati je vidět jejich fotka. Čistá obloha (`*_puresky` v `data/hdri.json`) by to nedělala.
+
+Snímky a FPS (okno, dva pohledy za autem, kokpit se v této fázi neměří, vsync vypnutý, `--time=day|night`, `--env|--sky|--sun|--vp|--head=vlastnost:hodnota` pro pokusy, `--head` nastaví oba reflektory):
 
 ```bash
 ~/Downloads/Godot.app/Contents/MacOS/Godot --path game res://tests/graphics_test.tscn -- /cesta/ke/složce --slice=1284
@@ -287,3 +314,15 @@ Snímky a FPS (okno, tři pohledy, vsync vypnutý, `--env|--sky|--sun|--vp=vlast
 | před (Filmic, ProceduralSky, stíny 250 m) | 85 | 80 | 85 |
 | po, plná kvalita (filtr stínů vysoký, nativní rozlišení) | 35 | 27 | 34 |
 | po, výchozí (filtr střední, MetalFX spatial 0,75) | 56 | 47 | 55 |
+| 18. 10.: + sonda odrazů na autě (D-018) | 50 | 41 | 51 |
+
+| 18. 10. 2026, M1 Pro, 3600 × 2260 | Za autem | Jízda |
+| --- | --- | --- |
+| farmland řez 1284, procedurální obloha (před D-019) | 48 | 49 |
+| farmland, HDRI den | 49 | 47 |
+| farmland, HDRI noc (2 reflektory se stíny) | 47 | 47 |
+| monaco1, procedurální obloha (před D-019) | 51 | 51 |
+| monaco1, HDRI den | 52 | 53 |
+| monaco1, HDRI noc | 48 | 43 |
+
+HDRI obloha FPS nemění, noc stojí 2–8 FPS (stíny reflektorů). Načtení HDRI 4k trvá ≈ 0,2 s. Snímky v `decomposed/screenshots/hdri_before|hdri_after`. (První měření monaco1 před změnou ukázalo 126 FPS za autem, opakované jen 51, šlo o odlehlou hodnotu.)

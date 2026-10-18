@@ -10,6 +10,14 @@ extends RefCounted
 ## 204, trim 77, interior 50), so with the glTF alpha mask (cut at 0.5) trim, roof gutters, seats
 ## and the underbody were holes. Only decals keep the cut-out; paint, chrome, interior and the
 ## underbody are opaque.
+## Reflections: the car is on its own visual layer (CAR_LAYER) and carries a reflection probe
+## that captures the track and sky but not the car, and lights only the car. Glass uses
+## premultiplied alpha so the pane's reflection is not dimmed by its low alpha.
+## Paint colour (menu, D-020): the original tints the grey body texture; setup_car bakes the chosen
+## colour into the paint material's copy of the exterior atlas on the body (alpha 204), the stripe
+## zones (153, 166, 179, 230, tinted by the .clr stripe package in the original) and the sills and
+## stripe borders (77), so the whole body is one colour. Decals get the same: some (the 935 stripes
+## on the engine lid) are body texels; their printed parts keep the texture, as do chrome and lamps.
 ## Track: anisotropic filtering everywhere, procedural detail noise on road and terrain
 ## (world-space triplanar on UV2, no new assets).
 
@@ -30,9 +38,21 @@ const RUBBER_ROUGHNESS := 0.9
 ## Kinds drawn opaque whatever the texture alpha says (see above).
 const OPAQUE_KINDS := ["paint", "chrome", "interior", "underbody"]
 const BRIGHT_ROUGHNESS := 0.12
+## Atlas alpha (0-255) of the texels painted in the body colour: body 204, stripe zones, sills and
+## stripe borders 77.
+const PAINT_ALPHAS: Array[int] = [77, 153, 166, 179, 204, 230]
+const PAINT_ALPHA_TOLERANCE := 2
+## Visual layer of the car's meshes (bit 2), kept out of its own reflection probe.
+const CAR_LAYER := 2
+## Probe box (m) around the body centre, its height above the car origin and capture range.
+const PROBE_SIZE := Vector3(8.0, 4.0, 8.0)
+const PROBE_HEIGHT := 0.8
+const PROBE_RANGE := 300.0
 
 
-static func setup_car(model: Node3D) -> void:
+## paint: body colour from the original palette (FEData/Data/car_colors.json); alpha 0 keeps the
+## texture as it is.
+static func setup_car(model: Node3D, paint := Color(0, 0, 0, 0)) -> void:
 	if model == null:
 		return
 	var cache := {}
@@ -40,6 +60,7 @@ static func setup_car(model: Node3D) -> void:
 		var mesh := (child as MeshInstance3D).mesh
 		if mesh == null:
 			continue
+		(child as MeshInstance3D).layers = CAR_LAYER
 		for surface in mesh.get_surface_count():
 			var base := mesh.surface_get_material(surface) as StandardMaterial3D
 			if base == null:
@@ -48,7 +69,25 @@ static func setup_car(model: Node3D) -> void:
 			var key := "%s/%s" % [base.resource_name, kind]
 			if not cache.has(key):
 				cache[key] = _car_material(base, kind)
+				if kind in ["paint", "decal"] and paint.a > 0.0:
+					_paint(cache[key], paint)
 			mesh.surface_set_material(surface, cache[key])
+
+
+## Reflection probe riding with the car: the surroundings in paint, chrome and glass.
+static func add_car_reflections(car: Node3D) -> ReflectionProbe:
+	var probe := ReflectionProbe.new()
+	probe.name = "Reflections"
+	probe.position = Vector3(0.0, PROBE_HEIGHT, 0.0)
+	probe.size = PROBE_SIZE
+	probe.blend_distance = 0.5
+	probe.max_distance = PROBE_RANGE
+	probe.cull_mask = ~CAR_LAYER & 0xFFFFF
+	probe.reflection_mask = CAR_LAYER
+	probe.update_mode = ReflectionProbe.UPDATE_ONCE  # re-captured over six frames when it moves
+	probe.ambient_mode = ReflectionProbe.AMBIENT_ENVIRONMENT
+	car.add_child(probe)
+	return probe
 
 
 static func _car_kind(material_name: String, part: String) -> String:
@@ -97,6 +136,7 @@ static func _car_material(base: StandardMaterial3D, kind: String) -> StandardMat
 		"glass", "intglass":
 			var p: Dictionary = GLASS if kind == "glass" else INNER_GLASS
 			m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			m.blend_mode = BaseMaterial3D.BLEND_MODE_PREMULT_ALPHA  # full-strength reflection on the pane
 			m.albedo_texture = _glass_texture(m.albedo_texture, p["alpha"])
 			m.roughness = p["roughness"]
 			m.metallic = 0.0
@@ -115,6 +155,51 @@ static func _car_material(base: StandardMaterial3D, kind: String) -> StandardMat
 			else:
 				m.roughness = RUBBER_ROUGHNESS
 	return m
+
+
+## Tints the paint texels so that each zone (body, stripes, sills) averages to `paint`, keeping the
+## texture's shading. A page without paint texels gets the colour as a plain albedo tint.
+static func _paint(m: StandardMaterial3D, paint: Color) -> void:
+	var img := _image(m.albedo_texture)
+	if img == null:
+		m.albedo_color = paint
+		return
+	var w := img.get_width()
+	var zones := PackedInt32Array()  # texel -> zone index + 1, 0 = not paint
+	zones.resize(w * img.get_height())
+	var total := PackedFloat64Array()
+	var count := PackedInt32Array()
+	total.resize(PAINT_ALPHAS.size())
+	count.resize(PAINT_ALPHAS.size())
+	for y in img.get_height():
+		for x in w:
+			var c := img.get_pixel(x, y)
+			var zone := paint_zone(c.a8)
+			if zone >= 0:
+				zones[y * w + x] = zone + 1
+				total[zone] += c.get_luminance()
+				count[zone] += 1
+	if count[PAINT_ALPHAS.find(204)] == 0:
+		m.albedo_color = paint
+		return
+	for y in img.get_height():
+		for x in w:
+			var zone := zones[y * w + x] - 1
+			if zone < 0 or total[zone] <= 0.0:
+				continue
+			var c := img.get_pixel(x, y)
+			var k := c.get_luminance() * count[zone] / total[zone]
+			img.set_pixel(x, y, Color(minf(paint.r * k, 1.0), minf(paint.g * k, 1.0), minf(paint.b * k, 1.0), c.a))
+	img.generate_mipmaps()
+	m.albedo_texture = ImageTexture.create_from_image(img)
+
+
+## Index in PAINT_ALPHAS of the paint zone with this atlas alpha (0-255), -1 when not paint.
+static func paint_zone(alpha: int) -> int:
+	for i in PAINT_ALPHAS.size():
+		if absi(alpha - PAINT_ALPHAS[i]) <= PAINT_ALPHA_TOLERANCE:
+			return i
+	return -1
 
 
 static func _apply(m: StandardMaterial3D, p: Dictionary) -> void:

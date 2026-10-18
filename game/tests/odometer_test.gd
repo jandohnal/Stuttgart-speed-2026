@@ -3,7 +3,7 @@ extends Node
 ##   godot --headless --path game res://tests/odometer_test.tscn
 ## Checks that higher drums stand still outside a carry, roll together during one, and land on
 ## whole digits after it. With a window it then shows one speedometer per era whose odometer runs
-## fast through 99 999.5 -> 100 000.5 km (trip 999.5 -> 0.5) so the carry can be watched; the
+## fast through 99 999.5 -> 100 000.5 km so the carry can be watched; the
 ## drums shake for the second half.
 
 const OdometerLogic := preload("res://scripts/odometer_logic.gd")
@@ -50,7 +50,6 @@ func _process(delta: float) -> void:
 	var m := lerpf(99999.5, 100000.5, t / SHOW_TIME) * 1000.0
 	for gauge in gauges:
 		gauge.odo_m = m
-		gauge.trip_m = fposmod(m, 1000000.0)
 		gauge.value = 60.0
 		gauge.odo_shake = 1.0 if t > SHOW_TIME * 0.5 else 0.0
 	if t > SHOW_TIME:

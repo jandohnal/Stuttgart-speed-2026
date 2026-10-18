@@ -1,19 +1,19 @@
 extends Node
 ## Graphics check (needs a window, not --headless): same views every run for before/after
 ## screenshots and FPS.
-##   godot --path game res://tests/graphics_test.tscn -- <output folder> [--track=<name>] [--slice=<n>] [--windowed=1]
-##     [--env|--sky|--sun|--vp=<property>:<value>] (repeatable)
-## --env, --sky, --sun and --vp set a property of the Environment, the sky material, the sun or the viewport for trying
+##   godot --path game res://tests/graphics_test.tscn -- <output folder> [--track=<name>] [--slice=<n>] [--time=day|night] [--windowed=1]
+##     [--env|--sky|--sun|--vp|--head=<property>:<value>] (repeatable)
+## --env, --sky, --sun, --vp and --head set a property of the Environment, the sky material, the sun, the viewport or both
+## headlights (night) for trying
 ## settings without editing the scene, e.g. --env=sdfgi_enabled:true --vp=use_taa:true.
 ## --shadow_atlas=<px> and --shadow_filter=<0..5> override the project's directional shadow settings.
-## The car settles on the slice, then: chase view (standing), cockpit view (standing), chase view
-## while driving. Each phase saves <phase>.png and prints the average and worst-frame FPS
-## (vsync off). README uses farmland slice 1284.
+## The car settles on the slice, then: chase view (standing), chase view while driving (no cockpit
+## view, the inside of the car is not checked in this phase). Each phase saves <phase>.png and
+## prints the average and worst-frame FPS (vsync off). README uses farmland slice 1284.
 
 const SETTLE := 2.0
 const PHASE := 4.0  ## seconds measured per phase
-const PHASES := ["chase", "cockpit", "drive"]
-const COCKPIT := Vector3(-0.29, 1.02, 0.08)  ## 356 A driver's eyes (left-hand drive), car space
+const PHASES := ["chase", "drive"]
 
 var main: Node3D
 var car: Node3D
@@ -38,7 +38,8 @@ func _ready() -> void:
 	car = main.get_node("Car")
 	camera = main.get_node("Camera")
 	var env := (main.get_node("WorldEnvironment") as WorldEnvironment).environment
-	var targets := {"env": env, "sky": env.sky.sky_material, "sun": main.get_node("Sun"), "vp": get_viewport()}
+	var targets := {"env": [env], "sky": [env.sky.sky_material], "sun": [main.get_node("Sun")], "vp": [get_viewport()],
+		"head": main.lights.headlights if main.lights != null else []}
 	var atlas := _arg(args, "shadow_atlas")
 	if atlas.is_valid_int():
 		RenderingServer.directional_shadow_atlas_set_size(atlas.to_int(), true)
@@ -51,8 +52,9 @@ func _ready() -> void:
 			var setting := arg.get_slice("=", 1)
 			var prop := setting.get_slice(":", 0)
 			var value: Variant = str_to_var(setting.substr(prop.length() + 1))
-			targets[key].set(prop, value)
-			print("%s.%s = %s" % [key, prop, targets[key].get(prop)])
+			for target: Object in targets[key]:
+				target.set(prop, value)
+				print("%s.%s = %s" % [key, prop, target.get(prop)])
 
 
 func _process(delta: float) -> void:
@@ -61,8 +63,6 @@ func _process(delta: float) -> void:
 		if t >= SETTLE:
 			_start(0)
 		return
-	if PHASES[phase] == "cockpit":
-		camera.global_transform = car.global_transform * Transform3D(Basis(Vector3.RIGHT, -0.08), COCKPIT)
 	if skip_frame:  # the previous phase's screenshot save stalls this frame
 		skip_frame = false
 		return
@@ -91,7 +91,6 @@ func _start(index: int) -> void:
 	worst = 0.0
 	skip_frame = true
 	var name: String = PHASES[index]
-	camera.set_physics_process(name != "cockpit")
 	if name == "drive":
 		Input.action_press("accelerate")
 

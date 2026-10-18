@@ -20,6 +20,7 @@ Duchovní nástupce NFS: Porsche 2000. Kontext: `README.md`, rozhodnutí: `docs/
 - Nová rozhodnutí zapisovat do `docs/decisions.md` jako D-xxx, hotové úkoly odškrtávat v `docs/plan.md`.
 - Nápady, o kterých se zatím nerozhodlo, ukládat do `ideas/` jako samostatný soubor s hlavičkou `type: idea`, `id: IDEA-xxx`, `status`. Po přijetí nápadu z něj udělat rozhodnutí D-xxx a změnit `status` na `accepted`.
 - Žádné placené doplňky (D-012). Jen vestavěné funkce Godotu, vlastní kód nebo bezplatné open-source doplňky s kompatibilní licencí.
+- Pohled z kokpitu (zevnitř auta) se v současné fázi neověřuje ani neměří: snímky a FPS jen za autem (stojící a v jízdě).
 - Dokumentace je česky, kód a komentáře v kódu anglicky.
 
 ## Nástroje
@@ -31,6 +32,7 @@ Duchovní nástupce NFS: Porsche 2000. Kontext: `README.md`, rozhodnutí: `docs/
 - `python3 tools/ai_csv2json.py sources/GameData/Simulation/AI decomposed/GameData/Simulation/AI` – nastavení AI do JSON, ověřené proti `.bin`.
 - `python3 tools/track2gltf.py sources/GameData/Track/farmland.crp decomposed/GameData/Track/farmland/farmland.gltf` – trať do glTF + data silnice (`_road.json`: řezy, úseky, start/cíl) + objekty kolem trati (`_objects.json`). Farmland = Normandie. Společný parser CRP je v `tools/crp.py`.
 - `python3 tools/sim_dump.py sources/GameData/Simulation/CarData > decomposed/GameData/Simulation/cars.json` – fyzika aut do JSON.
+- `python3 tools/car_colors.py sources/FEData/Data/nfs5.car decomposed/FEData/Data/car_colors.json` – palety barev laku aut do JSON (volba barvy v menu).
 - `python3 tools/snd2wav.py sources/GameData/Sounds decomposed/GameData/Sounds` – zvukové banky do WAV (+ `index.json`) a sady motorů pro hru (`engine.json`).
 
 ## Hra

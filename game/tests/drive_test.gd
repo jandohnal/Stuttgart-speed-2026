@@ -198,7 +198,7 @@ func _settle_report() -> String:
 
 
 func _finish() -> void:
-	phase = "done"  # the trip check below waits, the report must run once
+	phase = "done"
 	var track_parts := 0
 	for child in main.get_children():
 		if child is Node3D and child != car and not (child is Camera3D) and not (child is DirectionalLight3D):
@@ -222,15 +222,6 @@ func _finish() -> void:
 	print("  body collisions: ", collisions if not collisions.is_empty() else "none")
 	print("  braking 100-0 km/h: %s" % ("%.1f m" % brake_distance if brake_distance >= 0.0 else "n/a"))
 	print("  distance from road at end: %.1f m" % _distance_from_road())
-	# Trip reset (T): the trip drums roll back to zero.
-	var gauge: Gauge = main.get_node("HUD").speed_gauge
-	var trip_before := gauge.trip_m
-	var press := InputEventAction.new()
-	press.action = "trip_reset"
-	press.pressed = true
-	Input.parse_input_event(press)
-	await get_tree().create_timer(1.0).timeout
-	print("  trip reset: %.0f m -> %.0f m" % [trip_before, gauge.trip_m])
 	get_tree().quit()
 
 

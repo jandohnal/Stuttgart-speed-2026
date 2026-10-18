@@ -4,7 +4,7 @@ id: IDEA-009
 title: "Grafika: světlo, stíny, materiály, světla aut a efekty pneumatik"
 status: accepted        # idea | accepted | rejected | done
 created: 2026-10-17
-related: [D-002, D-012, D-014, IDEA-003, IDEA-007, IDEA-008]
+related: [D-002, D-012, D-014, D-019, IDEA-003, IDEA-007, IDEA-008]
 tags: [rendering, lighting, shadows, environment, materials, glass, particles, skidmarks, godot]
 ---
 
@@ -22,13 +22,14 @@ Výchozí stav (17. 10. 2026, `game/scenes/main.tscn`): `WorldEnvironment` s `Pr
 | Tonemapping | Linear, Reinhard, Filmic, ACES, AgX + expozice, white | AgX: přirozené barvy |
 | Globální osvětlení | SDFGI (dynamické, Forward+), VoxelGI, `LightmapGI` (zapečené) | Pro statickou trať nejkvalitnější a nejlevnější za běhu je LightmapGI |
 | Ambient occlusion | SSAO, SSIL | Kontaktní stíny, nepřímé světlo v obrazu |
-| Odrazy | SSR, odrazy z oblohy, `ReflectionProbe` | Probe sledující auto je dražší, zkusit s nízkou frekvencí aktualizace |
+| Odrazy | SSR, odrazy z oblohy, `ReflectionProbe` | Probe sledující auto je dražší, zkusit s nízkou frekvencí aktualizace. **Hotovo:** sonda jedoucí s autem, `UPDATE_ONCE` (D-018) |
 | Stíny slunce | PSSM 2/4 rozdělení, `blend_splits`, dosah, `light_angular_distance` (měkké stíny PCSS), velikost atlasu a kvalita filtru v nastavení projektu | |
 | Mlha | Hloubková a výšková mlha, `fog_sun_scatter`, aerial perspective, volumetrická mlha, `FogVolume` | Volumetrická je dražší |
 | Post-processing | Glow, úpravy (jas, kontrast, sytost), barevná korekce (LUT), DOF a automatická expozice přes `CameraAttributes` | |
 | Vyhlazování hran | MSAA, TAA, FXAA, SMAA; upscaling FSR2, na Macu případně MetalFX (ověřit nabídku v 4.7) | |
 
-### Denní doba a počasí (později)
+### Denní doba a počasí
+- **Hotovo (D-019):** den a noc podle trati z HDRI (`PanoramaSkyMaterial`), slunce ve směru nejjasnějšího místa HDRI, noc s měsícem, volba v menu (`game/scripts/sky_lighting.gd`).
 - Pohyb slunce, barva světla, obloha a mlha podle času; noční tratě originálu.
 - Déšť: mokrá silnice (nižší drsnost + SSR), kapky, sprška od kol, menší přilnavost (IDEA-008).
 
@@ -48,6 +49,7 @@ Rozlišení materiálu (lak, sklo, chrom...) podle názvu textury nebo materiál
 
 ## 3. Světla aut
 
+- **Hotovo (D-019, `game/scripts/car_lights.gd`):** v noci dva reflektory `SpotLight3D` s měkkými stíny PCSS (dosah 200 m) a svítící skla, zadní světla v noci a při brzdění (emise tónovaná červeně + `OmniLight3D`). Zbývá: projektor kužele, dálková/potkávací, couvací zvlášť, zhasnutí při poškození.
 - **Přední světla:** `SpotLight3D` se stíny a texturou kužele (projektor), emisivní skla, glow. Dálková/potkávací.
 - **Brzdová a couvací:** emise + malé `OmniLight3D`, napojené na brzdu a zpátečku.
 - **Poškození:** rozbité světlo zhasne (IDEA-007).
@@ -84,7 +86,7 @@ Kouř a stopy pomáhají ladit jízdní model (vidět, kdy a kde kola prokluzuj�
 - Detail trati jen jako albedo (detailní normálová mapa by potřebovala tangenty).
 - [ ] Kouř a stopy pneumatik napojené na prokluz
 - [ ] Prach podle povrchu (po IDEA-008)
-- [ ] Přední, brzdová a couvací světla
+- [x] Přední a brzdová světla, den a noc z HDRI (18. 10. 2026, D-019; couvací zvlášť zbývá)
 - [ ] LightmapGI pro trať a srovnání se SDFGI
 - [ ] Předvolby kvality
 - [x] Zapsat jako rozhodnutí do `docs/decisions.md` (D-014, výchozí nastavení prototypu)

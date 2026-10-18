@@ -92,9 +92,9 @@ Typ 4 je seznam čtyřúhelníků: každé 4 po sobě jdoucí rohy jsou jeden č
 
 Stránka je atlas 256×256 (nebo podle `.tpg`) složený z položek SHPI na jejich pozici (pole „pozice“ v hlavičce záznamu). Více položek na stejném místě jsou alternativy (styly, poškození), převod bere první. Soubory, které nejsou v `.crp` (`Suit`, `Head`, `Cabrio`), leží jako `.fsh` vedle něj.
 
-Barva laku se v originále dobarvuje podle `.clr`, textury karoserie jsou šedé.
+Textury karoserie jsou šedé a barva laku se v originále dobarvuje. Palety barev jsou v `FEData/Data/nfs5.car` ([car.md](car.md)), `.clr` obsahují jen barvy pruhů.
 
-**Alfa atlasů není průhlednost.** Na stránkách s render metodou `CarExtEnv` odpovídá síle odlesku: lak 204, lišty a prahy 77, u 356 A interiér 50, u 935 podvozek 0. Ořez alfou (glTF `MASK`, práh 0,5) proto vyřízl díry: u 935 6 % karoserie, 18 % dveří, pruhy na střeše a víku motoru a 92 % podvozku, u 356 A celá sedadla a 83 % interiéru (ověřeno vzorkováním textury na trojúhelnících, 18. 10. 2026). Skutečný ořez potřebují jen obtisky (`Decal*`, alfa 0 mimo obtisk). Hra proto kreslí lak, chrom, interiér a podvozek neprůhledně (`game/scripts/materials.gd`), světla mají ořez zatím ponechaný (12–39 % plochy, neověřeno).
+**Alfa atlasů není průhlednost.** Na stránkách s render metodou `CarExtEnv` odpovídá síle odlesku: lak 204 (pruhy 153, 166, 179, 230, viz [car.md](car.md)), lišty a prahy 77, u 356 A interiér 50, u 935 podvozek 0. Ořez alfou (glTF `MASK`, práh 0,5) proto vyřízl díry: u 935 6 % karoserie, 18 % dveří, pruhy na střeše a víku motoru a 92 % podvozku, u 356 A celá sedadla a 83 % interiéru (ověřeno vzorkováním textury na trojúhelnících, 18. 10. 2026). Skutečný ořez potřebují jen obtisky (`Decal*`, alfa 0 mimo obtisk). Hra proto kreslí lak, chrom, interiér a podvozek neprůhledně (`game/scripts/materials.gd`), světla mají ořez zatím ponechaný (12–39 % plochy, neověřeno).
 
 **Překryvy ploch.** Strop interiéru 935 (`Interior`, normály dolů) leží přesně v rovině střechy (`Body`, y ≈ 1,06 m). Oboustranný materiál zezhora ukazoval rub stropu přes střechu (z-fighting), a protože zóna střechy promáčkne karoserii až o 0,20 m a strop méně, při poškození strop střechu prorazí (66 protnutých dvojic trojúhelníků). Interiér se proto kreslí jen z lícové strany. Ostatní protnutí na obou autech jsou modelovaná (pneumatika v kole, zrcátka ve dveřích, křídlo 935 v karoserii). Pořadí vrcholů souhlasí s uloženými normálami až na vnitřní panely (356 A `HoodIn` 40 z 68, `TrunkIn` 32 z 62 trojúhelníků, 935 šest malých ploch na zádi), kde jsou v originále normály vnějšího panelu – ovlivní jen stínování.
 
@@ -142,7 +142,7 @@ python3 tools/crp2gltf.py sources/GameData/CarModel/356a.crp decomposed/GameData
 - **Souřadnice originálu jsou levotočivé (Direct3D).** Převod do glTF zrcadlí osu X (`crp.to_gltf`), tím se zároveň otočí pořadí vrcholů trojúhelníků na správnou stranu. Ověřeno: 96–99 % trojúhelníků aut souhlasí s uloženými normálami (před opravou 4 %), volant 356 A je vlevo (−0,29 m), všechny normály silnice skidpadu míří nahoru, vektor „doprava“ v `SimD` = dopředu × nahoru. Bez opravy byly modely zrcadlené (pravostranné řízení) a kolize trati v Godotu nefungovala (paprsek trefil rub trojúhelníku).
 - Výchozí úroveň 1 (model do menu, cca 3 000 trojúhelníků), `--level 3` herní LOD, `--all` i varianty a řidič.
 - Ověřeno: všech 44 aut se převede bez chyby; 356 A a 996 zkontrolované vizuálně v three.js (tvar, kola, světla, textury vlevo i vpravo sedí).
-- Známé nedostatky: lak bez barvy (`.clr` se nepoužívá), u decalů může být zvolená jiná alternativní textura (tenké světlé pruhy na kapotě), textury poškození a animace se neexportují.
+- Známé nedostatky: lak se barví až ve hře podle zvolené barvy ([car.md](car.md)), u decalů může být zvolená jiná alternativní textura (tenké světlé pruhy na kapotě), textury poškození a animace se neexportují.
 
 ## 5. Tratě (ověřeno zatím jen na `skidpad`)
 

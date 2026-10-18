@@ -19,18 +19,24 @@ const DEFAULT_OPTIONS := {
 var car_key := ""
 ## Track name in decomposed/GameData/Track/ (main.gd TRACKS); empty = not chosen in the menu.
 var track_name := ""
+## "day" / "night" (main.gd TIMES); empty = not chosen in the menu.
+var time_of_day := ""
+## Body colour "#rrggbb" from the car's original palette (menu); empty = the texture as it is.
+var car_color := ""
 ## Options toggled in the menu (not during the game), applied by main.gd when the game starts.
 var options := DEFAULT_OPTIONS.duplicate()
 
 
-## Last choice saved by save_last(): {"car": key, "track": name}, values "" when never saved.
+## Last choice saved by save_last(): {"car": key, "track": name, "time": day|night,
+## "color": hex}, values "" when never saved.
 ## Also loads the saved options into `options` (defaults for the ones never saved).
 func load_last() -> Dictionary:
 	var cfg := ConfigFile.new()
 	cfg.load(FILE)
 	for key: String in DEFAULT_OPTIONS:
 		options[key] = bool(cfg.get_value("options", key, DEFAULT_OPTIONS[key]))
-	return {"car": str(cfg.get_value("last", "car", "")), "track": str(cfg.get_value("last", "track", ""))}
+	return {"car": str(cfg.get_value("last", "car", "")), "track": str(cfg.get_value("last", "track", "")),
+		"time": str(cfg.get_value("last", "time", "")), "color": str(cfg.get_value("last", "color", ""))}
 
 
 func save_last() -> void:
@@ -38,6 +44,8 @@ func save_last() -> void:
 	cfg.load(FILE)
 	cfg.set_value("last", "car", car_key)
 	cfg.set_value("last", "track", track_name)
+	cfg.set_value("last", "color", car_color)
+	cfg.set_value("last", "time", time_of_day)
 	for key: String in options:
 		cfg.set_value("options", key, options[key])
 	cfg.save(FILE)

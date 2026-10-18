@@ -1,0 +1,24 @@
+{
+  "_comment": "HDRI oblohy pro trate (den/noc). Zdroj: Poly Haven, licence CC0. Stahuje tools/fetch_hdri.py do assets/hdri/ (v .gitignore). Pure Sky = jen obloha, spodni polovina prazdna -> idealni pod trat.",
+  "source": "https://polyhaven.com/hdris",
+  "license": "CC0",
+  "tracks": {
+    "farmland":   {"day": "farm_field_puresky",                    "night": "kloppenheim_07_puresky",   "note": "Normandie: polojasno, mekke svetlo; noc zatazena nad polem"},
+    "monaco":     {"day": "kloofendal_43d_clear_puresky",          "night": "qwantani_moon_noon_puresky","note": "Stredomori: jasno, ostre slunce; noc jasna s mesicem, svetla mesta z trati. Plati pro monaco1-5"},
+    "alps":       {"day": "pizzo_pernice_puresky",                 "night": "qwantani_night_puresky",   "note": "Hory: jasne poledne; noc s hvezdami"},
+    "autobahn":   {"day": "kloppenheim_05_puresky",                "night": "kloppenheim_02_puresky",   "note": "Nemecko: polojasno; jasna noc"},
+    "coastal":    {"day": "aristea_wreck_puresky",                 "night": "qwantani_moonrise_puresky","note": "Pobrezi: polojasno; vychod mesice"},
+    "canyon":     {"day": "drakensberg_solitary_mountain_puresky", "night": "qwantani_night_puresky",   "note": "Kanon: jasne odpoledne"},
+    "castle":     {"day": "kloppenheim_03_puresky",                "night": "kloppenheim_02_puresky",   "note": "Hrad: polojasno"},
+    "foothills":  {"day": "kloofendal_48d_partly_cloudy_puresky",  "night": "qwantani_night_puresky",   "note": "Podhuri: polojasno"},
+    "forest":     {"day": "kloofendal_misty_morning_puresky",      "night": "kloppenheim_07_puresky",   "note": "Les: mlhave rano"},
+    "industrial": {"day": "industrial_sunset_puresky",             "night": "kloppenheim_07_puresky",   "note": "Prumyslova zona: zapad slunce"},
+    "skidpad":    {"day": "kloofendal_38d_partly_cloudy_puresky",  "night": "kloppenheim_02_puresky",   "note": "Testovaci plocha"}
+  },
+  "alternatives": {
+    "sunset":   ["kloppenheim_06_puresky", "belfast_sunset_puresky", "evening_road_01_puresky", "qwantani_sunset_puresky"],
+    "overcast": ["kloofendal_overcast_puresky", "overcast_soil_puresky", "mud_road_puresky"],
+    "dawn":     ["qwantani_dawn_puresky", "qwantani_sunrise_puresky", "citrus_orchard_puresky"],
+    "night":    ["kloppenheim_02_puresky", "qwantani_moonrise_puresky", "qwantani_night_puresky"]
+  }
+}

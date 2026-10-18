@@ -49,7 +49,19 @@ items:
     count: 73
     format: ini
     status: readable
-    notes: "Seznam textur, pozice kamery řidiče, barvy laku v HSV"
+    notes: "Seznam textur, pozice kamery řidiče; .clr jsou barvy pruhů (stripepackage), ne lak"
+
+  - id: car_database
+    category: usable_now
+    priority: medium
+    path: FEData/Data/nfs5.car
+    count: 1
+    format: car
+    status: partial
+    doc: docs/formats/car.md
+    tool: tools/car_colors.py
+    notes: "Databáze aut menu, 109 záznamů po 0x670 B: jméno, model, klíč varianty, palety barev laku (19, první = tovární) a interiéru (5). Ostatní pole nerozluštěná."
+    use: "Volba barvy laku v menu"
 
   - id: track_text_config
     category: usable_now

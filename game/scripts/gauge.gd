@@ -54,32 +54,25 @@ const SWEEP := deg_to_rad(240.0)
 		if v != sub_text:
 			sub_text = v
 			queue_redraw()
-@export var odometer := false:  ## drum odometer window: total and trip, in metres
+@export var odometer := false:  ## drum odometer window with the total distance
 	set(v):
 		odometer = v
 		_odo.visible = v
-		_trip.visible = v
 		queue_redraw()
 @export var odo_m := 0.0:
 	set(v):
 		odo_m = v
 		_odo.value = v / 100.0  # lowest drum shows tenths of a km
-@export var trip_m := 0.0:
-	set(v):
-		trip_m = v
-		_trip.value = v / 100.0
 @export var odo_era := Odometer.Era.FIFTIES:  ## drum style; the 1990s window is narrower
 	set(v):
 		odo_era = v
 		_odo.era = v
-		_trip.era = v
 		_place_odometer()
 		queue_redraw()
 @export_range(0.0, 1.0) var odo_shake := 0.0:
 	set(v):
 		odo_shake = v
 		_odo.shake = v
-		_trip.shake = v
 @export var value := 0.0  ## target; the needle follows it with some inertia
 @export var needle_frequency := 12.0  ## rad/s, natural frequency of the damped needle (0 = instant)
 @export var needle_damping := 0.85  ## below 1 the needle overshoots slightly, like a real one
@@ -89,7 +82,6 @@ var _needle_velocity := 0.0
 var _drawn := 0.0
 var _font: Font
 var _odo := Odometer.new()
-var _trip := Odometer.new()
 
 
 func _ready() -> void:
@@ -97,10 +89,8 @@ func _ready() -> void:
 	f.font_names = PackedStringArray(["DIN Alternate", "Futura", "Helvetica Neue", "Arial"])
 	f.font_weight = 700
 	_font = f
-	_trip.digits = 4
-	for o: Odometer in [_odo, _trip]:
-		o.visible = odometer
-		add_child(o)
+	_odo.visible = odometer
+	add_child(_odo)
 	_place_odometer()
 
 
@@ -109,22 +99,22 @@ func _notification(what: int) -> void:
 		_place_odometer()
 
 
-## Odometer window below the centre: total on top, trip below with its label to the left.
+## Odometer window below the centre: one row of drums with a margin; narrower in the 1990s.
 func _odometer_box() -> Rect2:
 	var r := minf(size.x, size.y) * 0.5
-	var half := r * (0.23 if odo_era == Odometer.Era.NINETIES else 0.28)
-	return Rect2(size.x * 0.5 - half, size.y * 0.5 + r * 0.47, half * 2.0, r * 0.3)
+	var row := r * 0.13
+	var drum_width := 0.5 if odo_era == Odometer.Era.NINETIES else 0.62
+	var margin := r * 0.035
+	var w := row * drum_width * _odo.digits + margin * 2.0
+	return Rect2(size.x * 0.5 - w * 0.5, size.y * 0.5 + r * 0.5, w, row + margin * 2.0)
 
 
 func _place_odometer() -> void:
 	var r := minf(size.x, size.y) * 0.5
-	var box := _odometer_box()
-	var row := r * 0.105
-	var drum_width := 0.5 if odo_era == Odometer.Era.NINETIES else 0.62
-	_odo.size = Vector2(row * drum_width * _odo.digits, row)
-	_odo.position = Vector2(box.get_center().x - _odo.size.x * 0.5, box.position.y + r * 0.035)
-	_trip.size = Vector2(row * drum_width * _trip.digits, row)
-	_trip.position = Vector2(box.end.x - r * 0.04 - _trip.size.x, box.end.y - r * 0.035 - row)
+	var margin := r * 0.035
+	var box := _odometer_box().grow(-margin)
+	_odo.position = box.position
+	_odo.size = box.size
 
 
 func _process(delta: float) -> void:
@@ -225,8 +215,6 @@ func _draw() -> void:
 		var box := _odometer_box()
 		draw_rect(box, Color(0.01, 0.01, 0.01))
 		draw_rect(box, Color(0.25, 0.25, 0.26), false, line)
-		var trip_mid := _trip.position.y + _trip.size.y * 0.5
-		_centered("TRIP", Vector2((box.position.x + _trip.position.x) * 0.5, trip_mid), roundi(r * 0.065), Color(0.85, 0.85, 0.85))
 		y = box.end.y + r * 0.06
 	if sub_text != "":
 		var gs := roundi(r * 0.11)

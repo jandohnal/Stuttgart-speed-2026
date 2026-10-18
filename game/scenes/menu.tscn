@@ -49,14 +49,29 @@ layout_mode = 2
 [node name="CarLabel" type="Label" parent="Center/Box"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "Auto"
+text = "Auto a barva"
 
-[node name="CarOption" type="OptionButton" parent="Center/Box"]
+[node name="CarRow" type="HBoxContainer" parent="Center/Box"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="CarOption" type="OptionButton" parent="Center/Box/CarRow"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
-focus_neighbor_top = NodePath("../PlayButton")
+size_flags_horizontal = 3
+focus_neighbor_top = NodePath("../../PlayButton")
+focus_neighbor_right = NodePath("../ColorOption")
 theme_override_font_sizes/font_size = 26
+
+[node name="ColorOption" type="OptionButton" parent="Center/Box/CarRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(190, 48)
+layout_mode = 2
+tooltip_text = "Barva laku"
+focus_neighbor_top = NodePath("../../PlayButton")
+focus_neighbor_left = NodePath("../CarOption")
+theme_override_font_sizes/font_size = 22
 
 [node name="TrackLabel" type="Label" parent="Center/Box"]
 layout_mode = 2
@@ -64,6 +79,17 @@ theme_override_font_sizes/font_size = 22
 text = "Trať"
 
 [node name="TrackOption" type="OptionButton" parent="Center/Box"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+
+[node name="TimeLabel" type="Label" parent="Center/Box"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Denní doba"
+
+[node name="TimeOption" type="OptionButton" parent="Center/Box"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 48)
 layout_mode = 2
@@ -84,7 +110,7 @@ layout_mode = 2
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 60)
 layout_mode = 2
-focus_neighbor_bottom = NodePath("../CarOption")
+focus_neighbor_bottom = NodePath("../CarRow/CarOption")
 theme_override_font_sizes/font_size = 30
 text = "Play"
 

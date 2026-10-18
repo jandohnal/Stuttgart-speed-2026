@@ -17,7 +17,7 @@ Ujeté kilometry se na tachometru nezobrazují digitálně, ale na klasickém me
 - **Nejnižší váleček** (stovky metrů, u některých aut odlišený barvou) se otáčí **plynule** úměrně ujeté vzdálenosti. Číslice jsou vidět i v mezipoloze.
 - **Vyšší válečky** stojí a pootočí se **jen při přechodu** nižšího válečku z 9 na 0 (přenos jako v mechanickém převodu). Přechod probíhá během poslední desetiny otáčky nižšího válečku, takže při přetočení 0999 → 1000 se otáčí několik válečků současně.
 - **Drobné nepřesnosti:** válečky mírně nesedí přesně v řadě (zlomky milimetru), což přidává mechanický charakter. Volitelně jemné chvění při vysokých otáčkách motoru.
-- **Denní počitadlo (trip):** druhé, kratší počitadlo s nulovacím tlačítkem. Nulování otočí válečky zpět na nulu (animace).
+- **Denní počitadlo (trip):** druhé, kratší počitadlo s nulovacím tlačítkem. Nulování otočí válečky zpět na nulu (animace). *Zamítnuto 18. 10. 2026: jen celkový nájezd v jedné řadě, bez nulování (D-013).*
 
 ## Zdroj vzdálenosti
 

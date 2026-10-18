@@ -63,7 +63,7 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Raycast podvozek, model pneumatik, motor a převodovka z dat JSON (pneumatiky: skluz, rotace kol, setrvačnost motoru; 0–100 km/h 15,8 s proti reálným ~16 s)
 - [ ] Doladit pneumatiky a řízení proti originálu přes Wine (přilnavost 0x0F4 a setrvačnost 0x058 jsou hypotézy), asistent řízení pro klávesnici hotový; ABS a zadní přilnavost 1,12 naladěné podle ruční jízdy proti originálu (smyk zádí při brzdění v zatáčce); klávesy s náběhem pedálů a volantu jako v tehdejších hrách; kontrola trakce, spojka při rozjezdu, turbodíra a samosvor závodních aut (D-015); asistenti, zvuk a diagnostika se přepínají v menu (D-017)
 - [x] HUD: kulatý rychloměr (s počítadlem km) a otáčkoměr v klasickém stylu (kreslené procedurálně, stupnice z dat auta, ručička s tlumenou setrvačností); otáčky motoru při řazení klesají a stoupají plynule (spojka)
-- [x] Mechanické válečkové počitadlo kilometrů a trip (D-013): vzdálenost z poháněných kol, nájezd uložený pro každé auto, vzhled podle éry auta
+- [x] Mechanické válečkové počitadlo kilometrů (D-013): vzdálenost z poháněných kol, nájezd uložený pro každé auto, vzhled podle éry auta
 - [x] Kolize s objekty kolem trati: sražitelné značky (dynamická tělesa s původní hmotností), ostatní statické
 - [x] Poškození auta: zóny `dz` a posuny `vt` 0x8000 jako blend shapes, náraz podle impulsu, následky (sbíhavost a přilnavost kol, výkon motoru, odpor vzduchu, rejstřík řízení)
 - [x] Odpadající díly (světla, značka, výfuk, zástěry) a kola: házení od 50 % rohu, upadnutí při 100 % rohu i boku
@@ -73,6 +73,7 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Srovnávací jízdy s originálem (ruční jízda na druhém počítači 17. 10. 2026): hratelné a podobné originálu
 - [x] Druhé auto a trať: 935 Moby Dick v Monte Carlu, nastavení odvozená z dat místo ladění na 356 (test na rovině `straight_test`)
 - [x] Hlavní menu prototypu: výběr auta a trati, Play, Esc zpět do menu, poslední výběr uložený
+- [x] Barva laku z palety originálu vedle výběru auta (D-020)
 - [ ] Rozhodnout definitivně o enginu (D-002)
 
 ## Fáze 3 – První vlastní trať
