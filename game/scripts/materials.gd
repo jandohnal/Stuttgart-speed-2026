@@ -6,6 +6,10 @@ extends RefCounted
 ## kind comes from the page (exterior, glass, intglass, interior, extint) and, for the exterior
 ## atlas, from the part name (chrome exhaust and handles, lamps). Everything else on the exterior
 ## page is paint.
+## The atlases' alpha is not transparency: on CarExtEnv pages it is the reflection strength (paint
+## 204, trim 77, interior 50), so with the glTF alpha mask (cut at 0.5) trim, roof gutters, seats
+## and the underbody were holes. Only decals keep the cut-out; paint, chrome, interior and the
+## underbody are opaque.
 ## Track: anisotropic filtering everywhere, procedural detail noise on road and terrain
 ## (world-space triplanar on UV2, no new assets).
 
@@ -23,6 +27,8 @@ const LAMP_PARTS := ["Light"]
 ## extint page (wheels, tyres, steering wheel, wipers): bright grey pixels are chrome hubs and
 ## spokes, dark ones rubber and plastic.
 const RUBBER_ROUGHNESS := 0.9
+## Kinds drawn opaque whatever the texture alpha says (see above).
+const OPAQUE_KINDS := ["paint", "chrome", "interior", "underbody"]
 const BRIGHT_ROUGHNESS := 0.12
 
 
@@ -47,10 +53,17 @@ static func setup_car(model: Node3D) -> void:
 
 static func _car_kind(material_name: String, part: String) -> String:
 	var page := material_name.get_slice(" ", 1)
+	var decal := part.begins_with("Decal")
 	match page:
-		"glass", "intglass", "interior", "extint", "shadow":
+		"glass", "intglass", "shadow":
 			return page
+		"interior":
+			return "interior_decal" if decal else "interior"
+		"extint":
+			return "underbody" if part.begins_with("Bottom") else "extint"
 		"exterior":
+			if decal:
+				return "decal"
 			for prefix: String in CHROME_PARTS:
 				if part.begins_with(prefix):
 					return "chrome"
@@ -64,15 +77,23 @@ static func _car_kind(material_name: String, part: String) -> String:
 static func _car_material(base: StandardMaterial3D, kind: String) -> StandardMaterial3D:
 	var m := base.duplicate() as StandardMaterial3D
 	m.texture_filter = ANISO
+	if kind in OPAQUE_KINDS:
+		m.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
 	match kind:
-		"paint":
+		"paint", "decal":
 			_apply(m, PAINT)
 		"chrome":
 			_apply(m, CHROME)
 		"lamp":
 			_apply(m, LAMP)
-		"interior":
+		"interior", "interior_decal":
 			_apply(m, INTERIOR)
+			# Seen from inside only. Double-sided, the 935 headliner (in the roof plane, facing down)
+			# showed through the roof from above, more so once roof damage pushes the roof into it.
+			m.cull_mode = BaseMaterial3D.CULL_BACK
+		"underbody":
+			m.roughness = RUBBER_ROUGHNESS
+			m.metallic = 0.0
 		"glass", "intglass":
 			var p: Dictionary = GLASS if kind == "glass" else INNER_GLASS
 			m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA

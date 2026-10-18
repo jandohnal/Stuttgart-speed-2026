@@ -92,6 +92,10 @@ Stránka je atlas 256×256 (nebo podle `.tpg`) složený z položek SHPI na jeji
 
 Barva laku se v originále dobarvuje podle `.clr`, textury karoserie jsou šedé.
 
+**Alfa atlasů není průhlednost.** Na stránkách s render metodou `CarExtEnv` odpovídá síle odlesku: lak 204, lišty a prahy 77, u 356 A interiér 50, u 935 podvozek 0. Ořez alfou (glTF `MASK`, práh 0,5) proto vyřízl díry: u 935 6 % karoserie, 18 % dveří, pruhy na střeše a víku motoru a 92 % podvozku, u 356 A celá sedadla a 83 % interiéru (ověřeno vzorkováním textury na trojúhelnících, 18. 10. 2026). Skutečný ořez potřebují jen obtisky (`Decal*`, alfa 0 mimo obtisk). Hra proto kreslí lak, chrom, interiér a podvozek neprůhledně (`game/scripts/materials.gd`), světla mají ořez zatím ponechaný (12–39 % plochy, neověřeno).
+
+**Překryvy ploch.** Strop interiéru 935 (`Interior`, normály dolů) leží přesně v rovině střechy (`Body`, y ≈ 1,06 m). Oboustranný materiál zezhora ukazoval rub stropu přes střechu (z-fighting), a protože zóna střechy promáčkne karoserii až o 0,20 m a strop méně, při poškození strop střechu prorazí (66 protnutých dvojic trojúhelníků). Interiér se proto kreslí jen z lícové strany. Ostatní protnutí na obou autech jsou modelovaná (pneumatika v kole, zrcátka ve dveřích, křídlo 935 v karoserii). Pořadí vrcholů souhlasí s uloženými normálami až na vnitřní panely (356 A `HoodIn` 40 z 68, `TrunkIn` 32 z 62 trojúhelníků, 935 šest malých ploch na zádi), kde jsou v originále normály vnějšího panelu – ovlivní jen stínování.
+
 ### Poškození
 
 Každý díl auta má ke každé úrovni dvě položky:
