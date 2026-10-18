@@ -7,6 +7,8 @@ const MARGIN := 16.0
 const GAUGE_OPACITY := 0.6
 
 @export var car_path: NodePath
+## Telemetry readout (g forces, steering, TC cut, boost, damage); set from the menu option.
+@export var diagnostics := true
 
 @onready var car := get_node_or_null(car_path) as Car
 @onready var label: Label = $Label
@@ -81,12 +83,12 @@ func _process(_delta: float) -> void:
 	speed_gauge.odo_shake = clampf((car.rpm / car.redline - 0.75) / 0.25, 0.0, 1.0)
 	if _trip_reset == null or not _trip_reset.is_running():
 		speed_gauge.trip_m = car.odometer_m - _trip_start_m
-	label.text = "lat %.2f g   long %.2f g   steer %.1f°   steering assist %s   ABS %s   TC %s%s   sound %s\n" % [
-		t["lat_g"], t["long_g"], t["steer_deg"], "ON" if t["assist"] else "OFF", "ON" if t["abs"] else "OFF",
-		"ON" if t["tc"] else "OFF", " (-%d%%)" % roundi(t["tc_cut"] * 100.0) if t["tc_cut"] > 0.02 else "",
-		"OFF" if AudioServer.is_bus_mute(0) else "ON",
-	] + ("boost %d%%\n" % roundi(t["boost"] * 100.0) if car.turbo else "") + _damage_text(t.get("damage", {})) \
-		+ "W/S throttle/brake  A/D steer  Space handbrake  R reset  F2 telemetry  F3 assist  F4 ABS  F5 repair  F6 TC  T trip  M sound  F11 full screen"
+	var text := ""
+	if diagnostics:
+		text = "lat %.2f g   long %.2f g   steer %.1f°%s\n" % [t["lat_g"], t["long_g"], t["steer_deg"],
+			"   TC -%d%%" % roundi(t["tc_cut"] * 100.0) if t["tc_cut"] > 0.02 else ""] \
+			+ ("boost %d%%\n" % roundi(t["boost"] * 100.0) if car.turbo else "") + _damage_text(t.get("damage", {}))
+	label.text = text + "W/S throttle/brake  A/D steer  Space handbrake  R reset  F2 telemetry  F5 repair  T trip  F11 full screen  Esc menu"
 
 
 ## Trip reset: like pressing the knob, the drums roll back to zero instead of jumping.

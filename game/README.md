@@ -44,7 +44,7 @@ python3 tools/track2gltf.py sources/GameData/Track/monaco1.crp decomposed/GameDa
 
 Otevřít `game/project.godot` v Godotu 4.7 a spustit (F5). Fyzika Jolt, 120 Hz, renderer Forward+ přes Metal.
 
-Hra začíná **hlavním menu** (`scenes/menu.tscn`): výběr auta (356 A coupe 1.6, 935 Moby Dick) a trati (Farmland = Normandie, Monaco) a tlačítko Play. Seznamy jsou v `main.gd` (`CARS` s názvem pro menu, `TRACKS`), další trať stačí přidat do `TRACKS`. Položka, jejíž data v `decomposed/` chybí, je neaktivní s poznámkou „chybí data“. Výběr předá autoload `GameSettings` (`scripts/game_settings.gd`) a uloží se do `user://settings.cfg`, příště je předvybraný. Ovládání menu: šipky / D-pad posouvají fokus, mezerník / A otevře seznam, Enter (kdekoli) nebo Start spustí hru, Esc hru ukončí. Esc při jízdě vrátí do menu.
+Hra začíná **hlavním menu** (`scenes/menu.tscn`): výběr auta (všech 44 modelů originálu) a trati (14 tratí bez skidpadu) a tlačítko Play. Seznamy jsou v `main.gd` (`CARS` s názvem pro menu, modelem, sadou zvuku motoru a klíčem fyziky `physics`, `TRACKS`), další trať stačí přidat do `TRACKS`. Policejní a „f“ modely jezdí s fyzikou svého silničního auta, provoz (`eas`, `eden`, `postship`) nemá vlastní `.sim` a jezdí s `default`. Sady zvuku motoru jsou u 356 A a 935 vybrané poslechem, u ostatních zatím odhadnuté podle pořadí sad. Pod výběrem trati je řádek přepínačů: asistent řízení, ABS, kontrola trakce, zvuk a diagnostika (údaje telemetrie v HUD: přetížení, úhel řízení, zásah kontroly trakce, plnicí tlak turba, poškození). Všechny jsou ve výchozím stavu zapnuté a nastavují se jen v menu, při jízdě je změnit nejde. Položka, jejíž data v `decomposed/` chybí, je neaktivní s poznámkou „chybí data“. Výběr i přepínače předá autoload `GameSettings` (`scripts/game_settings.gd`) a uloží se do `user://settings.cfg`, příště jsou předvybrané. Testy spouštějí `main.tscn` přímo a dostanou výchozí hodnoty, uložené nastavení hráče je neovlivní. Ovládání menu: šipky / D-pad posouvají fokus, mezerník / A otevře seznam, Enter (kdekoli) nebo Start spustí hru, Esc hru ukončí. Esc při jízdě vrátí do menu.
 
 Spuštění přímo `scenes/main.tscn` (F6 v editoru, testy) menu přeskočí: trať a auto pak určí výběr z menu, je-li v `GameSettings`, jinak argumenty a nastavení projektu níže.
 
@@ -57,12 +57,8 @@ Trať určuje nastavení projektu `stuttgart/track` (výchozí `farmland`), z p�
 | mezerník | ruční brzda |
 | R | návrat na nejbližší řez silnice (`SimD`) |
 | F2 | záznam telemetrie do `user://telemetry_*.csv` (cesta se vypíše do konzole) |
-| F3 | asistent řízení zapnout / vypnout (stav je v HUD, výchozí zapnuto) |
-| F4 | ABS zapnout / vypnout (stav je v HUD, výchozí zapnuto) |
 | F5 | oprava auta (vynuluje poškození, prototyp) |
-| F6 | kontrola trakce zapnout / vypnout (stav v HUD, při zásahu i podíl ubraného momentu, výchozí zapnuto) |
 | T | vynulovat denní počitadlo (trip), válečky dojedou zpět na nulu |
-| M | zvuk vypnout / zapnout (stav v HUD) |
 | F11 | celá obrazovka / okno |
 | Esc | zpět do hlavního menu (v menu: ukončit hru) |
 
@@ -70,7 +66,7 @@ Samostatně spuštěná hra běží přes celou obrazovku (ne v náhledu editoru
 
 **Klávesnice** funguje jako v tehdejších arkádových hrách: klávesa je zapnuto/vypnuto, ale pedály a volant se pohybují postupně, dokud ji držíš. Plyn naběhne při rozjezdu na jedničku za 0,4 s, se stoupající rychlostí a stupněm rychleji (od 100 km/h nebo na nejvyšší stupeň 0,15 s), puštění 0,1 s, brzda za 0,6 s (0,15 s), takže ťuknutí jen lehce přibrzdí. Volant jde ze středu na doraz za 0,25 s v klidu až 0,8 s ve 150 km/h, zpět do středu za 0,2 s. Analogový vstup (`Car.digital_input = false`, testy fyziky, později gamepad) jde přímo.
 
-**Kontrola trakce** (F6, D-015) bere poháněnému kolu moment, když jeho kombinovaný skluz (podélný a boční dohromady, 1 = vrchol síly pneumatiky) překročí 0,8. Při 1,05 už kolo nedostává nic. Kolo se tak drží kolem vrcholu přilnavosti i v zatáčce. Působí v každém podkroku kola a na každé kolo zvlášť (jako brzdová kontrola trakce), na brzdění motorem ne.
+**Kontrola trakce** (přepínač v menu, D-015) bere poháněnému kolu moment, když jeho kombinovaný skluz (podélný a boční dohromady, 1 = vrchol síly pneumatiky) překročí 0,8. Při 1,05 už kolo nedostává nic. Kolo se tak drží kolem vrcholu přilnavosti i v zatáčce. Působí v každém podkroku kola a na každé kolo zvlášť (jako brzdová kontrola trakce), na brzdění motorem ne.
 
 **Rozjezd a pohon** (`Car`, skupina „Driver aids and drivetrain“):
 
@@ -87,7 +83,7 @@ Samostatně spuštěná hra běží přes celou obrazovku (ne v náhledu editoru
 | Soubor | Obsah |
 | --- | --- |
 | `scenes/menu.tscn`, `scripts/menu.gd` | hlavní menu: výběr auta a trati, Play (hlavní scéna projektu) |
-| `scripts/game_settings.gd` | autoload `GameSettings`: výběr z menu, poslední výběr v `user://settings.cfg` |
+| `scripts/game_settings.gd` | autoload `GameSettings`: výběr a přepínače z menu, poslední výběr v `user://settings.cfg` |
 | `scenes/main.tscn` | scéna: prostředí, slunce, auto, kamera, HUD |
 | `scripts/original_assets.gd` | načítání glTF a JSON z `decomposed/` |
 | `scripts/main.gd` | načtení trati (kolize z mesh skupin `road`, `terrain`, `objects`), auta, start na řezu silnice, ovládání, záznam telemetrie |

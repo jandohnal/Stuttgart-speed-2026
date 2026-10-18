@@ -1,21 +1,35 @@
 extends Node
-## Autoload GameSettings: the car and track chosen in the menu, handed over to main.gd. Empty
-## values mean "not chosen", so main.gd falls back to --car/--track and the project settings (the
-## tests run main.tscn directly and never touch this). The last choice is kept in
-## user://settings.cfg so the menu can preselect it.
+## Autoload GameSettings: the car, track and options chosen in the menu, handed over to main.gd.
+## Empty car / track mean "not chosen", so main.gd falls back to --car/--track and the project
+## settings. The tests run main.tscn directly and get the option defaults below: only the menu
+## loads the saved choice (user://settings.cfg), so a player's settings never change a test.
 
 const FILE := "user://settings.cfg"
+## Option -> default. steering_assist, brake_assist (ABS) and traction_control are Car properties;
+## sound unmutes the master bus; diagnostics shows the telemetry readout in the HUD.
+const DEFAULT_OPTIONS := {
+	"steering_assist": true,
+	"brake_assist": true,
+	"traction_control": true,
+	"sound": true,
+	"diagnostics": true,
+}
 
 ## Key in cars.json (main.gd CARS); empty = not chosen in the menu.
 var car_key := ""
 ## Track name in decomposed/GameData/Track/ (main.gd TRACKS); empty = not chosen in the menu.
 var track_name := ""
+## Options toggled in the menu (not during the game), applied by main.gd when the game starts.
+var options := DEFAULT_OPTIONS.duplicate()
 
 
 ## Last choice saved by save_last(): {"car": key, "track": name}, values "" when never saved.
+## Also loads the saved options into `options` (defaults for the ones never saved).
 func load_last() -> Dictionary:
 	var cfg := ConfigFile.new()
 	cfg.load(FILE)
+	for key: String in DEFAULT_OPTIONS:
+		options[key] = bool(cfg.get_value("options", key, DEFAULT_OPTIONS[key]))
 	return {"car": str(cfg.get_value("last", "car", "")), "track": str(cfg.get_value("last", "track", ""))}
 
 
@@ -24,6 +38,8 @@ func save_last() -> void:
 	cfg.load(FILE)
 	cfg.set_value("last", "car", car_key)
 	cfg.set_value("last", "track", track_name)
+	for key: String in options:
+		cfg.set_value("options", key, options[key])
 	cfg.save(FILE)
 
 

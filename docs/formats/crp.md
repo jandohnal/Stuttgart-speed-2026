@@ -74,6 +74,8 @@ Index vrcholu = bajt + (offset info řádku typu 0) / 16, index UV = bajt + (off
 
 Typ 4 je seznam čtyřúhelníků: každé 4 po sobě jdoucí rohy jsou jeden čtyřúhelník (v rovině: odchylka 0–0,03 proti 0,22 u posunutých čtveřic), převádí se na trojúhelníky (a, b, c) a (a, c, d). Mají ho hlavně objekty knihovny (desky dopravních značek, krabice, postava, vrtulník v alps), farmland 28 dílů.
 
+**Pořadí vrcholů (orientace) není v originále spolehlivé.** Originál kreslí oboustranně, takže mu to nevadí: u 356 A má 4 % trojúhelníků pořadí v rozporu s uloženými normálami (`nm`), polovina `HoodIn` a `TrunkIn`, části `Decal` a `Body`. Napříč všemi 44 auty je to 2 590 z 89 557 trojúhelníků (2,9 %). Normály jsou konzistentní (u `HoodIn` všechny nahoru), pořadí se střídá i uvnitř dílu. Převodník (`crp.article_mesh`) proto trojúhelník, jehož pořadí nesouhlasí se součtem normál jeho vrcholů, otočí. Terén tratí (`CNK…`, `WOBJ … _SECONDARY`) normály nemá a ve farmlandu mířilo dolů 28 % jeho trojúhelníků, a to i v seznamech (typ 3), nejen v pruzích. Díly skupin `road` a `terrain` se otáčejí nahoru (`orient_up`). Svislé stěny (|n.y| < 0,02) přebírají orientaci souseda přes společnou hranu (sousedé se stejnou orientací ji procházejí opačně). Dopočtené normály se nevyhlazují přes hranu ostřejší než 60° (útesy), jinak by stěna dostala normálu od plochy z druhé strany hrany. Výsledky kontroly jsou v [model-check.md](../model-check.md).
+
 **Díly bez indexových řádků** (typ 3 i 4, délka položky jen 0x30 + 4 info řádky): vrcholy a UV jdou za sebou od offsetů v info řádcích 0 a 2 (např. `Sweeper`, typ 3, 252 + 240 vrcholů). Auto 356 má takové 2 trojúhelníky. Levá a pravá polovina dílu bývají dva díly se stejnými UV, ale jiným materiálem.
 
 ### Misc

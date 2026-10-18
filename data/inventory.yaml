@@ -4,7 +4,7 @@
 # category: usable_now | unpack | to_write
 # priority: high | medium | low | none (podle docs/decisions.md)
 schema_version: 1
-updated: 2026-10-15
+updated: 2026-10-18
 install_size_mb: 540
 tracks: [alps, autobahn, canyon, castle, coastal, farmland, foothills, forest, industrial, monaco1, monaco2, monaco3, monaco4, monaco5, skidpad]
 
@@ -81,6 +81,7 @@ items:
     tool: tools/crp2gltf.py
     output: "decomposed/GameData/CarModel/<auto>/<auto>.gltf"
     status: decoded
+    checked: "všech 44 OK (tools/mesh_check.py, docs/model-check.md)"
     reference: "CrpLib z LibOpenNFS"
     use: "glTF pro soukromou vizuální referenci"
 
@@ -93,7 +94,8 @@ items:
     tool: tools/track2gltf.py
     output: "decomposed/GameData/Track/<trať>/<trať>.gltf + <trať>_road.json"
     status: partial
-    notes: "Ověřeno na skidpad a farmland (Normandie). SimD = řezy silnice (pozice, vektory, šířky) v úsecích, start/cíl z *_fstart.scn, rozmístěné objekty z matice tr se značkou v Base 0x44 (*_objects.json)"
+    checked: "všech 15 převedeno, normály v pořádku, na hlavní trase bez děr; varování: spáry u okraje silnice, vedlejší úseky SimD mimo geometrii (docs/model-check.md)"
+    notes: "Převedeno všech 15 tratí. SimD = řezy silnice (pozice, vektory, šířky) v úsecích, start/cíl z *_fstart.scn, rozmístěné objekty z matice tr se značkou v Base 0x44 (*_objects.json)"
     use: "Jen náhled pro inspiraci stylem (D-005)"
 
   - id: track_binary_data

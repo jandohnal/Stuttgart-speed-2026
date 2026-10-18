@@ -23,7 +23,7 @@ from collections import Counter
 
 import fsh2png
 from common import find_file
-from crp import article_mesh, base_info, entry_text, find, parse_crp, to_gltf, vectors, write_gltf
+from crp import STATS, article_mesh, base_info, entry_text, find, parse_crp, to_gltf, vectors, write_gltf
 
 # Detail levels: 1-2 showroom ("fe"), 3-7 in-game LODs ("ig"); 0x8000 = damaged copy.
 DAMAGED = 0x8000
@@ -183,6 +183,7 @@ def load_textures(d, misc, tpg_path, out_dir, stem):
 
 def convert(src, out_path, level=1, include_all=False, tpg=None):
     d, arts, misc = parse_crp(open(src, "rb").read())
+    STATS.clear()
     out_dir = os.path.dirname(os.path.abspath(out_path))
     os.makedirs(out_dir, exist_ok=True)
     stem = os.path.splitext(os.path.basename(out_path))[0]
@@ -262,7 +263,8 @@ def convert(src, out_path, level=1, include_all=False, tpg=None):
     for g, e in detach.items():
         left = g.endswith("_left")
         e["nodes"] = [renamed.get((name, left), name) for name in e["nodes"]]
-    write_gltf(out_path, nodes, material_spec, "stuttgart-speed crp2gltf")
+    write_gltf(out_path, nodes, material_spec, "stuttgart-speed crp2gltf",
+               {k: STATS[k] for k in ("dropped", "flipped_by_normal", "flipped_up")})
     zones = [{"zone": z, "name": ZONE_NAMES.get(z, f"zone{z}"), "blend_shape": f"dz{z}",
               "centroid": [round(acc[k] / acc[3], 3) for k in range(3)], "vertices": acc[3],
               "max_offset_m": round(acc[4], 3)} for z, acc in sorted(zone_acc.items()) if acc[3]]

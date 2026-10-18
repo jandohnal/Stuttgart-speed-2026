@@ -21,12 +21,12 @@ import struct
 import fsh2png
 import scn
 from common import find_file
-from crp import article_matrix, article_mesh, base_info, entry_text, find, parse_crp, to_gltf, write_gltf
+from crp import STATS, article_matrix, article_mesh, base_info, entry_text, find, parse_crp, to_gltf, write_gltf
 
 GROUPS = [
     ("road", r"^RD"),
     ("vegetation", r"^(tree|oak|shrub|treewall)"),
-    ("terrain", r"^(CNK|MESH|FARM|HILL|TOPOF|SECONDARY|CLIF)"),
+    ("terrain", r"^(CNK|MESH|FARM|HILL|TOPOF|SECONDARY|CLIF)|.*SECONDARY"),  # WOBJ (1 FHILL..._SECONDARY), DIRTROAD01_SECONDARY
 ]
 PLACED_MIN_DISTANCE = 50.0  # m
 SIMD_SIZE = 80
@@ -143,6 +143,7 @@ def centerline_prims(slices, segments, lift=0.05):
 
 def convert(src, out_path, level=0, library=False):
     d, arts, misc = parse_crp(open(src, "rb").read())
+    STATS.clear()
     animdefs = scn.read_animdefs(os.path.dirname(src))
     out_dir = os.path.dirname(os.path.abspath(out_path))
     os.makedirs(out_dir, exist_ok=True)
@@ -180,7 +181,8 @@ def convert(src, out_path, level=0, library=False):
         if lev is None:
             stats["no_level"] += 1
             continue
-        mesh = article_mesh(d, art, lev, lev, materials)
+        ground = not placed and not is_library and group_of(name) in ("road", "terrain")
+        mesh = article_mesh(d, art, lev, lev, materials, up=ground)
         if not mesh or not mesh[1]:
             continue
         offset, prims = mesh
@@ -215,7 +217,8 @@ def convert(src, out_path, level=0, library=False):
         return {"name": f"{tex} ({method})", "uri": textures.get(tex),
                 "alpha": None if method == "Opaque" else "MASK"}
 
-    write_gltf(out_path, nodes, material_spec, "stuttgart-speed track2gltf")
+    write_gltf(out_path, nodes, material_spec, "stuttgart-speed track2gltf",
+               {k: STATS[k] for k in ("dropped", "flipped_by_normal", "flipped_up")})
 
     length = sum(seg["length_m"] for seg in segments)
     lap = road_lap(segments)

@@ -12,6 +12,7 @@ Python 3, jen standardní knihovna. Čtou ze `sources/`, zapisují do `decompose
 | `track2gltf.py` | trať `.crp` → glTF (skupiny road, terrain, vegetation, objects, props) + `<trať>_road.json` (řezy SimD, úseky, start a cíl) + `<trať>_objects.json` (rozmístěné objekty, kolize a hmotnost) | [crp.md](../docs/formats/crp.md), [scn.md](../docs/formats/scn.md) |
 | `snd2wav.py` | zvukové banky `.viv` / `.bnk` → WAV + `index.json`; u sad motoru `sd*.viv` i `engine.json` (smyčky pod plynem a bez plynu, otáčky) | [bnk.md](../docs/formats/bnk.md) |
 | `sim_dump.py` | fyzika aut `.sim` → JSON na standardní výstup (`cars.json`) | [sim.md](../docs/formats/sim.md) |
+| `mesh_check.py` | hotový glTF → jeden řádek na model (OK / WARN / FAIL) + `<model>_check.json`: trojúhelníky obrácené proti normálám, zahozené při převodu, u tratí plochy terénu mířící dolů a díry v silnici (paprsky přes řezy SimD) | [model-check.md](../docs/model-check.md) |
 | `ai_csv2json.py` | nastavení AI `.csv` → JSON, ověřené proti `.bin` | [ai-csv.md](../docs/formats/ai-csv.md) |
 
 ## Sdílené moduly (importují se)
@@ -20,7 +21,7 @@ Python 3, jen standardní knihovna. Čtou ze `sources/`, zapisují do `decompose
 | --- | --- | --- |
 | `common.py` | `find_file` (soubor ve složce bez ohledu na velikost písmen), `source_files` (soubory s příponou ve stromu a jejich relativní cesta pro zrcadlení do `decomposed/`) | `fsh2png`, `crp2gltf`, `track2gltf`, `snd2wav`, `ai_csv2json`, `scn` |
 | `archives.py` | `decompress` (RefPack), `read_bigf` (BIGF) | `crp`, `fsh2png`, `snd2wav` |
-| `crp.py` | kontejner CRP (`parse_crp`, `find`, `entry_text`, `base_info`), díly a geometrie (`article_mesh` se seznamem, pruhem i čtyřúhelníky, `article_matrix`), převod souřadnic `to_gltf`, zápis glTF s morph targety `write_gltf` | `crp2gltf`, `track2gltf` |
+| `crp.py` | kontejner CRP (`parse_crp`, `find`, `entry_text`, `base_info`), díly a geometrie (`article_mesh` se seznamem, pruhem i čtyřúhelníky, otočením trojúhelníků podle normál nebo nahoru a statistikou `STATS`, `article_matrix`), převod souřadnic `to_gltf`, zápis glTF s morph targety `write_gltf` | `crp2gltf`, `track2gltf`, `mesh_check` (`cross`) |
 | `scn.py` | scény tratí `.scn` (`read_triggers`, `start_finish`) a vlastnosti objektů `animdefs.txt` (`read_animdefs`) | `track2gltf` |
 | `fsh2png.py` | dekódování FSH a zápis PNG (`parse`, `decode_image`, `write_png`) | `crp2gltf` (atlasy aut), `track2gltf` (textury tratí) |
 
@@ -31,4 +32,12 @@ python3 tools/sim_dump.py sources/GameData/Simulation/CarData > decomposed/GameD
 python3 tools/crp2gltf.py sources/GameData/CarModel/356a.crp decomposed/GameData/CarModel/356a/356a.gltf
 python3 tools/track2gltf.py sources/GameData/Track/farmland.crp decomposed/GameData/Track/farmland/farmland.gltf
 python3 tools/snd2wav.py sources/GameData/Sounds decomposed/GameData/Sounds
+```
+
+Všechna auta a tratě najednou, potom kontrola:
+
+```bash
+for f in sources/GameData/CarModel/*.crp; do c=$(basename $f .crp); python3 tools/crp2gltf.py $f decomposed/GameData/CarModel/$c/$c.gltf; done
+for t in skidpad farmland monaco1 monaco2 monaco3 monaco4 monaco5 alps autobahn canyon castle coastal foothills forest industrial; do python3 tools/track2gltf.py sources/GameData/Track/$t.crp decomposed/GameData/Track/$t/$t.gltf; done
+python3 tools/mesh_check.py decomposed/GameData/CarModel decomposed/GameData/Track
 ```

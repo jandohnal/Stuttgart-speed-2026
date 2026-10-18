@@ -6,6 +6,7 @@ Used by tools/crp2gltf.py (cars) and tools/track2gltf.py (tracks).
 import json
 import os
 import struct
+from collections import Counter
 
 from archives import decompress
 
@@ -13,6 +14,10 @@ INDEX_VERTEX = 0x4976  # "vI"
 INDEX_UV = 0x4975  # "uI"
 PRIM_STRIP = 1  # pr header u16 at 0x00: 3 = triangle list, 1 = triangle strip, 4 = quad list
 PRIM_QUADS = 4
+CREASE_COS = 0.5  # 60 degrees: smoothed normals do not cross a sharper edge
+UP_MIN = 0.02  # |normal y| below this is a wall: its facing cannot be told from "up"
+# Triangles fixed or dropped by article_mesh since the last reset; converters store them in the glTF.
+STATS = Counter()
 
 
 class Entry:
@@ -140,8 +145,53 @@ def article_matrix(d, art):
     return m
 
 
-def article_mesh(d, art, level, part_level, materials, sources=False):
+def cross(a, b, c):
+    u = (b[0] - a[0], b[1] - a[1], b[2] - a[2])
+    v = (c[0] - a[0], c[1] - a[1], c[2] - a[2])
+    return (u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0])
+
+
+def orient_up(tris, verts):
+    """Turn ground triangles (lists of (vertex, uv) corners) in place to face up. Walls (|normal y|
+    < UP_MIN) take the facing of a neighbour: a consistent neighbour runs their shared edge the
+    other way round."""
+    edges, todo, queue = {}, set(), []
+    for i, tri in enumerate(tris):
+        n = cross(*(verts[vi] for vi, _ in tri))
+        length = (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]) ** 0.5
+        if n[1] < -UP_MIN * length:
+            tris[i] = tri = [tri[1], tri[0], tri[2]]
+            STATS["flipped_up"] += 1
+        if abs(n[1]) < UP_MIN * length:
+            todo.add(i)
+        else:
+            queue.append(i)
+        for k in range(3):
+            a, b = tri[k][0], tri[(k + 1) % 3][0]
+            edges.setdefault(frozenset((a, b)), []).append(i)
+    while queue and todo:
+        i = queue.pop()
+        tri = tris[i]
+        for k in range(3):
+            a, b = tri[k][0], tri[(k + 1) % 3][0]
+            for j in edges.get(frozenset((a, b)), ()):
+                if j not in todo:
+                    continue
+                todo.discard(j)
+                other = [vi for vi, _ in tris[j]]
+                if any(other[m] == a and other[(m + 1) % 3] == b for m in range(3)):
+                    tris[j] = [tris[j][1], tris[j][0], tris[j][2]]  # same direction: opposite facing
+                    STATS["flipped_up"] += 1
+                queue.append(j)
+
+
+def article_mesh(d, art, level, part_level, materials, sources=False, up=False):
     """Return (translation, {material key: (positions, normals, uvs, indices)}) or None.
+
+    The original's winding is not consistent (half of the 356 A inner hood, a quarter of the
+    farmland terrain face the wrong way; the game drew them double-sided). Triangles are turned to
+    agree with the stored normals (nm); without nm and with up=True (track ground) they are turned
+    to face up, walls like their neighbours (orient_up). Counts go to STATS (flipped_by_normal, flipped_up, dropped).
 
     With sources=True a third item {material key: [source vt index per output vertex]} is added
     (e.g. to attach per-vertex damage offsets as morph targets).
@@ -185,10 +235,23 @@ def article_mesh(d, art, level, part_level, materials, sources=False):
             corners = quads_to_list(corners)
         else:
             corners = corners[:len(corners) - len(corners) % 3]
+        tris = []
         for t in range(0, len(corners), 3):
             tri = corners[t:t + 3]
             if any(vi >= len(verts) for vi, _ in tri):
+                STATS["dropped"] += 1
                 continue  # drop the whole triangle, never shift the following ones
+            tris.append(tri)
+        if norms:
+            for i, tri in enumerate(tris):
+                n = cross(*(verts[vi] for vi, _ in tri))
+                s = [sum(norms[vi][k] for vi, _ in tri) for k in range(3)]
+                if n[0] * s[0] + n[1] * s[1] + n[2] * s[2] < 0.0:
+                    tris[i] = [tri[1], tri[0], tri[2]]
+                    STATS["flipped_by_normal"] += 1
+        elif up:
+            orient_up(tris, verts)
+        for tri in tris:
             for vi, ui in tri:
                 if (vi, ui) not in seen:
                     seen[(vi, ui)] = len(pos)
@@ -199,36 +262,50 @@ def article_mesh(d, art, level, part_level, materials, sources=False):
     out, src = {}, {}
     for k, (pos, nrm, tex, idx, seen) in prims.items():
         if len(idx) >= 3:
-            if any(n is None for n in nrm):
-                nrm = smooth_normals(pos, idx)
-            out[k] = (pos, nrm, tex, idx)
             order = [0] * len(pos)
             for (vi, _), i in seen.items():
                 order[i] = vi
+            if any(n is None for n in nrm):
+                pos, nrm, tex, idx, order = smooth_normals(pos, tex, idx, order)
+            out[k] = (pos, nrm, tex, idx)
             src[k] = order
     return (offset, out, src) if sources else (offset, out)
 
 
-def smooth_normals(pos, idx):
-    """Area-weighted vertex normals for meshes without stored normals."""
-    acc = [[0.0, 0.0, 0.0] for _ in pos]
+def smooth_normals(pos, tex, idx, order):
+    """Area-weighted vertex normals for meshes without stored normals, split at creases: a corner
+    averages only the faces around its vertex within CREASE of its own face (cliff edges, walls on
+    the ground), so no face gets a normal from the other side of a sharp edge. Returns (pos, nrm,
+    tex, idx, order) with vertices duplicated where they are split."""
+    faces, around = [], [[] for _ in pos]
     for t in range(0, len(idx), 3):
-        a, b, c = (pos[i] for i in idx[t:t + 3])
-        u = (b[0] - a[0], b[1] - a[1], b[2] - a[2])
-        v = (c[0] - a[0], c[1] - a[1], c[2] - a[2])
-        n = (u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0])
+        n = cross(*(pos[i] for i in idx[t:t + 3]))
+        faces.append(n)
         for i in idx[t:t + 3]:
-            acc[i][0] += n[0]
-            acc[i][1] += n[1]
-            acc[i][2] += n[2]
-    out = []
-    for x, y, z in acc:
+            around[i].append(t // 3)
+    unit = []
+    for x, y, z in faces:
         length = (x * x + y * y + z * z) ** 0.5
-        out.append((x / length, y / length, z / length) if length > 1e-12 else (0.0, 1.0, 0.0))
-    return out
+        unit.append((x / length, y / length, z / length) if length > 1e-12 else (0.0, 0.0, 0.0))
+    out_pos, out_nrm, out_tex, out_idx, out_order, made = [], [], [], [], [], {}
+    for t in range(0, len(idx), 3):
+        f = unit[t // 3]
+        for i in idx[t:t + 3]:
+            group = tuple(g for g in around[i]
+                          if g == t // 3 or sum(a * b for a, b in zip(unit[g], f)) >= CREASE_COS)
+            if (i, group) not in made:
+                acc = [sum(faces[g][k] for g in group) for k in range(3)]
+                length = (acc[0] ** 2 + acc[1] ** 2 + acc[2] ** 2) ** 0.5
+                made[(i, group)] = len(out_pos)
+                out_pos.append(pos[i])
+                out_nrm.append(tuple(a / length for a in acc) if length > 1e-12 else (0.0, 1.0, 0.0))
+                out_tex.append(tex[i])
+                out_order.append(order[i])
+            out_idx.append(made[(i, group)])
+    return out_pos, out_nrm, out_tex, out_idx, out_order
 
 
-def write_gltf(out_path, nodes_data, material_spec, generator):
+def write_gltf(out_path, nodes_data, material_spec, generator, extras=None):
     """Write <out>.gltf + <out>.bin.
 
     nodes_data: list of dicts {name, offset, prims, group (optional), matrix (optional, glTF
@@ -236,10 +313,11 @@ def write_gltf(out_path, nodes_data, material_spec, generator):
     vertex] per name]}, glTF morph targets)}; nodes with a group become
     children of one empty node per group.
     material_spec(key) -> {"name": str, "uri": png file or None, "alpha": glTF alphaMode or None}.
+    extras: stored as asset.extras (converter statistics read by tools/mesh_check.py).
     """
     stem = os.path.splitext(os.path.basename(out_path))[0]
     buf = bytearray()
-    gl = {"asset": {"version": "2.0", "generator": generator},
+    gl = {"asset": {"version": "2.0", "generator": generator, **({"extras": extras} if extras else {})},
           "scene": 0, "scenes": [{"nodes": []}], "nodes": [], "meshes": [], "materials": [],
           "accessors": [], "bufferViews": [], "buffers": [], "textures": [], "images": [], "samplers": [{}]}
     mat_index, group_index = {}, {}

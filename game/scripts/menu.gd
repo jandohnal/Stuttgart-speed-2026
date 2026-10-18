@@ -1,20 +1,31 @@
 extends Control
-## Main menu of the prototype (D-009): car and track dropdowns and Play. The lists come from
-## main.gd (CARS, TRACKS); entries whose data is missing in decomposed/ are disabled. The choice
-## goes to the GameSettings autoload and user://settings.cfg, then the game scene takes over.
+## Main menu of the prototype (D-009): car and track dropdowns, a row of option toggles (driver
+## aids, sound, diagnostics) and Play. The lists come from main.gd (CARS, TRACKS); entries whose
+## data is missing in decomposed/ are disabled. The choice goes to the GameSettings autoload and
+## user://settings.cfg, then the game scene takes over. The options are set only here, not in game.
 ## Keyboard / gamepad: arrows or D-pad move the focus, Enter (anywhere) or Start plays, Esc quits.
 
 const Main := preload("res://scripts/main.gd")
 const GAME_SCENE := "res://scenes/main.tscn"
 const MISSING := " – chybí data"
+## GameSettings option -> toggle label, in the order of the row.
+const OPTION_LABELS := {
+	"steering_assist": "Asistent řízení",
+	"brake_assist": "ABS",
+	"traction_control": "Kontrola trakce",
+	"sound": "Zvuk",
+	"diagnostics": "Diagnostika",
+}
 
 @onready var car_option: OptionButton = %CarOption
 @onready var track_option: OptionButton = %TrackOption
 @onready var play_button: Button = %PlayButton
 @onready var note: Label = %Note
+@onready var options_row: HBoxContainer = %Options
 
 var car_keys: Array[String] = []
 var track_names: Array[String] = []
+var option_toggles := {}  ## option key -> CheckButton
 
 
 func _ready() -> void:
@@ -29,6 +40,13 @@ func _ready() -> void:
 		_add_item(track_option, Main.TRACKS[track], Main.track_available(track))
 	_preselect(car_option, car_keys.find(last["car"]))
 	_preselect(track_option, track_names.find(last["track"]))
+	for key: String in OPTION_LABELS:
+		var toggle := CheckButton.new()
+		toggle.text = OPTION_LABELS[key]
+		toggle.button_pressed = GameSettings.options[key]
+		toggle.add_theme_font_size_override("font_size", 20)
+		options_row.add_child(toggle)
+		option_toggles[key] = toggle
 	car_option.item_selected.connect(_update_play.unbind(1))
 	track_option.item_selected.connect(_update_play.unbind(1))
 	play_button.pressed.connect(_play)
@@ -63,6 +81,8 @@ func _play() -> void:
 		return
 	GameSettings.car_key = car_keys[car_option.selected]
 	GameSettings.track_name = track_names[track_option.selected]
+	for key: String in option_toggles:
+		GameSettings.options[key] = (option_toggles[key] as CheckButton).button_pressed
 	GameSettings.save_last()
 	get_tree().change_scene_to_file(GAME_SCENE)
 
