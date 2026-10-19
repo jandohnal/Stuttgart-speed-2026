@@ -39,12 +39,12 @@ const AIR_DENSITY := 1.225
 @export var load_sensitivity := 0.1  ## mu drops by this share per +100 % load over the static load
 @export var rolling_resistance := 0.015  ## times the wheel load
 @export var wheel_inertia := 1.2  ## kg m2 per wheel (wheel, tyre, brake drum)
-@export var engine_brake := 0.12  ## engine drag torque off throttle, share of peak torque at redline
-@export var brake_front_bias := 0.58  ## matches the axle loads when braking at 0.8 g
+@export var engine_brake := 0.2  ## engine drag torque off throttle, share of the full-throttle torque at the current rpm (.sim 0x098)
+@export var brake_front_bias := 0.58  ## front share of the brake torque (.sim 0x108)
 @export var wheel_substeps := 8
 @export var max_steer_deg := 30.0
-@export var steering_assist := true  ## limit front wheel angle to the tyres' peak slip angle
-@export var brake_assist := true  ## ABS: wheels do not lock under the foot brake (the original does not lock them)
+@export var steering_assist := false  ## limit front wheel angle to the tyres' peak slip angle
+@export var brake_assist := false  ## ABS: wheels do not lock under the foot brake (the original does not lock them)
 @export var abs_slip := 0.8  ## ABS releases a front wheel above this share of the peak slip ratio (keeps steering)
 @export var abs_slip_rear := 1.2  ## same for the rear, past the peak: the unloaded rear slides and steps out but does not lock
 @export var assist_margin := 1.1  ## allowed front slip angle, times the peak slip angle
@@ -64,13 +64,14 @@ const AIR_DENSITY := 1.225
 @export var steer_fast_speed := 41.7  ## m/s (150 km/h)
 @export var steer_return_time := 0.2  ## s from full lock back to centre
 @export_group("")
-@export var brake_decel_g := 0.8  ## brake torque, as deceleration it would give without slip (drums ~0.8 g)
-@export var drivetrain_efficiency := 0.85
+@export var brake_decel_g := 0.8  ## brake torque, as deceleration it would give without slip (.sim 0x104 in m/s2 / g)
+@export var drivetrain_efficiency := 0.85  ## drive force factor (.sim 0x058; the original's own scale, 0.65..1.2)
 @export var drag_area := 0.6  ## Cd * frontal area, m2 (356: ~0.37 * 1.6)
 @export var shift_time := 0.35  ## s without drive while shifting
-## Fill in from the car's data (setup): drag area from top speed and power, brakes (0x104),
-## shift time (0x054), downforce (0x10C / 0x110), spring rate and bump travel (ground clearance
-## 0x124), wheel inertia (tyre size), rear grip (engine position). Off: the values above are used as they are.
+## Fill in from the car's data (setup): drag area from top speed and power, brakes (0x104, 0x108),
+## drivetrain efficiency (0x058), engine braking (0x098), shift time (0x054), downforce
+## (0x10C / 0x110), spring rate and bump travel (ground clearance 0x124), wheel inertia (tyre
+## size), rear grip (engine position). Off: the values above are used as they are.
 @export var derive_from_data := true
 @export var downforce_area_per_unit := 1.2  ## m2 of Cl*A per unit of .sim 0x10C / 0x110 above 1
 var downforce_front := 0.0  ## Cl*A, m2 (front axle)
@@ -78,7 +79,7 @@ var downforce_rear := 0.0
 @export_group("Driver aids and drivetrain")
 ## Traction control: cuts a driven wheel's torque as its combined slip (normalised: 1 = the
 ## tyre's peak) goes from tc_slip_start to tc_slip_full, so wheelspin stays at the grip peak.
-@export var traction_control := true
+@export var traction_control := false
 @export var tc_slip_start := 0.8
 @export var tc_slip_full := 1.05
 ## Launch clutch: in first gear and reverse the driver holds the engine at up to launch_rpm
@@ -117,7 +118,7 @@ var spring_rate := 0.0
 var damper_rate := 0.0
 var mu := 1.0  ## tyre friction coefficient at static load
 var peak_slip_angle := 0.12  ## rad, from the tyre aspect ratio (taller sidewall = larger)
-var engine_inertia := 0.09  ## kg m2, .sim 0x058 / 1000 (hypothesis)
+var engine_inertia := 0.09  ## kg m2; not in the .sim data (0x058 is the drivetrain efficiency)
 var torque_peak := 100.0
 var damage: CarDamage  ## null until setup_damage()
 var _model: Node3D
@@ -196,7 +197,6 @@ func setup(model: Node3D, car_params: Dictionary) -> void:
 	peak_slip_angle = deg_to_rad(3.0 + 0.08 * float(tyre["aspect_pct"]))  # 70 % -> 8.6 deg, 30 % -> 5.4 deg
 	var unknown: Dictionary = params.get("unknown", {})
 	mu = (grip_base + grip_per_sim * float(unknown.get("0x0F4", 1.15))) * grip
-	engine_inertia = float(unknown.get("0x058", 90.0)) / 1000.0
 	turbo = bool(params.get("turbo", false))
 	for i in torque_curve.size():
 		if torque_curve[i] >= 0.9 * torque_peak:
@@ -221,10 +221,12 @@ func setup(model: Node3D, car_params: Dictionary) -> void:
 	_set_center_of_mass()
 
 
-## Settings the .sim data implies (hypotheses for the unknown fields: docs/formats/sim.md).
+## Settings the .sim data implies (field meanings from Porsche.exe: docs/formats/sim.md).
 func _derive_from_data(unknown: Dictionary) -> void:
-	var ref := 6.5  # 356 A 1.6, the car the hand tuning was done on
-	brake_decel_g = 0.8 * float(unknown.get("0x104", ref)) / ref
+	brake_decel_g = float(unknown.get("0x104", 6.5)) / GRAVITY  # m/s2
+	brake_front_bias = float(unknown.get("0x108", 60.0)) / 100.0
+	drivetrain_efficiency = float(unknown.get("0x058", 90.0)) / 100.0
+	engine_brake = float(unknown.get("0x098", 20.0)) / 100.0
 	shift_time = 0.35 * float(unknown.get("0x054", 8)) / 8.0
 	downforce_front = maxf(0.0, float(unknown.get("0x10C", 1.0)) - 1.0) * downforce_area_per_unit
 	downforce_rear = maxf(0.0, float(unknown.get("0x110", 1.0)) - 1.0) * downforce_area_per_unit
@@ -488,7 +490,7 @@ func _physics_process(delta: float) -> void:
 		engine_torque = _engine_torque() * throttle
 		if throttle < 0.05:
 			# Engine braking; pulling away the clutch pedal is still down.
-			engine_torque = 0.0 if _launch_slip else -engine_brake * torque_peak * rpm / redline
+			engine_torque = 0.0 if _launch_slip else -engine_brake * _torque_at(rpm)
 	engine_torque_nm = engine_torque
 	_tc_on = traction_control and engine_torque > 0.0
 	# Engine inertia seen at the wheels; shared by the driven wheels.

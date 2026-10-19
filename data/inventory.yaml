@@ -18,7 +18,7 @@ items:
     doc: docs/formats/sim.md
     tool: tools/sim_dump.py
     output: decomposed/GameData/Simulation/cars.json
-    status: partial_decoded
+    status: mostly_decoded  # meanings verified from Porsche.exe (Ghidra), 2026-10-19
     use: "Referenční hodnoty pro jízdní model fiktivních aut podle éry"
 
   - id: ai_config

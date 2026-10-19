@@ -83,8 +83,9 @@ func _physics_process(delta: float) -> void:
 
 func _report() -> void:
 	print("STRAIGHT TEST: %s (%s)" % [car.params.get("name", "?"), main.car_key])
-	print("  derived: drag area %.2f m2, brakes %.2f g, shift %.2f s, downforce front %.1f rear %.1f m2, springs %.1f Hz, wheel inertia %.1f kg m2, mu %.2f, rear grip %.2f" % [
-		car.drag_area, car.brake_decel_g, car.shift_time, car.downforce_front, car.downforce_rear,
+	print("  derived: drag area %.2f m2, brakes %.2f g (front %.2f), drivetrain %.2f, engine brake %.2f, shift %.2f s, downforce front %.1f rear %.1f m2, springs %.1f Hz, wheel inertia %.1f kg m2, mu %.2f, rear grip %.2f" % [
+		car.drag_area, car.brake_decel_g, car.brake_front_bias, car.drivetrain_efficiency, car.engine_brake,
+		car.shift_time, car.downforce_front, car.downforce_rear,
 		car.ride_frequency, car.wheel_inertia, car.mu, car.rear_grip])
 	var top_gear_kmh := car.redline / (car.gear_ratios[-1] * car.final_drive) * TAU / 60.0 * car.wheel_radius * 3.6
 	print("  data top speed %.0f km/h, top gear at the limiter %.0f km/h" % [

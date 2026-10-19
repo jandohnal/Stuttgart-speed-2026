@@ -56,7 +56,7 @@ python3 tools/flare.py sources/GameData/Render/flare.dat decomposed/GameData/Ren
 
 Otevřít `game/project.godot` v Godotu 4.7 a spustit (F5). Fyzika Jolt, 120 Hz, renderer Forward+ přes Metal.
 
-Hra začíná **hlavním menu** (`scenes/menu.tscn`): výběr auta (všech 85 variant z `.sim`, např. '65 911 Coupé, '73 911 Carrera RS 2.7, '96 911 Turbo (993), plus policejní auta a provoz) a trati (14 tratí originálu a testovací polygon `skidpad`, kde auto startuje na řezu 0) a tlačítko Play. Seznamy jsou v `main.gd` (`CARS` s názvem pro menu, modelem a klíčem fyziky `physics`; `MODELS` se sadou zvuku motoru modelu; `TRACKS`), další trať stačí přidat do `TRACKS`. Názvy variant a jejich modely jsou z `FEData/Data/nfs5.car` (Carrera RS 2.7 má model `f901`, 996 Turbo `f996`, Boxster 2.5 `fboxster`). Policejní auta jezdí s fyzikou svého silničního auta, provoz (`eas`, `eden`, `postship`) nemá vlastní `.sim` a jezdí s `default`. Sady zvuku motoru jsou u 356 A a 935 vybrané poslechem, u ostatních zatím odhadnuté podle pořadí sad. Pod výběrem trati je řádek přepínačů: asistent řízení, ABS, kontrola trakce, zvuk a diagnostika (údaje telemetrie v HUD: přetížení, úhel řízení, zásah kontroly trakce, plnicí tlak turba, poškození). Všechny jsou ve výchozím stavu zapnuté a nastavují se jen v menu, při jízdě je změnit nejde. Položka, jejíž data v `decomposed/` chybí, je neaktivní s poznámkou „chybí data“. Výběr i přepínače předá autoload `GameSettings` (`scripts/game_settings.gd`) a uloží se do `user://settings.cfg`, příště jsou předvybrané. Testy spouštějí `main.tscn` přímo a dostanou výchozí hodnoty, uložené nastavení hráče je neovlivní. Ovládání menu: šipky / D-pad posouvají fokus, mezerník / A otevře seznam, Enter (kdekoli) nebo Start spustí hru, Esc hru ukončí. Esc při jízdě vrátí do menu.
+Hra začíná **hlavním menu** (`scenes/menu.tscn`): výběr auta (všech 85 variant z `.sim`, např. '65 911 Coupé, '73 911 Carrera RS 2.7, '96 911 Turbo (993), plus policejní auta a provoz) a trati (14 tratí originálu a testovací polygon `skidpad`, kde auto startuje na řezu 0) a tlačítko Play. Seznamy jsou v `main.gd` (`CARS` s názvem pro menu, modelem a klíčem fyziky `physics`; `MODELS` se sadou zvuku motoru modelu; `TRACKS`), další trať stačí přidat do `TRACKS`. Názvy variant a jejich modely jsou z `FEData/Data/nfs5.car` (Carrera RS 2.7 má model `f901`, 996 Turbo `f996`, Boxster 2.5 `fboxster`). Policejní auta jezdí s fyzikou svého silničního auta, provoz (`eas`, `eden`, `postship`) nemá vlastní `.sim` a jezdí s `default`. Sady zvuku motoru jsou u 356 A a 935 vybrané poslechem, u ostatních zatím odhadnuté podle pořadí sad. Pod výběrem trati je řádek přepínačů: asistent řízení, ABS, kontrola trakce, zvuk a diagnostika (údaje telemetrie v HUD: přetížení, úhel řízení, zásah kontroly trakce, plnicí tlak turba, poškození). Asistenti (řízení, ABS, kontrola trakce) jsou ve výchozím stavu vypnutí (od 19. 10. 2026, auta s hodnotami z dat se chovají věrně originálu i bez nich), zvuk a diagnostika zapnuté. Vše se nastavuje jen v menu, při jízdě je změnit nejde. Položka, jejíž data v `decomposed/` chybí, je neaktivní s poznámkou „chybí data“. Výběr i přepínače předá autoload `GameSettings` (`scripts/game_settings.gd`) a uloží se do `user://settings.cfg`, příště jsou předvybrané. Testy spouštějí `main.tscn` přímo a dostanou výchozí hodnoty, uložené nastavení hráče je neovlivní. Ovládání menu: šipky / D-pad posouvají fokus, mezerník / A otevře seznam, Enter (kdekoli) nebo Start spustí hru, Esc hru ukončí. Esc při jízdě vrátí do menu.
 
 Spuštění přímo `scenes/main.tscn` (F6 v editoru, testy) menu přeskočí: trať a auto pak určí výběr z menu, je-li v `GameSettings`, jinak argumenty a nastavení projektu níže.
 
@@ -113,12 +113,15 @@ Auto: nastavení projektu `stuttgart/car` nebo argument `-- --car=<klíč v cars
 ~/Downloads/Godot.app/Contents/MacOS/Godot --path game -- --windowed=1 --car=935race --track=monaco1
 ```
 
-**Nastavení odvozená z dat** (`Car.derive_from_data`, hypotézy pro neznámá pole `.sim`):
+**Nastavení odvozená z dat** (`Car.derive_from_data`, význam polí `.sim` z rozboru `Porsche.exe`, [docs/formats/sim.md](../docs/formats/sim.md)):
 
 | Nastavení | Odvození | 356 A | 935 |
 | --- | --- | --- | --- |
 | odpor vzduchu Cd·A | při maximální rychlosti z dat pokryje nejvyšší výkon motoru odpor vzduchu a valení | 0,59 m² | 0,79 m² |
-| brzdy | 0,8 g × 0x104 / 6,5 | 0,80 g | 1,42 g |
+| brzdy | 0x104 je přímo zpomalení v m/s² (do 19. 10. 2026 0,8 g × 0x104 / 6,5) | 0,66 g | 1,17 g |
+| podíl brzd vpředu | 0x108 / 100 (dřív pevně 0,58) | 0,60 | 0,60 |
+| účinnost převodu | 0x058 / 100, násobí hnací sílu (dřív pevně 0,85; 0x058 se mylně brala jako setrvačnost motoru, ta je teď pevně 0,09 kg·m²) | 0,90 | 0,65 |
+| brzdění motorem | 0x098 / 100 × moment při daných otáčkách (dřív 0,12 × max. moment × otáčky / omezovač) | 0,23 | 0,10 |
 | doba řazení | 0,35 s × 0x054 / 8 | 0,35 s | 0,17 s |
 | přítlak Cl·A vpředu / vzadu | (0x10C − 1) a (0x110 − 1) × 1,2 m² | 0 | 0,9 / 1,2 m² |
 | pérování | 1,7 Hz × √(140 / 0x124 světlá výška mm); zdvih nahoru nejvýš 75 % světlé výšky | 1,7 Hz, 8 cm | 2,6 Hz, 4,5 cm |
@@ -151,7 +154,7 @@ Brzdění v zatáčce (bez okna): na skidpadu auto jede po kruhu do 100 km/h, pa
 | plná brzda + plné řízení, bez ABS | 7,7° (přední kola se po náběhu brzdy zablokují) | 15° |
 | poloviční brzda + plné řízení, bez ABS | 8,2° | 51° |
 
-Samotný náběh brzdy chování originálu nevyvolá, bez ABS přední kola po 0,6 s zablokují. ABS proto zůstává výchozí; jak to dělal originál, ukáže až srovnání přes Wine.
+Samotný náběh brzdy chování originálu nevyvolá, bez ABS přední kola po 0,6 s zablokují. ABS proto bylo výchozí. Od 19. 10. 2026 je výchozí vypnuté (D-017), protože jízda s brzdami podle dat (0x104, 0x108) se bez asistentů chová věrně originálu.
 
 **Poškození.** Náraz se měří součtem impulsů kontaktů karoserie za prvních 0,1 s (další náraz se počítá až po odlepení od překážky). Nad prahem 1 500 N·s promáčkne zóny do 1,5 m od bodu nárazu: nejbližší plně, ostatní poměrně. Přírůstek = (impuls − 1 500) / 15 000. Lehké značky ani drhnutí podvozkem auto nepoškodí. Následky (parametry `Car`, skupina „Damage consequences“, při plném poškození):
 
@@ -275,6 +278,11 @@ Test na rovině (bez okna): 8 km dlouhá plocha 500 m pod skidpadem, plný plyn 
 | 18. 10. 2026, spojka, turbo, TC, samosvor | | | | |
 | 356 A 1.6 | 15,0 s | – | 145 km/h | – / 51 m |
 | 935 Moby Dick | 3,3 s | 8,8 s | 299 km/h | 113 / 30 m |
+| 19. 10. 2026, brzdy, účinnost a brzdění motorem z `.sim` (exe) | | | | |
+| 356 A 1.6 | 14,2 s | – | 145 km/h | – / 58 m |
+| 993 Turbo (skutečnost 4,5 s, 290 km/h) | 4,5 s (dřív 4,7 s) | 14,9 s (15,7 s) | 284 km/h | 145 / 37 m (129 / 33 m) |
+| 944 Turbo | 7,4 s (7,6 s) | 27,5 s (28,9 s) | 235 km/h | 194 / 51 m (166 / 43 m) |
+| 935 Moby Dick | 4,0 s | 10,8 s | 300 km/h | 133 / 34 m |
 
 356 je teď o 0,5 s rychlejší, než bylo, a asi o 1 s rychlejší než skutečnost: rozjezd se spojkou na 2 300 ot/min dá od začátku 107 Nm místo 78 Nm na volnoběhu. Zbytek rozdílu je ve zbytku zrychlení (odpor, převody), ne v rozjezdu. Pro závodní 935/78 oficiální 0–100 neexistuje, pro srovnání sériová 930 Turbo 3.3 (1 300 kg, 221 kW) uvádí 5,4 s.
 
@@ -297,7 +305,7 @@ Na farmlandu auto 40 s jede po silnici z kopce bez kolize. Odvážnější řidi
 
 ## Stav a známá omezení
 
-- Model pneumatik (`car.gd`): každé kolo má vlastní rotaci se setrvačností 1,2 kg·m², poháněná kola navíc setrvačnost motoru přes převod (0x058 / 1000 kg·m², hypotéza). Podélný skluz a úhel skluzu tvoří jeden normovaný vektor skluzu. Síla roste k vrcholu (délka 1), pak klesá na 75 % (smyk). Vrchol: skluz 0,12, úhel 3° + 0,08° × profilové číslo (356: 8,6°). Přilnavost μ = 0,444 + 0,353 × `.sim` 0x0F4 (356: 0,85, hypotéza), citlivost na zatížení 10 %, valivý odpor 0,015. Kola se integrují v 8 podkrocích. Brzdy působí momentem (max. 0,8 g jako bubnové brzdy, 58 % vpředu), bez ABS mohou kola zablokovat. Zadní pneumatiky mají 1,12× přilnavost předních (geometrie zadní nápravy, tlaky): bez brzdy je auto mírně nedotáčivé, při brzdění se zatížení přesune dopředu a záď ztratí rezervu. Se stejnou přilnavostí se auto se 56 % váhy vzadu roztočilo už při plném řízení bez brzdy, motor brzdí 12 % maximálního momentu. Převodovka řadí nahoru, když vyšší stupeň dá na kolech víc síly. Ladění proti originálu přes Wine zbývá.
+- Model pneumatik (`car.gd`): každé kolo má vlastní rotaci se setrvačností 1,2 kg·m², poháněná kola navíc setrvačnost motoru přes převod (pevně 0,09 kg·m², v datech není). Podélný skluz a úhel skluzu tvoří jeden normovaný vektor skluzu. Síla roste k vrcholu (délka 1), pak klesá na 75 % (smyk). Vrchol: skluz 0,12, úhel 3° + 0,08° × profilové číslo (356: 8,6°). Přilnavost μ = 0,444 + 0,353 × `.sim` 0x0F4 (356: 0,85, hypotéza), citlivost na zatížení 10 %, valivý odpor 0,015. Kola se integrují v 8 podkrocích. Brzdy působí momentem (zpomalení 0x104 v m/s², 356: 0,66 g, podíl vpředu 0x108, 356: 60 %), bez ABS mohou kola zablokovat. Zadní pneumatiky mají 1,12× přilnavost předních (geometrie zadní nápravy, tlaky): bez brzdy je auto mírně nedotáčivé, při brzdění se zatížení přesune dopředu a záď ztratí rezervu. Se stejnou přilnavostí se auto se 56 % váhy vzadu roztočilo už při plném řízení bez brzdy, motor brzdí podílem 0x098 momentu při daných otáčkách (356: 23 %). Převodovka řadí nahoru, když vyšší stupeň dá na kolech víc síly. Ladění proti originálu přes Wine zbývá.
 - Stabilizátory: vpředu 1,0 × tuhost pružiny, vzadu 0,3 (356 měla stabilizátor jen vpředu). Se stejně tuhým vzadu se zadní vnitřní kolo při brzdění v zatáčce odlehčovalo a auto se roztáčelo.
 - Kamera je 6 m za autem a 2,4 m nad ním.
 - Parametry z `.sim`: hmotnost, převody, stálý převod, křivka momentu, otáčky omezovače, rozměr pneumatik, rozdělení pohonu, poloha motoru (posun těžiště). Hypotézy: přilnavost (0x0F4), setrvačnost motoru (0x058). Odvozené z dat (tabulka výše): odpor vzduchu, brzdy, řazení, přítlak, pérování, setrvačnost kol. Odhadem: stabilizátory, dorazy, zdvih dolů 10 cm.

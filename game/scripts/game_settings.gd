@@ -8,9 +8,9 @@ const FILE := "user://settings.cfg"
 ## Option -> default. steering_assist, brake_assist (ABS) and traction_control are Car properties;
 ## sound unmutes the master bus; diagnostics shows the telemetry readout in the HUD.
 const DEFAULT_OPTIONS := {
-	"steering_assist": true,
-	"brake_assist": true,
-	"traction_control": true,
+	"steering_assist": false,
+	"brake_assist": false,
+	"traction_control": false,
 	"sound": true,
 	"diagnostics": true,
 }

@@ -40,6 +40,13 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Převod všech `.sim` do `decomposed/GameData/Simulation/cars.json`
 - [ ] Určit zbývající pole `.sim` (porovnáním aut s odlišnými vlastnostmi)
   - [x] Porovnání dvojic a hypotézy ([formats/sim.md](formats/sim.md#porovnání-dvojic))
+  - [x] Párování s parametry NFS4 `carp.txt` podle Velocity/HighStakesRE, korelace a postřehy pro jízdní model ([formats/sim.md](formats/sim.md#hypotézy-z-nfs4--zdůvodnění))
+  - [x] Význam polí z `Porsche.exe` (Ghidra + REA, [IDEA-012](../ideas/exe-analysis-rea-ghidra.md), [formats/sim.md](formats/sim.md#analýza-porscheexe-ghidra))
+  - [x] Srovnání našeho jízdního modelu s originálem a postup zpracování dat ([driving-model.md](driving-model.md))
+  - [x] Pole s fyzikální jednotkou v prototypu podle exe: 0x104 brzdy v m/s², 0x108 podíl brzd, 0x058 účinnost převodu, 0x098 brzdění motorem
+  - [ ] Převést kalibrací 0x0F4/0x0F0 (přilnavost, vyvážení) a 0x10C/0x110 (přítlak ×0,001 × rychlost) a ověřit testy ([návrhy](formats/sim.md#návrhy-testů-v-prototypu))
+  - [ ] Přejmenovat v `tools/sim_dump.py` ověřená pole z `unknown` na pojmenované klíče
+  - [ ] Dořešit jednotku 0x0FC (řízení) a pole AI 0x13C–0x144
   - [ ] Ověřit hypotézy v originále přes Wine
 - [x] Převod textur FSH → PNG ([tools/fsh2png.py](../tools/fsh2png.py))
 - [x] Parser geometrie auta v CRP → glTF (podle OpenNFS), všech 44 aut ([tools/crp2gltf.py](../tools/crp2gltf.py))
