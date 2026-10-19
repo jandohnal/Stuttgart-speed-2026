@@ -215,7 +215,7 @@ Den a noc: bez okna ověří hledání HDRI (monaco1–5 → monaco), náhradní
 ~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/lighting_test.tscn
 ```
 
-Světla trati (bez okna): na monaco1 v noci ověří, že jsou rozmístěné všechny záře z `monaco1_lights.json` (144), světla 12 koz visí na jejich tělesech 1,12 m nahoře a blikají jednou za sekundu, `wrna` a `wrnb` se střídají, šipky `arwa`–`arwe` se rozsvěcují postupně, pouliční lampy svítí stále, skupina `OmniLight3D` je u kamery a okna a neony svítí. Ve dne skupina světel chybí.
+Světla trati (bez okna): na monaco1 v noci ověří, že jsou rozmístěné všechny záře z `monaco1_lights.json` (144), světla 12 koz visí na jejich tělesech 1,12 m nahoře a blikají jednou za sekundu, `wrna` a `wrnb` se střídají, šipky `arwa`–`arwe` se rozsvěcují postupně, pouliční lampy svítí stále, skupina `OmniLight3D` je u kamery a okna a neony svítí. Lampy Monaka mají v noci vlastní světla a svítící sklo, čočky koz blikají se zářemi. Ve dne skupina světel chybí.
 
 ```bash
 ~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/track_lights_test.tscn

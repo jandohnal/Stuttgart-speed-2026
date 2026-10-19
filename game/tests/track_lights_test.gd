@@ -65,6 +65,15 @@ func _night_checks(main: Node3D, tl: Node3D) -> void:
 		lit += 1 if l.visible else 0
 	_expect(lit == tl.lights.size(), "light pool all used near the camera (%d)" % lit)
 	_expect(TrackLights.glow_textures(main, "monaco") > 0, "lit windows and neon glow")
+	_expect(tl.lamp_lights.size() == 96, "one light per lamp (%d)" % tl.lamp_lights.size())
+	_expect(tl._lens_materials.size() > 0, "sawhorse lens glows")
+	tl._time = 0.1
+	tl._update_blink()
+	var lens_on: float = tl._lens_materials[0]["material"].emission_energy_multiplier if tl._lens_materials.size() > 0 else 0.0
+	tl._time = 0.6
+	tl._update_blink()
+	var lens_off: float = tl._lens_materials[0]["material"].emission_energy_multiplier if tl._lens_materials.size() > 0 else 1.0
+	_expect(lens_on > 0.0 and lens_off == 0.0, "sawhorse lens blinks with wrna")
 
 
 func _finish() -> void:
