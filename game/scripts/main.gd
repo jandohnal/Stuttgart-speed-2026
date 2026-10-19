@@ -67,7 +67,8 @@ const MODELS := {
 ## 2.5 on fboxster. Variants missing there (930 Turbo 3.0, 993 Turbo, 993 Carrera 4S, 944 Turbo S,
 ## Boxster S, 356 B Carrera 2) are named by hand; nfs5.car gives some of them a police model, here
 ## they use the road model. Police cars drive like their road car; traffic (eas, eden, postship)
-## has no .sim of its own and uses "default".
+## has no .sim of its own and uses "default". style: [styleN] of the model (parts and textures of
+## the variant, CarStyle) where nfs5.car has no record of the variant on that model (car_style_of).
 const CARS := {
 	"356coupe11": {"name": "'50 356 1100 Coupé Ferdinand", "model": "356_1"},
 	"356cabrio11": {"name": "'50 356 1100 Cabriolet", "model": "356_1"},
@@ -121,7 +122,7 @@ const CARS := {
 	"944coupe25": {"name": "'82 944 Coupé", "model": "944"},
 	"944coupeS25": {"name": "'87 944 S Coupé", "model": "944"},
 	"944Tcoupe25": {"name": "'85 944 Turbo Coupé", "model": "944"},
-	"944TcoupeS25": {"name": "'88 944 Turbo S Coupé", "model": "944"},
+	"944TcoupeS25": {"name": "'88 944 Turbo S Coupé", "model": "944", "style": 6},
 	"944cabrioS230": {"name": "'89 944 S2 Cabriolet", "model": "944"},
 	"944Tcabrio25": {"name": "'91 944 Turbo Cabriolet", "model": "944"},
 	"959coupe29": {"name": "'87 959", "model": "959"},
@@ -142,7 +143,7 @@ const CARS := {
 	"993targa36": {"name": "'96 911 Carrera Targa (993)", "model": "993"},
 	"9936coupe36": {"name": "'96 911 Carrera Coupé (993)", "model": "993"},
 	"9936coupe436": {"name": "'96 911 Carrera 4 Coupé (993)", "model": "993"},
-	"993coupe4S36": {"name": "'96 911 Carrera 4S Coupé (993)", "model": "993"},
+	"993coupe4S36": {"name": "'96 911 Carrera 4S Coupé (993)", "model": "993", "style": 5},
 	"993coupeS36": {"name": "'97 911 Carrera S 3.6 Coupé (993)", "model": "993"},
 	"boxster25": {"name": "'97 Boxster", "model": "fboxster"},
 	"996coupe34": {"name": "'98 911 Carrera 3.4 Coupé (996)", "model": "996"},
@@ -194,6 +195,7 @@ const TRACKS := {
 	"foothills": "Foothills",
 	"forest": "Forest",
 	"industrial": "Industrial",
+	"skidpad": "Test Track (skidpad)",
 }
 const MENU_SCENE := "res://scenes/menu.tscn"
 const SOLID_GROUPS := ["road", "terrain", "objects"]
@@ -228,6 +230,7 @@ var road_slices: Array = []
 var road_segments: Array = []
 var start_slice := 0
 var prop_counts := {}  ## placed objects per collision type (TrackProps)
+var car_style := 0  ## [styleN] of the car's model in use (CarStyle), 0 = model without styles
 var _log: FileAccess
 var _log_time := 0.0
 
@@ -279,6 +282,8 @@ func _ready() -> void:
 	var physics := car_physics_key(car_key)
 	if cars is Dictionary and cars.has(physics):
 		var model := OriginalAssets.load_gltf(model_path)
+		var car_colors: Variant = OriginalAssets.load_json(CAR_COLORS) if OriginalAssets.exists(CAR_COLORS) else null
+		car_style = CarStyle.apply(model, model_path, car_style_of(car_key, car_colors))
 		var color := GameSettings.car_color if not GameSettings.car_color.is_empty() else _user_arg("color")
 		Materials.setup_car(model, Color.from_string(color, Color(0, 0, 0, 0)) if not color.is_empty() else Color(0, 0, 0, 0))
 		car.setup(model, cars[physics])
@@ -377,6 +382,21 @@ static func car_palette(key: String, car_colors: Variant) -> Dictionary:
 	elif not result["colors"].is_empty():
 		result["default"] = result["colors"][0]
 	return result
+
+
+## [styleN] of the car's model .tpg (CarStyle, D-022): CARS "style", else the variant's style on
+## that model from CAR_COLORS (nfs5.car, key matched ignoring case), else 0 = the model's default.
+static func car_style_of(key: String, car_colors: Variant) -> int:
+	var info := car_info(key)
+	if info.has("style"):
+		return int(info["style"])
+	if car_colors is Dictionary:
+		for variant: String in car_colors["cars"]:
+			if variant.to_lower() == key.to_lower():
+				var styles: Dictionary = car_colors["cars"][variant].get("styles", {})
+				if styles.has(str(info["model"])):
+					return int(styles[str(info["model"])])
+	return 0
 
 
 ## Key of the car's physics in cars.json.

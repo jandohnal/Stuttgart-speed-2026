@@ -49,6 +49,7 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Objekty kolem trati: umístění z matice `tr`, značka v `Base` 0x44, vlastnosti z `animdefs.txt`, díly typu 4 a bez indexů ([formats/scn.md](formats/scn.md))
 - [x] Exportér tratí: převod všech 15 tratí, terén `WOBJ … _SECONDARY` ve skupině terrain
 - [x] Kontrola normál a děr všech aut a tratí ([tools/mesh_check.py](../tools/mesh_check.py), [model-check.md](model-check.md), D-016): orientace podle normál, terén nahoru
+- [x] Varianty aut ze stylů `.tpg` (D-022): díly a textury každé varianty, f901 s karoserií, kabriolety a turba; kontrola všech 113 stylů kamerou kolem auta na skidpadu (`car_orbit_test`) a překryvů dílů (`mesh_check.py`), opravené zdvojené díly a z-fighting vnitřních panelů víek
 - [ ] Spáry mezi silnicí a terénem a vedlejší úseky `SimD` mimo geometrii (varování z kontroly)
 - [x] Exportér tratí: světelné záře a zdroje částic z `ef` (`_lights.json`), vzhled září z `flare.dat` ([tools/flare.py](../tools/flare.py))
 - [ ] Exportér tratí: význam šířek `SimD`, spojení úseků (`.jnc`), předlohy z úloh (`_stNN.scn`), animace objektů, zdroje částic a stíny `ef`, `<trať>.map`

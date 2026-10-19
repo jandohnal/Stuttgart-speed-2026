@@ -12,6 +12,15 @@ Checks:
   (road, terrain, objects) triangle near the slice height (road_holes). On the main route's road
   with nothing below at all: FAIL; a seam narrower than 2 * CRACK or on the road edge (EDGE), off the main route, at the ends of a segment or with the
   surface at another height: WARN; beside the road (RAY_MARGIN): only counted
+- styles (cars with <stem>_styles.json, else the whole model as one style): with the nodes the
+  style shows, triangles of two parts on top of each other (z-fighting, parts of two styles at
+  once): duplicates (same corners) and coplanar overlaps (centroid inside a triangle of another
+  part in the same plane, facing the same way; facing away: back_to_back, only counted). Parts
+  laid flush on others on purpose (LAYERED: decals, lamps, plates ..., In / Out skins of a lid)
+  and overlaps under OVERLAP_MIN triangles are counted apart (layered_overlaps).
+  Open edges (used by one triangle only, corners welded at 1 mm) as total length per style: the
+  styles of one model should differ only by their own parts, so an outlier is a missing part.
+  Other overlaps (a part doubled, parts of two styles at once): WARN
 
 Usage:
     python3 tools/mesh_check.py decomposed/GameData/CarModel        # every glTF below, recursively
@@ -21,9 +30,11 @@ import argparse
 import json
 import math
 import os
+import re
 import struct
 import sys
 from array import array
+from collections import Counter
 
 from crp import cross
 
@@ -169,17 +180,151 @@ def check(path):
             status = "FAIL" if status == "FAIL" else "WARN"
             problems.append(f"road misses off the main route or offset {holes['road_minor']} rays "
                             f"at {len(holes['road_minor_slices'])} slices")
+    if not is_track:
+        result["styles"] = check_styles(path, gl, accessor)
+        bad = [st for st in result["styles"] if st["part_overlaps"]]
+        if bad:
+            status = "FAIL" if status == "FAIL" else "WARN"
+            problems.append("overlapping parts in style " + ", ".join(str(st["style"]) for st in bad))
     result["status"] = status
     with open(os.path.join(os.path.dirname(path), stem + "_check.json"), "w") as fh:
         json.dump(result, fh, indent=1)
     line = (f"{status:4} {stem:16} {tris:7} tris  flipped {flipped:5} ({100 * flipped / max(tris, 1):4.1f} %)"
             f"  dropped {dropped if dropped is not None else '-'}")
+    if not is_track:
+        opens = [st["open_edges_m"] for st in result["styles"]]
+        line += f"  styles {len(opens)}  open edges {min(opens):.1f}-{max(opens):.1f} m"
     if is_track:
         line += f"  down {down}  holes {result['road_void']} cracks {result['cracks']} minor {result['road_minor']} margin {result['margin']}"
     if problems and status != "OK":
         line += "  <- " + ", ".join(problems)
     print(line)
     return result
+
+
+WELD = 1000.0  # 1/m: corners closer than 1 mm are one vertex
+PLANE_TOL = 0.002  # m: a centroid this close to another triangle's plane lies in it
+PARALLEL = 0.999  # |cos| between normals of coplanar triangles
+OVERLAP_CELL = 0.1  # m, grid for the overlap search
+
+
+def car_triangles(gl, accessor):
+    """{node name: [world triangle (3 points)]} of every mesh node."""
+    out = {}
+    for node, m, _ in mesh_nodes(gl):
+        tris = out.setdefault(node["name"], [])
+        for prim in gl["meshes"][node["mesh"]]["primitives"]:
+            pos = accessor(prim["attributes"]["POSITION"])
+            idx = accessor(prim["indices"])
+            for t in range(0, len(idx) - 2, 3):
+                tris.append([apply(m, pos[3 * i:3 * i + 3]) for i in idx[t:t + 3]])
+    return out
+
+
+# Parts the original lays flush on others on purpose (drawn after them): lamps, plates, handles,
+# wipers, wheel shadows, logos; and the inner and outer skins of one lid (HoodIn / HoodOut).
+LAYERED = ("Decal", "Light", "HeadLight", "License", "Handle", "Cap", "Wiper", "WheelShadow", "SteerLogo", "Needle")
+OVERLAP_MIN = 10  # triangles: smaller overlaps of other parts are edges touching, not a doubled part
+
+
+def base_name(node):
+    """Part name without the converter's _<geom>_<type>[_L|_R] suffix and trailing digits."""
+    return re.sub(r"\d*_\d+_\d+(_[LR])*$", "", node)
+
+
+def is_decal(name):
+    return name.startswith("Decal")
+
+
+def layered(a, b):
+    """True for a pair of parts that overlap by design (LAYERED, or In / Out skins of one part)."""
+    if any(base_name(n).startswith(LAYERED) for n in (a, b)):
+        return True
+    ka, kb = (re.sub(r"(In|Out)$", "", base_name(n)) for n in (a, b))
+    return ka == kb and base_name(a) != base_name(b)
+
+
+def style_check(parts):
+    """Overlaps and open edges of the visible parts ({name: [triangles]})."""
+    key = lambda p: (round(p[0] * WELD), round(p[1] * WELD), round(p[2] * WELD))
+    seen, dup, edges = {}, Counter(), Counter()
+    planes, grid = [], {}
+    for name, tris in parts.items():
+        for tri in tris:
+            k = [key(p) for p in tri]
+            if len(set(k)) < 3:
+                continue
+            for a, b in ((0, 1), (1, 2), (2, 0)):
+                edges[frozenset((k[a], k[b]))] += 1
+            corners = frozenset(k)
+            other = seen.get(corners)
+            if other is not None and other != name:
+                dup[tuple(sorted((other, name)))] += 1
+            seen.setdefault(corners, name)
+            n = cross(*tri)
+            length = math.sqrt(sum(c * c for c in n))
+            if length < 1e-9:
+                continue
+            n = tuple(c / length for c in n)
+            planes.append((name, tri, n))
+            lo = [min(p[i] for p in tri) for i in range(3)]
+            hi = [max(p[i] for p in tri) for i in range(3)]
+            for cx in range(math.floor(lo[0] / OVERLAP_CELL), math.floor(hi[0] / OVERLAP_CELL) + 1):
+                for cy in range(math.floor(lo[1] / OVERLAP_CELL), math.floor(hi[1] / OVERLAP_CELL) + 1):
+                    for cz in range(math.floor(lo[2] / OVERLAP_CELL), math.floor(hi[2] / OVERLAP_CELL) + 1):
+                        grid.setdefault((cx, cy, cz), []).append(len(planes) - 1)
+    overlap, back = Counter(), Counter()
+    for name, tri, n in planes:
+        c = [sum(p[i] for p in tri) / 3.0 for i in range(3)]
+        cell = tuple(math.floor(c[i] / OVERLAP_CELL) for i in range(3))
+        for j in grid.get(cell, ()):
+            other, otri, on = planes[j]
+            facing = sum(n[i] * on[i] for i in range(3))
+            if other == name or abs(facing) < PARALLEL:
+                continue
+            if abs(sum((c[i] - otri[0][i]) * on[i] for i in range(3))) > PLANE_TOL:
+                continue
+            if inside(c, otri, on):
+                (overlap if facing > 0.0 else back)[tuple(sorted((name, other)))] += 1
+                break
+    open_len = 0.0
+    for e, count in edges.items():
+        if count == 1:
+            a, b = tuple(e)
+            open_len += math.dist(a, b) / WELD
+    return dup, overlap, back, open_len
+
+
+def inside(p, tri, n):
+    """Point p (in the triangle's plane) inside the triangle with unit normal n."""
+    for k in range(3):
+        a, b = tri[k], tri[(k + 1) % 3]
+        e = [b[i] - a[i] for i in range(3)]
+        w = [p[i] - a[i] for i in range(3)]
+        c = cross((0.0, 0.0, 0.0), e, w)
+        if sum(c[i] * n[i] for i in range(3)) < -1e-9:
+            return False
+    return True
+
+
+def check_styles(path, gl, accessor):
+    """Per style: overlapping parts and open edge length (see the module doc)."""
+    stem = os.path.splitext(os.path.basename(path))[0]
+    styles_path = os.path.join(os.path.dirname(path), stem + "_styles.json")
+    styles = json.load(open(styles_path))["styles"] if os.path.exists(styles_path) else [{"style": 0, "name": "", "hide": []}]
+    parts = car_triangles(gl, accessor)
+    out = []
+    for st in styles:
+        hidden = set(st["hide"])
+        dup, overlap, back, open_len = style_check({k: v for k, v in parts.items() if k not in hidden})
+        pairs = overlap
+        bad = {p: c for p, c in pairs.items() if not layered(*p) and c >= OVERLAP_MIN}
+        out.append({"style": st["style"], "name": st["name"], "open_edges_m": round(open_len, 2),
+                    "duplicates": sum(dup.values()), "overlaps": sum(overlap.values()),
+                    "back_to_back": sum(back.values()),
+                    "part_overlaps": [{"parts": list(p), "triangles": c} for p, c in sorted(bad.items(), key=lambda e: -e[1])],
+                    "layered_overlaps": sum(c for p, c in pairs.items() if p not in bad)})
+    return out
 
 
 def road_holes(road, ground):

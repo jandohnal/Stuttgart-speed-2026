@@ -26,8 +26,9 @@ func _ready() -> void:
 
 
 func _check(key: String, path: String) -> void:
-	var plain := _materials(OriginalAssets.load_gltf(path), Color(0, 0, 0, 0))
-	var painted := _materials(OriginalAssets.load_gltf(path), PAINT)
+	var style := Main.car_style_of(key, OriginalAssets.load_json(Main.CAR_COLORS) if OriginalAssets.exists(Main.CAR_COLORS) else null)
+	var plain := _materials(_load(path, style), Color(0, 0, 0, 0))
+	var painted := _materials(_load(path, style), PAINT)
 	_expect(plain.has("paint") and painted.has("paint"), "%s has paint" % key)
 	if not plain.has("paint"):
 		return
@@ -63,6 +64,13 @@ func _check(key: String, path: String) -> void:
 		if plain.has(kind):
 			_expect((painted[kind] as StandardMaterial3D).albedo_texture.get_image().get_data() \
 				== (plain[kind] as StandardMaterial3D).albedo_texture.get_image().get_data(), "%s %s untouched" % [key, kind])
+
+
+## The car's model with its variant's parts and textures, as main.gd loads it.
+func _load(path: String, style: int) -> Node3D:
+	var model := OriginalAssets.load_gltf(path)
+	CarStyle.apply(model, path, style)
+	return model
 
 
 ## Exterior-page materials by kind after setup_car.

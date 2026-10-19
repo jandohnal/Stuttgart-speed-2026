@@ -29,6 +29,11 @@ const LAMP := {"roughness": 0.1, "metallic": 0.3, "clearcoat": 1.0, "clearcoat_r
 const INTERIOR := {"roughness": 0.85, "metallic": 0.0}
 const GLASS := {"alpha": 0.3, "roughness": 0.05, "priority": 1}
 const INNER_GLASS := {"alpha": 0.15, "roughness": 0.05, "priority": 0}
+## Inner skins of the lids (prefix of the node name): in the plane of the outer skin, so drawn from
+## both sides they z-fought with it (901, 914: the luggage-space texture through the front lid).
+## tools/crp2gltf.py turns them to face away from the outer skin and they keep only their front
+## faces: seen from below, with the lid open or torn off.
+const INNER_PARTS := ["HoodIn", "TrunkIn", "MoveSpoilerIn"]
 ## Exterior-page parts that are chrome or lamps (prefix of the node name).
 const CHROME_PARTS := ["Exhaust", "Handle", "SideMirror"]
 const LAMP_PARTS := ["Light"]
@@ -36,7 +41,7 @@ const LAMP_PARTS := ["Light"]
 ## spokes, dark ones rubber and plastic.
 const RUBBER_ROUGHNESS := 0.9
 ## Kinds drawn opaque whatever the texture alpha says (see above).
-const OPAQUE_KINDS := ["paint", "chrome", "interior", "underbody"]
+const OPAQUE_KINDS := ["paint", "inner", "chrome", "interior", "underbody"]
 const BRIGHT_ROUGHNESS := 0.12
 ## Atlas alpha (0-255) of the texels painted in the body colour: body 204, stripe zones, sills and
 ## stripe borders 77.
@@ -69,7 +74,7 @@ static func setup_car(model: Node3D, paint := Color(0, 0, 0, 0)) -> void:
 			var key := "%s/%s" % [base.resource_name, kind]
 			if not cache.has(key):
 				cache[key] = _car_material(base, kind)
-				if kind in ["paint", "decal"] and paint.a > 0.0:
+				if kind in ["paint", "inner", "decal"] and paint.a > 0.0:
 					_paint(cache[key], paint)
 			mesh.surface_set_material(surface, cache[key])
 
@@ -103,6 +108,9 @@ static func _car_kind(material_name: String, part: String) -> String:
 		"exterior":
 			if decal:
 				return "decal"
+			for prefix: String in INNER_PARTS:
+				if part.begins_with(prefix):
+					return "inner"
 			for prefix: String in CHROME_PARTS:
 				if part.begins_with(prefix):
 					return "chrome"
@@ -121,6 +129,9 @@ static func _car_material(base: StandardMaterial3D, kind: String) -> StandardMat
 	match kind:
 		"paint", "decal":
 			_apply(m, PAINT)
+		"inner":
+			_apply(m, PAINT)
+			m.cull_mode = BaseMaterial3D.CULL_BACK
 		"chrome":
 			_apply(m, CHROME)
 		"lamp":

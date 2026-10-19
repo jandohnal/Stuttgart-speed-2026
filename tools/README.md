@@ -8,12 +8,12 @@ Python 3, jen standardní knihovna. Čtou ze `sources/`, zapisují do `decompose
 | --- | --- | --- |
 | `archives.py` | `refpack <in> <out>`: rozbalí EA RefPack (`.crp` …); `bigf <in.viv> <složka>`: rozbalí archiv BIGF | [crp.md](../docs/formats/crp.md), [bnk.md](../docs/formats/bnk.md) |
 | `fsh2png.py` | textury FSH (SHPI) → PNG + `index.json`; jeden soubor nebo celý strom | [fsh.md](../docs/formats/fsh.md) |
-| `crp2gltf.py` | model auta `.crp` → glTF (+ atlasy textur, morph targety poškození `dz0`–`dz9`, oddělené levé a pravé díly) + `<auto>_damage.json` (zóny, odpojitelné díly) | [crp.md](../docs/formats/crp.md) |
+| `crp2gltf.py` | model auta `.crp` → glTF (+ atlasy textur, morph targety poškození `dz0`–`dz9`, oddělené levé a pravé díly) + `<auto>_damage.json` (zóny, odpojitelné díly) + `<auto>_styles.json` (styly z `.tpg`: díly k odebrání a atlasy každé varianty, D-022); vynechá zdvojené díly nižší úrovně detailu, vnitřní panely víek otočí od vnějších | [crp.md](../docs/formats/crp.md#styly-varianty-modelu) |
 | `track2gltf.py` | trať `.crp` → glTF (skupiny road, terrain, vegetation, objects, props) + `<trať>_road.json` (řezy SimD, úseky, start a cíl) + `<trať>_objects.json` (rozmístěné objekty, kolize a hmotnost) + `<trať>_lights.json` (záře `ef`: ve světě, na objektech, na předlohách; zdroje částic) | [crp.md](../docs/formats/crp.md), [scn.md](../docs/formats/scn.md) |
 | `snd2wav.py` | zvukové banky `.viv` / `.bnk` → WAV + `index.json`; u sad motoru `sd*.viv` i `engine.json` (smyčky pod plynem a bez plynu, otáčky) | [bnk.md](../docs/formats/bnk.md) |
-| `car_colors.py` | databáze aut menu `FEData/Data/nfs5.car` → `car_colors.json` (palety barev laku a interiéru podle modelu, tovární barva podle varianty) | [car.md](../docs/formats/car.md) |
+| `car_colors.py` | databáze aut menu `FEData/Data/nfs5.car` → `car_colors.json` (palety barev laku a interiéru podle modelu, tovární barva a styl modelu podle varianty) | [car.md](../docs/formats/car.md) |
 | `sim_dump.py` | fyzika aut `.sim` → JSON na standardní výstup (`cars.json`) | [sim.md](../docs/formats/sim.md) |
-| `mesh_check.py` | hotový glTF → jeden řádek na model (OK / WARN / FAIL) + `<model>_check.json`: trojúhelníky obrácené proti normálám, zahozené při převodu, u tratí plochy terénu mířící dolů a díry v silnici (paprsky přes řezy SimD) | [model-check.md](../docs/model-check.md) |
+| `mesh_check.py` | hotový glTF → jeden řádek na model (OK / WARN / FAIL) + `<model>_check.json`: trojúhelníky obrácené proti normálám, zahozené při převodu, u aut pro každý styl překryvy dílů v jedné rovině a délka otevřených hran, u tratí plochy terénu mířící dolů a díry v silnici (paprsky přes řezy SimD) | [model-check.md](../docs/model-check.md) |
 | `flare.py` | záře světel `GameData/Render/flare.dat` → `flares.json` (vrstvy, barvy, velikosti, blikání) | [flare.md](../docs/formats/flare.md) |
 | `ai_csv2json.py` | nastavení AI `.csv` → JSON, ověřené proti `.bin` | [ai-csv.md](../docs/formats/ai-csv.md) |
 
@@ -21,6 +21,7 @@ Python 3, jen standardní knihovna. Čtou ze `sources/`, zapisují do `decompose
 
 | Modul | Obsah | Používají |
 | --- | --- | --- |
+| `car_colors.py` | `model_styles` (styl každé varianty modelu z `nfs5.car`) | `crp2gltf` (výchozí styl) |
 | `common.py` | `find_file` (soubor ve složce bez ohledu na velikost písmen), `source_files` (soubory s příponou ve stromu a jejich relativní cesta pro zrcadlení do `decomposed/`) | `fsh2png`, `crp2gltf`, `track2gltf`, `snd2wav`, `ai_csv2json`, `scn` |
 | `archives.py` | `decompress` (RefPack), `read_bigf` (BIGF) | `crp`, `fsh2png`, `snd2wav` |
 | `crp.py` | kontejner CRP (`parse_crp`, `find`, `entry_text`, `base_info`, efekty `article_effects`), díly a geometrie (`article_mesh` se seznamem, pruhem i čtyřúhelníky, otočením trojúhelníků podle normál nebo nahoru a statistikou `STATS`, `article_matrix`), převod souřadnic `to_gltf`, zápis glTF s morph targety `write_gltf` | `crp2gltf`, `track2gltf`, `mesh_check` (`cross`) |

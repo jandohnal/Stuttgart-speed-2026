@@ -14,6 +14,8 @@
 | 0x7F | char | model = složka v `GameData/CarModel` („356A“, „996“, „cop993“; velikost písmen nesedí) |
 | 0xB1 | char | klíč varianty = klíč v `cars.json` a `main.gd CARS` („356Acoupe16“) – u policie a provozu se opakuje |
 | 0xE4 | char | jméno fotky/loga („356-14“), dál logo, zvuková sada („sd1b“), karoserie, motor |
+| 0x1BF | u8 | 1 u otevřených karoserií (cabrio, speedster, roadster, Boxster, targa ne) – jen pozorováno |
+| 0x1C0 | u8 | **styl modelu − 1**: `[styleN]` v `.tpg` modelu, který vybírá díly a textury varianty ([crp.md](crp.md#styly-varianty-modelu)); ověřeno 19. 10. 2026: 356Acoupe16 → style9 „16Coupe“, 356Aspeed16 → style11 „Speeds1600“, 901carreraRS27 → style7 u 901 a style1 u F901, 993Tcoupe36 → style9 „turbocoupe“, 964coupe436 → style5 „Carrera4coupe“ |
 | 0x1F8+ | float32[] | křivka točivého momentu a další data – nerozluštěno |
 | 0x3E6 | u16 | počet barev exteriéru (19, 550: 1, provoz a cop930: 0) |
 | 0x3E8 | 16 B × počet | barvy exteriéru |
@@ -32,6 +34,8 @@
 Paleta je u všech aut stejná (19 barev), liší se jen pořadí: **první položka je tovární barva varianty** (356 A coupe modrá `#004396`, 996 červená `#ff0000`, 935 žlutá `#fbb112`). Interiér má položky se stejnou stavbou a jednou barvou (`#626364`, `#586782`, `#c5a162`, `#984141`, `#a3a6aa`), zbytek je černý.
 
 ## Použití ve hře
+
+`car_colors.json` má u každé varianty `styles: {model: N}`. Klíč varianty se opakuje u policejních a továrních záznamů (993Tcoupe36 je 993 i cop993), proto styl pro každý model zvlášť. `main.gd` (`car_style_of`) bere styl modelu z menu, varianty bez záznamu v `nfs5.car` mají styl v `CARS` (993 Carrera 4S: 5, 944 Turbo S: 6).
 
 Alfa atlasu exteriéru kromě síly odlesku určuje, čím se texel barví (ověřeno na mapě alfy 356 A, 935 a 996, 18. 10. 2026):
 

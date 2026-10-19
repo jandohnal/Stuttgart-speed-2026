@@ -48,8 +48,10 @@ items:
     path: ["GameData/CarModel/*.tpg", "GameData/CarModel/*.clr"]
     count: 73
     format: ini
-    status: readable
-    notes: "Seznam textur, pozice kamery řidiče; .clr jsou barvy pruhů (stripepackage), ne lak"
+    status: decoded
+    doc: docs/formats/crp.md
+    tool: tools/crp2gltf.py
+    notes: "Seznam textur, pozice kamery řidiče; styly [styleN] (díl a typ pro každý slot = varianta modelu) a podmínky alternativních textur [fileN.<položka>] (D-022); .clr jsou barvy pruhů (stripepackage), ne lak"
 
   - id: car_database
     category: usable_now
@@ -60,8 +62,8 @@ items:
     status: partial
     doc: docs/formats/car.md
     tool: tools/car_colors.py
-    notes: "Databáze aut menu, 109 záznamů po 0x670 B: jméno, model, klíč varianty, palety barev laku (19, první = tovární) a interiéru (5). Ostatní pole nerozluštěná."
-    use: "Volba barvy laku v menu"
+    notes: "Databáze aut menu, 109 záznamů po 0x670 B: jméno, model, klíč varianty, styl modelu (0x1C0 + 1), palety barev laku (19, první = tovární) a interiéru (5). Ostatní pole nerozluštěná."
+    use: "Volba barvy laku v menu, varianta modelu (styl)"
 
   - id: track_text_config
     category: usable_now

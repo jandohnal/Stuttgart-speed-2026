@@ -8,9 +8,12 @@ colour) and the interior colours.
 Output JSON:
     {"models": {"<model>": {"exterior": ["#rrggbb", ...], "interior": [...],
                             "accents": [["#rrggbb", "#rrggbb"], ...], "flags": [...]}},
-     "cars": {"<variant key>": {"name": ..., "model": ..., "default": "#rrggbb"}}}
+     "cars": {"<variant key>": {"name": ..., "model": ..., "default": "#rrggbb",
+                                "styles": {"<model>": N}}}}
 Models and their palettes come from the first record of the model (the other
-variants only reorder it); the default colour is per variant.
+variants only reorder it); the default colour is per variant. styles: the
+[styleN] of the model's .tpg (parts and textures, tools/crp2gltf.py) the variant
+uses on each model; a key repeats for its police and factory records.
 
 Usage:
     python3 tools/car_colors.py sources/FEData/Data/nfs5.car decomposed/FEData/Data/car_colors.json
@@ -24,6 +27,7 @@ RECORD = 0x670
 NAME, MODEL, KEY = 0x02, 0x7F, 0xB1
 STRING = 0x31
 EXTERIOR = 0x3E6  # u16 count, then 16-byte entries
+STYLE = 0x1C0  # u8: [styleN] of the model's .tpg minus 1
 ENTRY = 16
 
 
@@ -66,12 +70,25 @@ def convert(data):
             models[model] = colours
         elif sorted(colours["exterior"]) != sorted(models[model]["exterior"]):
             print("warning: %s palette differs between variants" % model, file=sys.stderr)
-        cars[cstr(rec, KEY)] = {
+        key = cstr(rec, KEY)
+        styles = cars.get(key, {}).get("styles", {})
+        styles[model] = rec[STYLE] + 1
+        cars[key] = {
             "name": cstr(rec, NAME),
             "model": model,
             "default": colours["exterior"][0] if colours["exterior"] else None,
+            "styles": styles,
         }
     return {"models": models, "cars": cars}
+
+
+def model_styles(data):
+    """{model (lower case): [style of each variant, in file order]}."""
+    out = {}
+    for r in range(len(data) // RECORD):
+        rec = data[r * RECORD:(r + 1) * RECORD]
+        out.setdefault(cstr(rec, MODEL).lower(), []).append(rec[STYLE] + 1)
+    return out
 
 
 def main():
