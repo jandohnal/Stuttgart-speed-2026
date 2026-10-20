@@ -71,6 +71,30 @@ Hmotnost, převody, moment, pneumatiky a vmax už se používají.
 
 **4. Pro fiktivní auta (D-004).** Výsledkem kalibrace jsou převodní vztahy „hodnota `.sim` → parametr našeho modelu“. Fiktivní auta pak dostanou vlastní `.sim`-like data a projdou stejným převodem.
 
+## Měření horizontů (20. 10. 2026)
+
+Krok 1 postupu z rozhodnutí uživatele: jen měření, kód auta beze změny. `drive_test` na farmlandu, 120 s, rychlejší řidič (`--corner-g=0.9`), bez asistentů:
+
+```bash
+~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/drive_test.tscn -- --track=farmland --car=993Tcoupe36 --time=120 --corner-g=0.9
+```
+
+Test počítá svislý poloměr silnice R ze sklonu řezů `SimD`. v²/(R·g) ≥ 1 znamená, že i dokonale odpružené auto musí odlehnout. Zatížení pod 1 − v²/(R·g) znamená, že auto odlehčuje samo pérování.
+
+| Auto | Max. rychlost | Max. v²/(R·g) | Skoky (všechny při v²/(R·g) < 1) | Ve vzduchu | Zatížení > 20 % váhy pod geometrií | Nejhorší případ |
+| --- | --- | --- | --- | --- | --- | --- |
+| 356 A | 131 km/h | 0,76 | 2 (1 odskok) | 0,26 s | 1,3 s | 115 km/h, v²/(R·g) 0,26: dovoleno 0,74, skutečně 0,33 |
+| 993 Turbo | 164 km/h | 0,98 | 4 (1 odskok) | 0,26 s | 1,8 s | 97 km/h, 0,24: dovoleno 0,76, skutečně 0,22 |
+| 944 Turbo | 147 km/h | 0,82 | 2 (1 odskok) | 0,28 s | 1,5 s | 125 km/h, 0,26: dovoleno 0,74, skutečně 0,26 |
+| 935 | 169 km/h | 0,98 | (jen po nehodách) | – | 1,3 s | 101 km/h, 0,24: dovoleno 0,76, skutečně 0,06 |
+
+Závěry:
+- **Nadskakování způsobuje pérování, ne geometrie trati.** Všechny skoky přišly při v²/(R·g) pod 1 (0,72–0,96). Před každým byly pružiny úplně roztažené. Polovinu skoků následoval druhý odskok do 1 s. Výška nad silnicí byla 0,10–0,15 m a čas ve vzduchu 0,1–0,2 s.
+- **Odlehčení je výrazné i na mírných horizontech.** Při v²/(R·g) jen 0,24–0,26 kleslo zatížení na 6–33 % váhy, ačkoli geometrie dovoluje asi 75 %. Pružina auto po stlačení před horizontem „vystřelí“ nahoru a tlumení (`damping_ratio` 0,35, stejné pro stlačení i odskok) ho nezabrzdí.
+- **Krok 2 tedy dává smysl:** tlumiče se silnějším odskokem než stlačením, pak měření zopakovat.
+- **Vedlejší nález, 935:** karoserie od rozjezdu opakovaně drhne o silnici (kontakty s `road`, doraz pérování 9,4 s ze 120 s). Má zdvih jen 4 cm a velký přítlak (0,9 / 1,2 m²). Patří ke kroku 3 (přítlak).
+- Řidič s 0,9 g je pro farmland příliš odvážný. Všechna auta měla nehodu (kontakty s terénem, nesmyslná boční g při nárazu). Údaje po nehodě (993 a 935 na konci jízdy) nejsou čisté. Pro srovnání před a po kroku 2 stačí stejné nastavení, ale porovnávat jen skoky a zatížení před první nehodou.
+
 ## Otevřené otázky
 
 - Jednotka 0x0FC (rozsah řízení) a náběh kláves v NFS5: dohledat vstup hráče v exe.

@@ -213,6 +213,7 @@ const ACTIONS := {
 	"repair": [KEY_F5],
 	"fullscreen": [KEY_F11],
 	"menu": [KEY_ESCAPE],
+	"pause": [KEY_P],
 }
 const LOG_FIELDS := ["time", "speed_kmh", "rpm", "gear", "throttle", "brake", "steer_deg", "lat_g", "long_g",
 	"engine_nm", "load_f", "load_r", "slip_fl", "slip_fr", "slip_rl", "slip_rr",
@@ -236,10 +237,18 @@ var prop_counts := {}  ## placed objects per collision type (TrackProps)
 var car_style := 0  ## [styleN] of the car's model in use (CarStyle), 0 = model without styles
 var _log: FileAccess
 var _log_time := 0.0
+var _pause_label := Label.new()
 
 
 func _ready() -> void:
+	# Main handles the pause key while the tree is paused; everything under it pauses except the
+	# camera (orbits the car) and the pause label.
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	for child in get_children():
+		_make_pausable(child)
+	child_entered_tree.connect(_make_pausable)
 	_setup_input()
+	_setup_pause_label()
 	_apply_options()
 	# The HUD scales with the window: project setting display/window/stretch (canvas_items).
 	GameSettings.go_fullscreen()
@@ -251,7 +260,7 @@ func _ready() -> void:
 	var folder := "GameData/Track/%s/" % track_name
 	var track := OriginalAssets.load_gltf(folder + track_name + ".gltf")
 	if track != null:
-		Materials.setup_track(track)
+		Materials.setup_track(track, folder + track_name + ".gltf")
 		add_child(track)
 		_add_track_collision(track)
 		var objects: Variant = OriginalAssets.load_json(folder + track_name + "_objects.json")
@@ -471,6 +480,27 @@ func _setup_input() -> void:
 			InputMap.action_add_event(action, event)
 
 
+func _make_pausable(child: Node) -> void:
+	if child.process_mode == Node.PROCESS_MODE_INHERIT:
+		child.process_mode = Node.PROCESS_MODE_PAUSABLE
+
+
+func _setup_pause_label() -> void:
+	var layer := CanvasLayer.new()
+	layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	layer.layer = 10
+	add_child(layer)
+	_pause_label.text = "PAUSE\nP: continue  ·  left mouse button: rotate camera  ·  wheel: zoom"
+	_pause_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_pause_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP, Control.PRESET_MODE_MINSIZE, 24)
+	_pause_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_pause_label.add_theme_font_size_override("font_size", 22)
+	_pause_label.add_theme_constant_override("outline_size", 6)
+	_pause_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	_pause_label.visible = false
+	layer.add_child(_pause_label)
+
+
 func _add_track_collision(track: Node3D) -> void:
 	for group: String in SOLID_GROUPS:
 		var node := track.find_child(group, true, false)
@@ -546,8 +576,13 @@ func _vec(a: Array) -> Vector3:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("menu"):
+	if event.is_action_pressed("pause"):
+		_set_paused(not get_tree().paused)
+	elif event.is_action_pressed("menu"):
+		_set_paused(false)
 		_back_to_menu()
+	elif get_tree().paused:
+		return
 	elif event.is_action_pressed("reset_car"):
 		_reset_car(_nearest_slice())
 	elif event.is_action_pressed("telemetry"):
@@ -557,6 +592,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("fullscreen"):
 		var full := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if full else DisplayServer.WINDOW_MODE_FULLSCREEN)
+
+
+## Pause freezes the simulation, sounds and HUD; the camera then orbits the car with the mouse.
+func _set_paused(on: bool) -> void:
+	get_tree().paused = on
+	($Camera as FollowCamera).set_orbit(on)
+	_pause_label.visible = on
 
 
 func _toggle_log() -> void:
@@ -576,7 +618,7 @@ func _toggle_log() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if _log == null or car.telemetry.is_empty():
+	if _log == null or get_tree().paused or car.telemetry.is_empty():
 		return
 	_log_time += delta
 	var row := PackedStringArray()

@@ -107,7 +107,7 @@ func _setup_world() -> void:
 	var folder := "GameData/Track/%s/" % TRACK
 	var track := OriginalAssets.load_gltf(folder + TRACK + ".gltf")
 	if track != null:
-		Materials.setup_track(track)
+		Materials.setup_track(track, folder + TRACK + ".gltf")
 		add_child(track)
 		var simd := track.find_child("simd", true, false) as Node3D
 		if simd != null:

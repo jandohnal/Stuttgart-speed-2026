@@ -74,6 +74,7 @@ Trať určuje nastavení projektu `stuttgart/track` (výchozí `farmland`), z p�
 | A / D, šipky | řízení |
 | mezerník | ruční brzda |
 | R | návrat na nejbližší řez silnice (`SimD`) |
+| P | pauza / pokračovat; v pauze se levým tlačítkem myši otáčí kamera kolem auta, kolečkem přiblížení |
 | F2 | záznam telemetrie do `user://telemetry_*.csv` (cesta se vypíše do konzole) |
 | F5 | oprava auta (vynuluje poškození, prototyp) |
 | F11 | celá obrazovka / okno |
@@ -101,8 +102,8 @@ Samostatně spuštěná hra běží přes celou obrazovku (ne v náhledu editoru
 | --- | --- |
 | `scenes/menu.tscn`, `scripts/menu.gd` | hlavní menu: výběr auta a trati, Play (hlavní scéna projektu) |
 | `scripts/game_settings.gd` | autoload `GameSettings`: výběr a přepínače z menu, poslední výběr v `user://settings.cfg` |
-| `scenes/main.tscn` | scéna: prostředí, slunce, auto, kamera, HUD |
 | `scripts/car_parts.gd` | díly originálu (D-024): sady Stock / Sport a pneumatiky z `parts.json` použité na hodnoty `.sim` podle vzorců z exe |
+| `scenes/main.tscn` | scéna: prostředí, slunce, auto, kamera, HUD |
 | `scripts/original_assets.gd` | načítání glTF a JSON z `decomposed/` |
 | `scripts/car_style.gd` | `CarStyle`: varianta modelu auta (D-022) – odebere díly ostatních stylů a vymění atlasy podle `<model>_styles.json`, kabriolety se staženou střechou (`top_up` ji zvedne) |
 | `scripts/main.gd` | načtení trati (kolize z mesh skupin `road`, `terrain`, `objects`), auta, start na řezu silnice, ovládání, záznam telemetrie |
@@ -139,7 +140,7 @@ Auto: nastavení projektu `stuttgart/car` nebo argument `-- --car=<klíč v cars
 
 ## Testy
 
-Automatický jízdní test (bez okna): auto plným plynem jede po skidpadu (nebo po trati z `-- --track=farmland`) podle řezů `SimD`. Před zatáčkami brzdí (dávkovaně), jen když by v nich potřebovalo víc než 0,55 g (plánuje se zpomalením 0,45 g a výhledem asi 240 m), změří 0–100 km/h, rychlost po 40 s, brzdnou dráhu ze 100 km/h a vypíše kontakty karoserie.
+Automatický jízdní test (bez okna): auto plným plynem jede po skidpadu (nebo po trati z `-- --track=farmland`) podle řezů `SimD`. Před zatáčkami brzdí (dávkovaně), jen když by v nich potřebovalo víc než 0,55 g (plánuje se zpomalením 0,45 g a výhledem asi 240 m), změří 0–100 km/h, rychlost po 40 s, brzdnou dráhu ze 100 km/h a vypíše kontakty karoserie. Na horizontech měří skoky (doba ve vzduchu, výška, roztažené pérování, odskoky) a zatížení kol proti tomu, co dovoluje svislý poloměr silnice (1 − v²/(R·g)); `--time=<s>` prodlouží jízdu, `--corner-g=<g>` zrychlí řidiče (výchozí 0,55). Výsledky z 20. 10. 2026 jsou v [docs/driving-model.md](../docs/driving-model.md#měření-horizontů-20-10-2026).
 
 ```bash
 ~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/drive_test.tscn
@@ -331,7 +332,7 @@ Na farmlandu auto 40 s jede po silnici z kopce bez kolize. Odvážnější řidi
 
 ## Grafika (IDEA-009)
 
-Materiály modelů nastavuje `scripts/materials.gd`: u auta podle stránky `.tpg` (lak s clearcoatem, chrom, světla, sklo s průhlednou tabulí, interiér, kola s chromem nebo gumou podle jasu textury), odrazy okolí v laku a sklech z `ReflectionProbe`, který jede s autem (auto na vizuální vrstvě 2, sklo s premultiplied alpha, D-018), u trati anizotropní filtrování a procedurální detailní šum (triplanárně na UV2) na silnici a terénu. Prostředí: obloha z HDRI podle trati a denní doby (viz níže, bez HDRI `PhysicalSkyMaterial`), AgX, SSAO, glow, výšková mlha se sun scatter, slunce ze směru slunce v HDRI s PSSM 4 do 500 m a měkkými stíny.
+Materiály modelů nastavuje `scripts/materials.gd`: u auta podle stránky `.tpg` (lak s clearcoatem, chrom, světla, sklo s průhlednou tabulí, interiér, kola s chromem nebo gumou podle jasu textury), odrazy okolí v laku a sklech z `ReflectionProbe`, který jede s autem (auto na vizuální vrstvě 2, sklo s premultiplied alpha, D-018), u trati anizotropní filtrování a procedurální detailní šum (triplanárně na UV2) na silnici a terénu; má-li trať vedle glTF složku `advanced/` s mapami `<textura>_normal|ambient|specular|displacement.png` (vlastní, dělané k původním texturám, jen lokálně v `decomposed/`), přidají se k materiálům se stejnou základní texturou: normálová mapa (OpenGL), ambientní okluze, spekulár převedený na drsnost (1 − 0,45 × spekulár) a výšková mapa jako jednoduchá paralaxa (hloubka 0,3 % dlaždice). Každá mapa je volitelná, velikost libovolná. Prostředí: obloha z HDRI podle trati a denní doby (viz níže, bez HDRI `PhysicalSkyMaterial`), AgX, SSAO, glow, výšková mlha se sun scatter, slunce ze směru slunce v HDRI s PSSM 4 do 500 m a měkkými stíny.
 
 ### Den a noc (D-019)
 
@@ -355,6 +356,15 @@ Snímky a FPS (okno, dva pohledy za autem, kokpit se v této fázi neměří, vs
 | po, plná kvalita (filtr stínů vysoký, nativní rozlišení) | 35 | 27 | 34 |
 | po, výchozí (filtr střední, MetalFX spatial 0,75) | 56 | 47 | 55 |
 | 18. 10.: + sonda odrazů na autě (D-018) | 50 | 41 | 51 |
+
+| 20. 10. 2026, M1 Pro, 3600 × 2260, farmland řez 1284, mapy z `advanced/` | Za autem | Jízda |
+| --- | --- | --- |
+| bez map | 51,6 | 50,4 |
+| normála, AO, drsnost, bez výšky | 48,4 | 47,5 |
+| + jednoduchá paralaxa (výchozí) | 46,7 | 46,0 |
+| + hluboká paralaxa (4–12 vrstev) | 41,8 | 40,6 |
+
+Hluboká paralaxa se zezadu od jednoduché nedá rozeznat. Načtení map farmlandu (47 materiálů, 180 souborů) trvá ≈ 0,9 s. Snímky v `decomposed/screenshots/advanced_*`.
 
 | 18. 10. 2026, M1 Pro, 3600 × 2260 | Za autem | Jízda |
 | --- | --- | --- |

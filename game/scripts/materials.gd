@@ -299,9 +299,20 @@ const DETAIL := {
 }
 ## The detail darkens on average by about (dark + bright) / 2; the base colour makes up for it.
 const DETAIL_COMPENSATION := 1.1
+## Extra maps made for the original textures, next to the track glTF in advanced/
+## <texture>_<kind>.png (<texture> = the base colour PNG without extension), each one optional.
+## Kinds: normal (OpenGL, +Y up), ambient (occlusion), specular (turned into roughness) and
+## displacement (white = high, parallax). Any size: the maps follow the UVs.
+const ADVANCED_DIR := "advanced"
+## Roughness from the specular map: 1 - SPECULAR_GLOSS * specular (0.5 -> 0.78, 1.0 -> 0.55).
+const SPECULAR_GLOSS := 0.45
+## Parallax depth in hundredths of one texture tile (road tile about 6 m: 0.3 = about 2 cm).
+## Plain parallax: deep parallax looked the same from behind the car and cost 5 FPS more.
+const HEIGHTMAP_SCALE := 0.3
 
 
-static func setup_track(track: Node3D) -> void:
+## gltf: the track's glTF relative to the data root; its advanced/ maps are added when given.
+static func setup_track(track: Node3D, gltf := "") -> void:
 	if track == null:
 		return
 	var seen := {}
@@ -334,6 +345,83 @@ static func setup_track(track: Node3D) -> void:
 		if not seen.has(m):
 			seen[m] = true
 			_prepare(m)
+	if not gltf.is_empty():
+		_add_advanced(seen.keys(), gltf)
+
+
+## Adds the advanced/ maps to the materials; returns how many materials got at least one.
+static func _add_advanced(materials: Array, gltf: String) -> int:
+	var dir := gltf.get_base_dir().path_join(ADVANCED_DIR)
+	if not DirAccess.dir_exists_absolute(OriginalAssets.path(dir)):
+		return 0
+	# The loaded textures have no names: match by material name through the glTF itself.
+	var json: Variant = OriginalAssets.load_json(gltf)
+	if not json is Dictionary:
+		return 0
+	var stems := _texture_stems(json)
+	var cache := {}
+	var count := 0
+	for m: StandardMaterial3D in materials:
+		var stem: String = stems.get(m.resource_name, "")
+		if stem.is_empty():
+			continue
+		var base := dir.path_join(stem)
+		var normal := _advanced_map(base + "_normal.png", cache)
+		var ambient := _advanced_map(base + "_ambient.png", cache)
+		var roughness := _advanced_map(base + "_specular.png", cache)
+		var height := _advanced_map(base + "_displacement.png", cache)
+		if normal != null:
+			m.normal_enabled = true
+			m.normal_texture = normal
+		if ambient != null:
+			m.ao_enabled = true
+			m.ao_texture = ambient
+			m.ao_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_RED
+		if roughness != null:
+			m.roughness = 1.0
+			m.roughness_texture = roughness
+			m.roughness_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_RED
+		if height != null:
+			m.heightmap_enabled = true
+			m.heightmap_texture = height
+			m.heightmap_scale = HEIGHTMAP_SCALE
+		if normal != null or ambient != null or roughness != null or height != null:
+			count += 1
+	return count
+
+
+## Material name -> file name (without extension) of its base colour texture.
+static func _texture_stems(gltf: Dictionary) -> Dictionary:
+	var out := {}
+	var textures: Array = gltf.get("textures", [])
+	var images: Array = gltf.get("images", [])
+	for mat: Dictionary in gltf.get("materials", []):
+		var pbr: Dictionary = mat.get("pbrMetallicRoughness", {})
+		if not pbr.has("baseColorTexture"):
+			continue
+		var image: Dictionary = images[int(textures[int(pbr["baseColorTexture"]["index"])]["source"])]
+		out[str(mat.get("name", ""))] = str(image.get("uri", "")).get_file().get_basename()
+	return out
+
+
+## One map from advanced/ (shared between materials through cache), null when the file is missing.
+static func _advanced_map(relative: String, cache: Dictionary) -> Texture2D:
+	if cache.has(relative):
+		return cache[relative]
+	var tex: Texture2D = null
+	var file := OriginalAssets.path(relative)
+	if FileAccess.file_exists(file):
+		var img := Image.load_from_file(file)
+		if img != null:
+			if img.is_compressed():
+				img.decompress()
+			img.convert(Image.FORMAT_RGBA8)
+			if relative.ends_with("_specular.png"):
+				img.adjust_bcs(SPECULAR_GLOSS, -1.0, 1.0)  # 1 - SPECULAR_GLOSS * specular
+			img.generate_mipmaps(relative.ends_with("_normal.png"))
+			tex = ImageTexture.create_from_image(img)
+	cache[relative] = tex
+	return tex
 
 
 static func _materials(node: Node) -> Array[StandardMaterial3D]:
