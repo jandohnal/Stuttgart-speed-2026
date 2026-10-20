@@ -194,7 +194,7 @@ Funkce (adresy ve `Porsche.exe`, vlastní názvy):
 | Adresa | Co dělá | Použitá pole |
 | --- | --- | --- |
 | 0x49C6C0 | načte `<auto>.sim` (nebo `default.sim`) do bloku 0x1C4 B a převede jednotky (tabulka [Pole](#pole)). V jednom zjednodušeném režimu hry navíc rozvor ×0,8, tlumení karoserie ×0,83 a přilnavost ×1,25 | vše |
-| 0x49CB50 | použije namontované díly a nastavení auta, dopočítá pomocné hodnoty | díly: motor/turbo/kompresor → 0x09C a 0x04C; brzdy → 0x104; převodovka → 0x054 a převody; pružiny → 0x11C, 0x130, 0x0F4, 0x12C, 0x120; tlumiče → 0x114/0x118, 0x0F4; stabilizátory → 0x11C, 0x0F4, 0x12C; aerodynamika → 0x10C/0x110; pneumatiky → 0x0F4, 0x0F0, 0x1C0 |
+| 0x49CB50 | použije namontované díly a nastavení auta, dopočítá pomocné hodnoty ([prt.md](prt.md#jak-díl-mění-fyziku-porscheexe-0x49cb50)) | díly: motor/turbo/kompresor → 0x09C a 0x04C; brzdy → 0x104; převodovka → 0x054 a převody; pružiny → 0x11C, 0x130, 0x0F4, 0x12C, 0x120; tlumiče → 0x114/0x118, 0x0F4; stabilizátory → 0x11C, 0x0F4, 0x12C; aerodynamika → 0x10C/0x110; pneumatiky → 0x0F4, 0x0F0, 0x1C0 |
 | 0x4A1900 | statické zatížení a přilnavost kol, přenos zatížení a přítlak | 0x0F0, 0x0F4, 0x0F8, 0x10C, 0x110, 0x11C, 0x130, 0x1C0 |
 | 0x49F160 | jeden krok jízdního modelu: řízení, brzdy, rozdělení hnací síly | 0x05C, 0x0F4, 0x0FC, 0x100, 0x104, 0x108 |
 | 0x49E440 | motor a převodovka (otáčky, brzdění motorem, řazení) | 0x054, 0x05C, 0x094, 0x098, 0x1B0 |

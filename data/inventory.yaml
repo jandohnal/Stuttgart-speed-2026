@@ -62,8 +62,20 @@ items:
     status: partial
     doc: docs/formats/car.md
     tool: tools/car_colors.py
-    notes: "Databáze aut menu, 109 záznamů po 0x670 B: jméno, model, klíč varianty, styl modelu (0x1C0 + 1), palety barev laku (19, první = tovární) a interiéru (5). Ostatní pole nerozluštěná."
-    use: "Volba barvy laku v menu, varianta modelu (styl)"
+    notes: "Databáze aut menu, 109 záznamů po 0x670 B: jméno, model, klíč varianty, rodina (.ais), styl modelu (0x1C0 + 1), seznam nabízených dílů (0x32E) a dílů z továrny (0x3B6), palety barev laku (19, první = tovární) a interiéru (5). Ostatní pole nerozluštěná."
+    use: "Volba barvy laku v menu, varianta modelu (styl), díly Stock / Sport (tools/parts.py)"
+
+  - id: parts_catalogue
+    category: usable_now
+    priority: medium
+    path: FEData/Data/nfs5.prt
+    count: 1
+    format: prt
+    status: decoded
+    doc: docs/formats/prt.md
+    tool: tools/parts.py
+    notes: "Katalog dílů obchodu, 744 záznamů po 0x168 B: ID, název (festrings.csv), řada, kategorie, skupina, rok, hmotnost, vmax, účinek c0/c4, typ pneumatik, převodovka, křivka momentu. Vzorce použití z Porsche.exe 0x49CB50 (konstanty čte nástroj z exe)."
+    use: "Přepínač Stock / Sport a volba pneumatik v menu (D-024)"
 
   - id: track_text_config
     category: usable_now

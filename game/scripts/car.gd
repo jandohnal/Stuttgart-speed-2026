@@ -196,7 +196,8 @@ func setup(model: Node3D, car_params: Dictionary) -> void:
 		+ float(tyre["width_mm"]) * float(tyre["aspect_pct"]) / 100.0 / 1000.0
 	peak_slip_angle = deg_to_rad(3.0 + 0.08 * float(tyre["aspect_pct"]))  # 70 % -> 8.6 deg, 30 % -> 5.4 deg
 	var unknown: Dictionary = params.get("unknown", {})
-	mu = (grip_base + grip_per_sim * float(unknown.get("0x0F4", 1.15))) * grip
+	# tyre_grip_factor: fitted tyre type vs the factory one on dry asphalt (CarParts).
+	mu = (grip_base + grip_per_sim * float(unknown.get("0x0F4", 1.15))) * grip * float(params.get("tyre_grip_factor", 1.0))
 	turbo = bool(params.get("turbo", false))
 	for i in torque_curve.size():
 		if torque_curve[i] >= 0.9 * torque_peak:

@@ -12,6 +12,7 @@ Python 3, jen standardní knihovna. Čtou ze `sources/`, zapisují do `decompose
 | `track2gltf.py` | trať `.crp` → glTF (skupiny road, terrain, vegetation, objects, props) + `<trať>_road.json` (řezy SimD, úseky, start a cíl) + `<trať>_objects.json` (rozmístěné objekty, kolize a hmotnost) + `<trať>_lights.json` (záře `ef`: ve světě, na objektech, na předlohách; zdroje částic) | [crp.md](../docs/formats/crp.md), [scn.md](../docs/formats/scn.md) |
 | `snd2wav.py` | zvukové banky `.viv` / `.bnk` → WAV + `index.json`; u sad motoru `sd*.viv` i `engine.json` (smyčky pod plynem a bez plynu, otáčky) | [bnk.md](../docs/formats/bnk.md) |
 | `car_colors.py` | databáze aut menu `FEData/Data/nfs5.car` → `car_colors.json` (palety barev laku a interiéru podle modelu, tovární barva a styl modelu podle varianty) | [car.md](../docs/formats/car.md) |
+| `parts.py` | katalog dílů `FEData/Data/nfs5.prt` + seznamy dílů aut z `nfs5.car` + konstanty vzorců a tabulka pneumatik z `Porsche.exe` → `parts.json` (díly, sady Stock / Sport, pneumatiky pro každou variantu z `cars.json`); `--report` vypíše tabulku Sport | [prt.md](../docs/formats/prt.md) |
 | `sim_dump.py` | fyzika aut `.sim` → JSON na standardní výstup (`cars.json`) | [sim.md](../docs/formats/sim.md) |
 | `mesh_check.py` | hotový glTF → jeden řádek na model (OK / WARN / FAIL) + `<model>_check.json`: trojúhelníky obrácené proti normálám, zahozené při převodu, u aut pro každý styl překryvy dílů v jedné rovině a délka otevřených hran, u tratí plochy terénu mířící dolů a díry v silnici (paprsky přes řezy SimD) | [model-check.md](../docs/model-check.md) |
 | `flare.py` | záře světel `GameData/Render/flare.dat` → `flares.json` (vrstvy, barvy, velikosti, blikání) | [flare.md](../docs/formats/flare.md) |
@@ -36,6 +37,7 @@ python3 tools/crp2gltf.py sources/GameData/CarModel/356a.crp decomposed/GameData
 python3 tools/track2gltf.py sources/GameData/Track/farmland.crp decomposed/GameData/Track/farmland/farmland.gltf
 python3 tools/snd2wav.py sources/GameData/Sounds decomposed/GameData/Sounds
 python3 tools/car_colors.py sources/FEData/Data/nfs5.car decomposed/FEData/Data/car_colors.json
+python3 tools/parts.py sources/FEData decomposed/FEData/Data/parts.json
 python3 tools/flare.py sources/GameData/Render/flare.dat decomposed/GameData/Render/flares.json
 ```
 

@@ -33,6 +33,7 @@ Duchovní nástupce NFS: Porsche 2000. Kontext: `README.md`, rozhodnutí: `docs/
 - `python3 tools/track2gltf.py sources/GameData/Track/farmland.crp decomposed/GameData/Track/farmland/farmland.gltf` – trať do glTF + data silnice (`_road.json`: řezy, úseky, start/cíl) + objekty kolem trati (`_objects.json`). Farmland = Normandie. Společný parser CRP je v `tools/crp.py`.
 - `python3 tools/sim_dump.py sources/GameData/Simulation/CarData > decomposed/GameData/Simulation/cars.json` – fyzika aut do JSON.
 - `python3 tools/car_colors.py sources/FEData/Data/nfs5.car decomposed/FEData/Data/car_colors.json` – palety barev laku aut do JSON (volba barvy v menu).
+- `python3 tools/parts.py sources/FEData decomposed/FEData/Data/parts.json [--report]` – díly aut (katalog `nfs5.prt`, seznamy v `nfs5.car`, konstanty z `Porsche.exe`) a sady Stock / Sport do JSON; potřebuje `cars.json`.
 - `python3 tools/snd2wav.py sources/GameData/Sounds decomposed/GameData/Sounds` – zvukové banky do WAV (+ `index.json`) a sady motorů pro hru (`engine.json`).
 
 ## Hra

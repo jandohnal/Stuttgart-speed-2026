@@ -73,6 +73,7 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [ ] Doladit pneumatiky a řízení proti originálu přes Wine (přilnavost 0x0F4 a setrvačnost 0x058 jsou hypotézy), asistent řízení pro klávesnici hotový; ABS a zadní přilnavost 1,12 naladěné podle ruční jízdy proti originálu (smyk zádí při brzdění v zatáčce); klávesy s náběhem pedálů a volantu jako v tehdejších hrách; kontrola trakce, spojka při rozjezdu, turbodíra a samosvor závodních aut (D-015); asistenti, zvuk a diagnostika se přepínají v menu (D-017)
 - [x] HUD: kulatý rychloměr (s počítadlem km) a otáčkoměr v klasickém stylu (kreslené procedurálně, stupnice z dat auta, ručička s tlumenou setrvačností); otáčky motoru při řazení klesají a stoupají plynule (spojka)
 - [x] Mechanické válečkové počitadlo kilometrů (D-013): vzdálenost z poháněných kol, nájezd uložený pro každé auto, vzhled podle éry auta
+- [x] Díly aut z originálu (D-024): katalog `nfs5.prt`, seznamy dílů v `nfs5.car`, vzorce z exe; v menu Stock / Sport a pneumatiky sériové / slick / do deště ([formats/prt.md](formats/prt.md))
 - [x] Kolize s objekty kolem trati: sražitelné značky (dynamická tělesa s původní hmotností), ostatní statické
 - [x] Poškození auta: zóny `dz` a posuny `vt` 0x8000 jako blend shapes, náraz podle impulsu, následky (sbíhavost a přilnavost kol, výkon motoru, odpor vzduchu, rejstřík řízení)
 - [x] Odpadající díly (světla, značka, výfuk, zástěry) a kola: házení od 50 % rohu, upadnutí při 100 % rohu i boku

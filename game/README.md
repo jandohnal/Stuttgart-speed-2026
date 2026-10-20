@@ -36,6 +36,12 @@ Barvy laku pro menu (bez nich nabízí menu jen původní texturu):
 python3 tools/car_colors.py sources/FEData/Data/nfs5.car decomposed/FEData/Data/car_colors.json
 ```
 
+Díly aut pro přepínač Stock / Sport a volbu pneumatik (bez nich má menu jen Stock a sériové pneumatiky; potřebuje `cars.json` a `sources/Porsche.exe`):
+
+```bash
+python3 tools/parts.py sources/FEData decomposed/FEData/Data/parts.json
+```
+
 Druhé auto a trať pro srovnání (935 „Moby Dick“, Monte Carlo):
 
 ```bash
@@ -56,7 +62,7 @@ python3 tools/flare.py sources/GameData/Render/flare.dat decomposed/GameData/Ren
 
 Otevřít `game/project.godot` v Godotu 4.7 a spustit (F5). Fyzika Jolt, 120 Hz, renderer Forward+ přes Metal.
 
-Hra začíná **hlavním menu** (`scenes/menu.tscn`): výběr auta (všech 85 variant z `.sim`, např. '65 911 Coupé, '73 911 Carrera RS 2.7, '96 911 Turbo (993), plus policejní auta a provoz) a trati (14 tratí originálu a testovací polygon `skidpad`, kde auto startuje na řezu 0) a tlačítko Play. Seznamy jsou v `main.gd` (`CARS` s názvem pro menu, modelem a klíčem fyziky `physics`; `MODELS` se sadou zvuku motoru modelu; `TRACKS`), další trať stačí přidat do `TRACKS`. Názvy variant a jejich modely jsou z `FEData/Data/nfs5.car` (Carrera RS 2.7 má model `f901`, 996 Turbo `f996`, Boxster 2.5 `fboxster`). Policejní auta jezdí s fyzikou svého silničního auta, provoz (`eas`, `eden`, `postship`) nemá vlastní `.sim` a jezdí s `default`. Sady zvuku motoru jsou u 356 A a 935 vybrané poslechem, u ostatních zatím odhadnuté podle pořadí sad. Pod výběrem trati je řádek přepínačů: asistent řízení, ABS, kontrola trakce, zvuk a diagnostika (údaje telemetrie v HUD: přetížení, úhel řízení, zásah kontroly trakce, plnicí tlak turba, poškození). Asistenti (řízení, ABS, kontrola trakce) jsou ve výchozím stavu vypnutí (od 19. 10. 2026, auta s hodnotami z dat se chovají věrně originálu i bez nich), zvuk a diagnostika zapnuté. Vše se nastavuje jen v menu, při jízdě je změnit nejde. Položka, jejíž data v `decomposed/` chybí, je neaktivní s poznámkou „chybí data“. Výběr i přepínače předá autoload `GameSettings` (`scripts/game_settings.gd`) a uloží se do `user://settings.cfg`, příště jsou předvybrané. Testy spouštějí `main.tscn` přímo a dostanou výchozí hodnoty, uložené nastavení hráče je neovlivní. Ovládání menu: šipky / D-pad posouvají fokus, mezerník / A otevře seznam, Enter (kdekoli) nebo Start spustí hru, Esc hru ukončí. Esc při jízdě vrátí do menu.
+Hra začíná **hlavním menu** (`scenes/menu.tscn`): výběr auta (všech 85 variant z `.sim`, např. '65 911 Coupé, '73 911 Carrera RS 2.7, '96 911 Turbo (993), plus policejní auta a provoz) a trati (14 tratí originálu a testovací polygon `skidpad`, kde auto startuje na řezu 0) a tlačítko Play. Seznamy jsou v `main.gd` (`CARS` s názvem pro menu, modelem a klíčem fyziky `physics`; `MODELS` se sadou zvuku motoru modelu; `TRACKS`), další trať stačí přidat do `TRACKS`. Názvy variant a jejich modely jsou z `FEData/Data/nfs5.car` (Carrera RS 2.7 má model `f901`, 996 Turbo `f996`, Boxster 2.5 `fboxster`). Policejní auta jezdí s fyzikou svého silničního auta, provoz (`eas`, `eden`, `postship`) nemá vlastní `.sim` a jezdí s `default`. Sady zvuku motoru jsou u 356 A a 935 vybrané poslechem, u ostatních zatím odhadnuté podle pořadí sad. Mezi autem a barvou je přepínač **Stock / Sport** (D-024): Stock = sériové auto, Sport = nejlepší díly originálu, které auto může dostat (motor, brzdy, převodovka, podvozek, aerodynamika, lehčí karoserie). Pod tratí je volba **pneumatik**: sériové, slick, do deště (na suchém asfaltu slicky drží víc, pneumatiky do deště méně). Volby, které auto nemá, jsou neaktivní; 959, 928, GT2 a GT3 díly v originále ignorují. Bez menu: `-- --tune=sport --tyres=slick`. Pod volbou pneumatik a denní doby je řádek přepínačů: asistent řízení, ABS, kontrola trakce, zvuk a diagnostika (údaje telemetrie v HUD: přetížení, úhel řízení, zásah kontroly trakce, plnicí tlak turba, poškození). Asistenti (řízení, ABS, kontrola trakce) jsou ve výchozím stavu vypnutí (od 19. 10. 2026, auta s hodnotami z dat se chovají věrně originálu i bez nich), zvuk a diagnostika zapnuté. Vše se nastavuje jen v menu, při jízdě je změnit nejde. Položka, jejíž data v `decomposed/` chybí, je neaktivní s poznámkou „chybí data“. Výběr i přepínače předá autoload `GameSettings` (`scripts/game_settings.gd`) a uloží se do `user://settings.cfg`, příště jsou předvybrané. Testy spouštějí `main.tscn` přímo a dostanou výchozí hodnoty, uložené nastavení hráče je neovlivní. Ovládání menu: šipky / D-pad posouvají fokus, mezerník / A otevře seznam, Enter (kdekoli) nebo Start spustí hru, Esc hru ukončí. Esc při jízdě vrátí do menu.
 
 Spuštění přímo `scenes/main.tscn` (F6 v editoru, testy) menu přeskočí: trať a auto pak určí výběr z menu, je-li v `GameSettings`, jinak argumenty a nastavení projektu níže.
 
@@ -96,6 +102,7 @@ Samostatně spuštěná hra běží přes celou obrazovku (ne v náhledu editoru
 | `scenes/menu.tscn`, `scripts/menu.gd` | hlavní menu: výběr auta a trati, Play (hlavní scéna projektu) |
 | `scripts/game_settings.gd` | autoload `GameSettings`: výběr a přepínače z menu, poslední výběr v `user://settings.cfg` |
 | `scenes/main.tscn` | scéna: prostředí, slunce, auto, kamera, HUD |
+| `scripts/car_parts.gd` | díly originálu (D-024): sady Stock / Sport a pneumatiky z `parts.json` použité na hodnoty `.sim` podle vzorců z exe |
 | `scripts/original_assets.gd` | načítání glTF a JSON z `decomposed/` |
 | `scripts/car_style.gd` | `CarStyle`: varianta modelu auta (D-022) – odebere díly ostatních stylů a vymění atlasy podle `<model>_styles.json`, kabriolety se staženou střechou (`top_up` ji zvedne) |
 | `scripts/main.gd` | načtení trati (kolize z mesh skupin `road`, `terrain`, `objects`), auta, start na řezu silnice, ovládání, záznam telemetrie |
@@ -225,6 +232,12 @@ Hlavní menu: bez okna ověří, že seznamy odpovídají `CARS`, `TRACKS` a `TI
 
 ```bash
 ~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/menu_test.tscn
+```
+
+Díly (bez okna): díly z továrny nechají hodnoty `.sim` všech aut beze změny, Sport udělá 356 A 1600 lehčí, silnější, s lepšími brzdami a přilnavostí, slicky přidají a pneumatiky do deště uberou přilnavost na suchu, GT3 zůstane sériová a menu má Stock / Sport mezi autem a barvou a pneumatiky pod tratí. Srovnání v jízdě: `drive_test` s `-- --tune=sport` nebo `-- --tyres=slick` (356 A 1600 na skidpadu: 0–100 km/h 14,4 → 9,9 s, brzdná dráha 60 → 50 m).
+
+```bash
+~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/parts_test.tscn
 ```
 
 Barva laku (bez okna): 356 A a 935 nabarví na červeno. Průměr texelů laku (alfa 204) i zón pruhů a prahů (77, 153, 166, 179, 230) musí být červený, ostatní texely atlasu, chrom a světla beze změny. Ve hře jde barvu zadat i jako `--color=#rrggbb`.

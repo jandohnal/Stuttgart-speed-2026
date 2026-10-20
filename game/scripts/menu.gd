@@ -1,5 +1,6 @@
 extends Control
-## Main menu of the prototype (D-009): car with its paint colour, track and time of day (day / night) dropdowns, a row of option toggles (driver
+## Main menu of the prototype (D-009): car with its parts (Stock / Sport, CarParts) and paint colour,
+## track, tyres (stock / slick / rain) and time of day (day / night) dropdowns, a row of option toggles (driver
 ## aids, sound, diagnostics) and Play. The lists come from main.gd (CARS, TRACKS); entries whose
 ## data is missing in decomposed/ are disabled. The choice goes to the GameSettings autoload and
 ## user://settings.cfg, then the game scene takes over. Colours: the car's original palette
@@ -7,11 +8,14 @@ extends Control
 ## Keyboard / gamepad: arrows or D-pad move the focus, Enter (anywhere) or Start plays, Esc quits.
 
 const Main := preload("res://scripts/main.gd")
+const CarParts := preload("res://scripts/car_parts.gd")
 const GAME_SCENE := "res://scenes/main.tscn"
 const MISSING := " – chybí data"
 const ORIGINAL_COLOR := "Původní"
 const FACTORY := " (továrna)"
 const SWATCH := 20  ## px
+const TUNE_LABELS := {"stock": "Stock", "sport": "Sport"}
+const TYRE_LABELS := {"stock": "Sériové", "slick": "Slick", "rain": "Rain (do deště)"}
 ## GameSettings option -> toggle label, in the order of the row.
 const OPTION_LABELS := {
 	"steering_assist": "Asistent řízení",
@@ -22,7 +26,9 @@ const OPTION_LABELS := {
 }
 
 @onready var car_option: OptionButton = %CarOption
+@onready var tune_option: OptionButton = %TuneOption
 @onready var color_option: OptionButton = %ColorOption
+@onready var tyre_option: OptionButton = %TyreOption
 @onready var track_option: OptionButton = %TrackOption
 @onready var time_option: OptionButton = %TimeOption
 @onready var play_button: Button = %PlayButton
@@ -34,6 +40,7 @@ var track_names: Array[String] = []
 var times: Array[String] = []
 var colors: Array[String] = []  ## color_option items: "" (original) or "#rrggbb"
 var car_colors: Variant  ## Main.CAR_COLORS, null when missing
+var parts: Variant  ## CarParts.FILE, null when missing
 var option_toggles := {}  ## option key -> CheckButton
 
 
@@ -54,6 +61,14 @@ func _ready() -> void:
 	_preselect(car_option, car_keys.find(last["car"]))
 	car_colors = OriginalAssets.load_json(Main.CAR_COLORS) if OriginalAssets.exists(Main.CAR_COLORS) else null
 	_fill_colors(last["color"])
+	parts = OriginalAssets.load_json(CarParts.FILE) if OriginalAssets.exists(CarParts.FILE) else null
+	for tune: String in CarParts.TUNES:
+		tune_option.add_item(TUNE_LABELS[tune])
+	tune_option.select(maxi(CarParts.TUNES.find(last["tune"]), 0))
+	for kind: String in CarParts.TYRES:
+		tyre_option.add_item(TYRE_LABELS[kind])
+	tyre_option.select(maxi(CarParts.TYRES.find(last["tyres"]), 0))
+	_update_parts()
 	_preselect(track_option, track_names.find(last["track"]))
 	for key: String in OPTION_LABELS:
 		var toggle := CheckButton.new()
@@ -71,7 +86,26 @@ func _ready() -> void:
 
 func _on_car_selected(_index: int) -> void:
 	_fill_colors(colors[color_option.selected] if color_option.selected >= 0 else "")
+	_update_parts()
 	_update_play()
+
+
+## Sport and the tyres the selected car offers; the rest is disabled and falls back to stock.
+func _update_parts() -> void:
+	var entry := {}
+	if car_option.selected >= 0:
+		entry = CarParts.car_entry(parts, Main.car_physics_key(car_keys[car_option.selected]))
+	var sport := CarParts.upgradable(entry)
+	tune_option.set_item_disabled(CarParts.TUNES.find("sport"), not sport)
+	if not sport:
+		tune_option.select(0)
+	tune_option.disabled = not sport
+	var choices := CarParts.tyre_choices(entry)
+	for i in CarParts.TYRES.size():
+		tyre_option.set_item_disabled(i, not CarParts.TYRES[i] in choices)
+	if tyre_option.is_item_disabled(maxi(tyre_option.selected, 0)):
+		tyre_option.select(0)
+	tyre_option.disabled = choices.size() <= 1
 
 
 ## Palette of the selected car; keeps `keep` selected when the car has it, else "original".
@@ -125,6 +159,8 @@ func _play() -> void:
 	GameSettings.track_name = track_names[track_option.selected]
 	GameSettings.time_of_day = times[time_option.selected]
 	GameSettings.car_color = colors[color_option.selected] if color_option.selected >= 0 else ""
+	GameSettings.car_tune = CarParts.TUNES[maxi(tune_option.selected, 0)]
+	GameSettings.tyres = CarParts.TYRES[maxi(tyre_option.selected, 0)]
 	for key: String in option_toggles:
 		GameSettings.options[key] = (option_toggles[key] as CheckButton).button_pressed
 	GameSettings.save_last()

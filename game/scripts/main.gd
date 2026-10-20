@@ -10,6 +10,8 @@ extends Node3D
 ## stuttgart/time (default day); the sky and sun come from SkyLighting, the car lamps from CarLights,
 ## the track's lamps and warning lights from TrackLights.
 ## Paint: GameSettings.car_color, else --color=<#rrggbb>; empty = the body texture untinted.
+## Parts (CarParts): GameSettings.car_tune (stock / sport) and tyres (stock / slick / rain), else
+## --tune= / --tyres=; default stock.
 
 const DEFAULT_TRACK := "farmland"
 const TrackProps := preload("res://scripts/track_props.gd")
@@ -17,6 +19,7 @@ const CarAudio := preload("res://scripts/car_audio.gd")
 const Materials := preload("res://scripts/materials.gd")
 const SkyLighting := preload("res://scripts/sky_lighting.gd")
 const CarLights := preload("res://scripts/car_lights.gd")
+const CarParts := preload("res://scripts/car_parts.gd")
 const TrackLights := preload("res://scripts/track_lights.gd")
 const DEFAULT_TIME := "day"
 ## Times of day offered in the menu -> shown name.
@@ -286,7 +289,7 @@ func _ready() -> void:
 		car_style = CarStyle.apply(model, model_path, car_style_of(car_key, car_colors))
 		var color := GameSettings.car_color if not GameSettings.car_color.is_empty() else _user_arg("color")
 		Materials.setup_car(model, Color.from_string(color, Color(0, 0, 0, 0)) if not color.is_empty() else Color(0, 0, 0, 0))
-		car.setup(model, cars[physics])
+		car.setup(model, _fitted_parts(cars[physics], physics))
 		Materials.add_car_reflections(car)
 		lights = CarLights.new()
 		car.add_child(lights)
@@ -359,6 +362,16 @@ func _exit_tree() -> void:
 	if _log != null:
 		_log.close()
 		_log = null
+
+
+## The car's .sim values with the chosen parts and tyres fitted (CarParts).
+func _fitted_parts(params: Dictionary, physics: String) -> Dictionary:
+	var tune := GameSettings.car_tune if not GameSettings.car_tune.is_empty() else _user_arg("tune")
+	var tyres := GameSettings.tyres if not GameSettings.tyres.is_empty() else _user_arg("tyres")
+	if (tune.is_empty() or tune == "stock") and (tyres.is_empty() or tyres == "stock"):
+		return params
+	var parts: Variant = OriginalAssets.load_json(CarParts.FILE) if OriginalAssets.exists(CarParts.FILE) else null
+	return CarParts.apply(params, parts, physics, tune, tyres if not tyres.is_empty() else "stock")
 
 
 static func car_info(key: String) -> Dictionary:

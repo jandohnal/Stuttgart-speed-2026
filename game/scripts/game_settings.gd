@@ -23,12 +23,16 @@ var track_name := ""
 var time_of_day := ""
 ## Body colour "#rrggbb" from the car's original palette (menu); empty = the texture as it is.
 var car_color := ""
+## Parts: "stock" / "sport" (CarParts); empty = not chosen in the menu (stock).
+var car_tune := ""
+## Tyres: "stock" / "slick" / "rain" (CarParts); empty = not chosen in the menu (stock).
+var tyres := ""
 ## Options toggled in the menu (not during the game), applied by main.gd when the game starts.
 var options := DEFAULT_OPTIONS.duplicate()
 
 
 ## Last choice saved by save_last(): {"car": key, "track": name, "time": day|night,
-## "color": hex}, values "" when never saved.
+## "color": hex, "tune": stock|sport, "tyres": stock|slick|rain}, values "" when never saved.
 ## Also loads the saved options into `options` (defaults for the ones never saved).
 func load_last() -> Dictionary:
 	var cfg := ConfigFile.new()
@@ -36,7 +40,8 @@ func load_last() -> Dictionary:
 	for key: String in DEFAULT_OPTIONS:
 		options[key] = bool(cfg.get_value("options", key, DEFAULT_OPTIONS[key]))
 	return {"car": str(cfg.get_value("last", "car", "")), "track": str(cfg.get_value("last", "track", "")),
-		"time": str(cfg.get_value("last", "time", "")), "color": str(cfg.get_value("last", "color", ""))}
+		"time": str(cfg.get_value("last", "time", "")), "color": str(cfg.get_value("last", "color", "")),
+		"tune": str(cfg.get_value("last", "tune", "")), "tyres": str(cfg.get_value("last", "tyres", ""))}
 
 
 func save_last() -> void:
@@ -46,6 +51,8 @@ func save_last() -> void:
 	cfg.set_value("last", "track", track_name)
 	cfg.set_value("last", "color", car_color)
 	cfg.set_value("last", "time", time_of_day)
+	cfg.set_value("last", "tune", car_tune)
+	cfg.set_value("last", "tyres", tyres)
 	for key: String in options:
 		cfg.set_value("options", key, options[key])
 	cfg.save(FILE)
