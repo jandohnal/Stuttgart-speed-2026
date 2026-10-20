@@ -10,10 +10,17 @@ extends Node3D
 const HEAD_COLOR := Color(1.0, 0.93, 0.82)
 ## Reach on the road about 2x the first version (energy 8, range 90 m, decay 1.2, pitch -3, whose
 ## beam centre hit the road 11 m ahead), computed with Godot's light attenuation.
-const HEAD_ENERGY := 17.0
+const HEAD_ENERGY := 30.0  ## the low-beam cut-off no longer spends light on walls and ceilings
 const HEAD_RANGE := 200.0
 const HEAD_DECAY := 1.0  ## distance falloff exponent (spot_attenuation)
-const HEAD_ANGLE := 26.0  ## degrees, half angle of the cone
+## A round cone lit the tunnel ceiling as much as the road. The cone is now wide and the projector
+## texture (beam_texture) cuts it to a flat low-beam shape: wide sideways, a sharp top edge just
+## above the horizon, fading towards the road below.
+const HEAD_ANGLE := 45.0  ## degrees, half angle of the cone (the projector's square covers it)
+const BEAM_HALF_WIDTH := 38.0  ## degrees to each side where the beam has faded out
+const BEAM_TOP := 3.5  ## degrees above the lamp axis (about 1.5 above horizontal with HEAD_PITCH): the cut-off line
+const BEAM_BOTTOM := 22.0  ## degrees below the axis where the beam has faded out
+const BEAM_TEXTURE_SIZE := 256
 const HEAD_PITCH := -2.0  ## degrees, aimed slightly down
 const HEAD_AHEAD := 0.15  ## m in front of the lamp, so its own glass does not shadow it
 ## Shadows: the near-horizontal beam grazes the low-poly terrain, which with the default biases
@@ -84,7 +91,8 @@ func _headlight(at: Vector3) -> SpotLight3D:
 	light.light_energy = HEAD_ENERGY
 	light.spot_range = HEAD_RANGE
 	light.spot_angle = HEAD_ANGLE
-	light.spot_angle_attenuation = 0.6
+	light.spot_angle_attenuation = 3.0  # nearly flat across the cone: the projector shapes the beam (low values dim the axis)
+	light.light_projector = beam_texture()
 	light.spot_attenuation = HEAD_DECAY
 	light.shadow_enabled = true
 	light.shadow_bias = HEAD_SHADOW_BIAS
@@ -93,6 +101,33 @@ func _headlight(at: Vector3) -> SpotLight3D:
 	light.light_cull_mask = CULL_MASK
 	add_child(light)
 	return light
+
+
+static var _beam: Texture2D
+
+
+## Projector texture of a low beam (shared by every car): bright in a wide band below the
+## cut-off, the brightest part a little below and ahead, soft towards the sides and the road.
+## The projector maps the cone's square with a perspective, so pixels are converted to angles.
+static func beam_texture() -> Texture2D:
+	if _beam != null:
+		return _beam
+	var n := BEAM_TEXTURE_SIZE
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	var half := tan(deg_to_rad(HEAD_ANGLE))
+	for y in n:
+		for x in n:
+			var h := rad_to_deg(atan((float(x) + 0.5) / n * 2.0 * half - half))
+			var v := -rad_to_deg(atan((float(y) + 0.5) / n * 2.0 * half - half))  # image row 0 = up
+			var side := 1.0 - smoothstep(BEAM_HALF_WIDTH * 0.7, BEAM_HALF_WIDTH, absf(h))
+			var top := 1.0 - smoothstep(BEAM_TOP - 1.0, BEAM_TOP + 0.5, v)
+			var bottom := 1.0 - smoothstep(-BEAM_BOTTOM * 0.4, -BEAM_BOTTOM, v)
+			var k := side * top * bottom
+			img.set_pixel(x, y, Color(k, k, k, 1.0))
+	# No mipmaps: the projector picks smaller mips further from the lamp, where the averaged,
+	# mostly dark texture dimmed the far road to grey.
+	_beam = ImageTexture.create_from_image(img)
+	return _beam
 
 
 func _tail_light(at: Vector3) -> OmniLight3D:
