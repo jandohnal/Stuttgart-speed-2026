@@ -85,7 +85,7 @@ items:
     format: ini/text
     status: readable
     doc: docs/formats/scn.md
-    notes: "Tónování, zvukové prvky, kamery, startovní pozice, vlastnosti objektů (hmotnost, průjezdnost). .scn: GEOM_ELEMENT (značka objektu jako 4CC), TRIGGER_ELEMENT (start/cíl); animdefs.txt: collideType, mass podle značky"
+    notes: "Tónování, zvukové prvky, kamery, startovní pozice, vlastnosti objektů (hmotnost, průjezdnost). .scn: GEOM_ELEMENT (značka objektu jako 4CC, vrcholy předlohy se umístí bez jejího tr; FNSH = dlaždice cílové čáry), TRIGGER_ELEMENT (start/cíl); animdefs.txt: collideType, mass podle značky"
     use: "Předloha atmosféry a interakce s objekty"
 
   - id: crp_container

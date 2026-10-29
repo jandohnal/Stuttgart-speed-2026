@@ -1,10 +1,11 @@
 extends Node
 ## Headless test for braking in a corner (comparison with the original, where the rear-engined
 ## car steps out):
-##   godot --headless --path game res://tests/brake_turn_test.tscn [-- --brake=1.0 --steer=1.0 --abs=0 --keyboard=0 --set=rear_grip:1.1]
+##   godot --headless --path game res://tests/brake_turn_test.tscn [-- --car=993Tcoupe36 --entry=100 --brake=1.0 --steer=1.0 --abs=0 --keyboard=0 --set=rear_grip:1.1]
 ## The brake and steering are held like keys (ramped by the car's keyboard input) unless --keyboard=0.
-## On the skidpad: follows the circle up to ENTRY_KMH, then holds full steering into the corner
-## and the brake for HOLD_TIME. Reports the yaw response and the body slip angle (beta).
+## On the skidpad: follows the circle up to ENTRY_KMH (--entry=), then holds full steering into the corner
+## and the brake for HOLD_TIME. Reports the yaw response and the body slip angle (beta) up to the
+## first hit of anything but the road (understeer can carry the car off the circle).
 
 const ENTRY_KMH := 100.0
 const HOLD_TIME := 3.0
@@ -14,6 +15,7 @@ var main: Node3D
 var car: Car
 var phase := "run_up"
 var t := 0.0
+var entry_kmh := ENTRY_KMH
 var brake := 1.0
 var abs_on := true
 var steer_input := 1.0  ## share of full steering held into the corner
@@ -28,6 +30,8 @@ func _ready() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--brake="):
 			brake = arg.trim_prefix("--brake=").to_float()
+		elif arg.begins_with("--entry="):
+			entry_kmh = arg.trim_prefix("--entry=").to_float()
 		elif arg.begins_with("--set="):
 			var kv := arg.trim_prefix("--set=").split(":")
 			overrides[kv[0]] = kv[1].to_float()
@@ -55,7 +59,7 @@ func _physics_process(delta: float) -> void:
 		"run_up":
 			_follow_road()
 			Input.action_press("accelerate")
-			if speed >= ENTRY_KMH:
+			if speed >= entry_kmh:
 				turn_sign = signf(car.steer) if car.steer != 0.0 else 1.0
 				car.digital_input = bool(overrides.get("digital_input", 1.0))
 				Input.action_release("steer_left")
@@ -90,7 +94,10 @@ func _physics_process(delta: float) -> void:
 					axles.append("%s slip %+.2f angle %+5.1f° lat %+5d N" % ["F" if front else "R", slip, angle, roundi(lat)])
 				print("  t %.2f  %5.1f km/h  steer %+5.1f°  yaw %+6.1f°/s  beta %+6.1f°  %s" % [
 					t, speed, rad_to_deg(car.steer), yaw, beta, " | ".join(axles)])
-			if t >= HOLD_TIME or (t > 0.5 and absf(car.linear_velocity.length()) < 1.0):
+			var crashed := car.get_colliding_bodies().any(func(b: Node) -> bool: return b.get_parent().name != "road")
+			if crashed:
+				print("  crash at t %.2f, %.0f km/h: the figures stop here" % [t, speed])
+			if crashed or t >= HOLD_TIME or (t > 0.5 and absf(car.linear_velocity.length()) < 1.0):
 				var turned := rad_to_deg(wrapf(car.global_rotation.y - heading_start, -PI, PI)) * turn_sign
 				print("  result: heading change %.0f°, max beta %.1f°, max yaw rate %.1f°/s, speed %.0f km/h" % [
 					turned, max_beta, max_yaw, speed])

@@ -24,6 +24,26 @@ def read_triggers(path):
     return out
 
 
+def read_geoms(path):
+    """GEOM_ELEMENT blocks: [{tag (4 characters), position, basis (rows = axes: 9 floats), scale (3 floats, 1 = 100 %)}]."""
+    lines = [ln.split() for ln in open(path, encoding="latin1") if ln.strip()]
+    out = []
+    for i, ln in enumerate(lines):
+        if ln[0] != "GEOM_ELEMENT" or i + 3 >= len(lines):
+            continue
+        params = lines[i + 3]
+        tag = int(params[1]).to_bytes(4, "little").rstrip(b"\0").decode("latin1")
+        out.append({"tag": tag, "position": [float(x) for x in lines[i + 1]],
+                    "basis": [float(x) for x in lines[i + 2]], "scale": [float(x) / 100.0 for x in params[-3:]]})
+    return out
+
+
+def start_geoms(track_path):
+    """GEOM_ELEMENTs of <track>_fstart.scn (the finish line tiles FNSH ...), [] without the file."""
+    path = os.path.splitext(track_path)[0] + "_fstart.scn"
+    return read_geoms(path) if os.path.exists(path) else []
+
+
 def start_finish(track_path):
     """{"start": trigger, "finish": trigger} from <track>_fstart.scn next to the .crp (driving forward)."""
     path = os.path.splitext(track_path)[0] + "_fstart.scn"

@@ -31,6 +31,13 @@ const CAR_COLORS := "FEData/Data/car_colors.json"
 const DEFAULT_CAR := "356Acoupe16"
 const ODOMETER_FILE := "user://odometer.cfg"
 const ODOMETER_SAVE_INTERVAL := 30.0  ## s
+const RECORDS_FILE := "user://records.cfg"  ## best race times, [track] car = seconds
+const COUNTDOWN := 3.0  ## s of 3-2-1 before GO
+const RaceLines := preload("res://scripts/race_lines.gd")
+const GRID_BEHIND := 3.0  ## m from the start line back to the car's centre (standing start)
+const STOP_BRAKE := 0.6  ## brake after the finish (~0.5 g: firm, the wheels do not lock)
+const STOP_LOOKAHEAD := 4  ## road slices ahead the car steers to after the finish
+const STOP_SPEED := 0.3  ## m/s below which the stopped car is held
 ## Model (GameData/CarModel/<model>) -> engine sound set. The original assigns the sound sets in its
 ## executable: 356 A (sd1a, idle note 29) and 935 (sdxc, flat six to 8000 rpm) are chosen by ear,
 ## the others guessed from the order of the sets (sd1 356 ... sd9 Boxster, sdx race cars) and still
@@ -209,6 +216,7 @@ const ACTIONS := {
 	"steer_right": [KEY_D, KEY_RIGHT],
 	"handbrake": [KEY_SPACE],
 	"reset_car": [KEY_R],
+	"restart_race": [KEY_BACKSPACE],
 	"telemetry": [KEY_F2],
 	"repair": [KEY_F5],
 	"fullscreen": [KEY_F11],
@@ -233,6 +241,8 @@ var track_lights: Node3D  ## TrackLights
 var road_slices: Array = []
 var road_segments: Array = []
 var start_slice := 0
+var race: RaceTimer  ## null on tracks without start / finish lines (free driving)
+var _grid := Transform3D.IDENTITY  ## where the race starts (behind the start line)
 var prop_counts := {}  ## placed objects per collision type (TrackProps)
 var car_style := 0  ## [styleN] of the car's model in use (CarStyle), 0 = model without styles
 var _log: FileAccess
@@ -317,6 +327,61 @@ func _ready() -> void:
 	else:
 		push_error("Car %s (physics %s) not found in %s" % [car_key, physics, CAR_PHYSICS])
 	_reset_car(start_slice)
+	if road is Dictionary and road.has("start") and road.has("finish") and _user_arg("slice").is_empty():
+		_setup_race(road)
+	if track != null:
+		RaceLines.gate_decals(track)
+		if road is Dictionary and road.has("start"):
+			track.add_child(RaceLines.start_line(road["start"], road_slices[int(road["start"]["slice"])]))
+
+
+## Countdown, clock and best time between the original's start and finish lines. The tests load
+## this scene inside their own: there the clock starts at once and no record is written.
+func _setup_race(road: Dictionary) -> void:
+	race = RaceTimer.new()
+	race.name = "Race"
+	add_child(race)
+	race.setup(car, road["start"], road["finish"], road_slices)
+	race.finished.connect(_on_race_finished)
+	_grid = _grid_transform(road["start"])
+	car.reset_to(_grid)
+	if _is_game():
+		race.keep_records(RECORDS_FILE, track_name, car_key)
+	race.begin(COUNTDOWN if _is_game() else 0.0)
+	($HUD as Hud).race = race
+
+
+## Standing start: the car's centre GRID_BEHIND behind the start line, on the road.
+func _grid_transform(start: Dictionary) -> Transform3D:
+	var s: Dictionary = road_slices[int(start["slice"])]
+	var up := _vec(s["up"])
+	var fwd := _vec(start["forward"]).normalized()
+	return Transform3D(Basis.looking_at(fwd, up), _vec(start["position"]) - fwd * GRID_BEHIND + up * 0.4)
+
+
+## Past the finish line the player's keys stop working: the car brakes firmly along the road
+## until it stands, then it is held. The clock has stopped (RaceTimer).
+func _on_race_finished(_time: float) -> void:
+	car.auto_drive = true
+	car.auto_brake = STOP_BRAKE
+
+
+func _drive_to_stop() -> void:
+	var target: Dictionary = road_slices[slice_ahead(_nearest_slice(), STOP_LOOKAHEAD)]
+	var to_target := car.to_local(_vec(target["position"]))
+	var angle := atan2(-to_target.x, -to_target.z)  # positive = target on the left
+	car.auto_steer = clampf(angle * 3.0, -1.0, 1.0)
+	if absf(car.forward_speed) < STOP_SPEED:
+		car.held = true
+
+
+func _restart_race() -> void:
+	car.repair()
+	car.auto_drive = false
+	car.auto_steer = 0.0
+	car.reset_to(_grid)
+	race.begin(COUNTDOWN)
+	($Camera as FollowCamera).play_intro()
 
 
 ## Sky, sun or moon and exposure for the track and time of day. The scene's environment is
@@ -337,10 +402,15 @@ func _apply_options() -> void:
 	$HUD.diagnostics = options["diagnostics"]
 
 
-## Mileage is kept per car between runs, but only when the game itself runs: the tests load this
-## scene inside their own and must neither read nor change it.
-func _keeps_mileage() -> bool:
+## The game itself runs (not a test that loads this scene inside its own).
+func _is_game() -> bool:
 	return get_parent() == get_tree().root
+
+
+## Mileage is kept per car between runs, but only when the game itself runs: the tests
+## must neither read nor change it.
+func _keeps_mileage() -> bool:
+	return _is_game()
 
 
 func _load_mileage() -> void:
@@ -583,8 +653,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		_back_to_menu()
 	elif get_tree().paused:
 		return
-	elif event.is_action_pressed("reset_car"):
+	elif event.is_action_pressed("reset_car") and not car.auto_drive:
 		_reset_car(_nearest_slice())
+	elif event.is_action_pressed("restart_race") and race != null:
+		_restart_race()
 	elif event.is_action_pressed("telemetry"):
 		_toggle_log()
 	elif event.is_action_pressed("repair"):
@@ -618,6 +690,8 @@ func _toggle_log() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if car.auto_drive and not get_tree().paused:
+		_drive_to_stop()
 	if _log == null or get_tree().paused or car.telemetry.is_empty():
 		return
 	_log_time += delta

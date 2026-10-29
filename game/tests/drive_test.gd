@@ -1,6 +1,6 @@
 extends Node
 ## Headless drive test for the phase 2 prototype:
-##   godot --headless --path game res://tests/drive_test.tscn [-- --track=farmland --car=935race --log-impacts --time=120 --corner-g=0.9]
+##   godot --headless --path game res://tests/drive_test.tscn [-- --track=farmland --car=935race --log-impacts --time=120 --corner-g=0.9 --set=damping_rebound:0.7]
 ## Loads the main scene, lets the car settle, then drives flat out along the road (skidpad unless
 ## --track is given; steering towards road slices ahead, braking only for corners ahead that
 ## need more than CORNER_G at the current speed), measures 0-100 km/h, speed after ACCEL_TIME and the
@@ -48,6 +48,9 @@ var jump: Dictionary = {}  ## the jump in progress
 var jumps: Array = []
 var light_ticks := 0  ## ticks with under half the weight on the wheels (on the ground)
 var corner_g := CORNER_G
+var overrides := {}  ## car property -> value, from --set=name:value (tuning)
+var crash_t := -1.0  ## first body collision while driving; the crest figures stop there
+var clean_stop_ticks := 0  ## bump stop ticks before crash_t
 var crest_ticks := 0  ## ticks on the ground over a crest (v^2/(R g) > 0.2)
 var thrown_ticks := 0  ## of those, ticks with the load over 20 % of the weight below what the crest allows
 var worst_deficit := {"deficit": 0.0}  ## largest (allowed - actual) load share and where
@@ -69,6 +72,11 @@ func _ready() -> void:
 			accel_time = arg.trim_prefix("--time=").to_float()
 		elif arg.begins_with("--corner-g="):
 			corner_g = arg.trim_prefix("--corner-g=").to_float()
+		elif arg.begins_with("--set="):
+			var kv := arg.trim_prefix("--set=").split(":")
+			overrides[kv[0]] = kv[1].to_float()
+	for key: String in overrides:
+		car.set(key, overrides[key])
 
 
 func _physics_process(delta: float) -> void:
@@ -86,14 +94,18 @@ func _physics_process(delta: float) -> void:
 		var entry := "%s at %.1f s (%s, %s), %.0f km/h" % [what, t, phase, car.global_position.snapped(Vector3.ONE * 0.1), speed]
 		if collisions.size() < 10 and not collisions.has(entry) and not ",".join(collisions).contains(what):
 			collisions.append(entry)
+		if phase == "accelerate" and crash_t < 0.0 and not what.begins_with("road/"):
+			crash_t = t  # off the road into terrain or objects; the body scraping the road does not count
 	if phase != "settle":
 		var on_stop := false
 		for w in car.wheels:
-			var lift: float = w.compression - car.droop_travel
+			var lift: float = w.travel
 			max_lift = maxf(max_lift, lift)
 			on_stop = on_stop or lift > car.bump_travel * 0.75
 		if on_stop:
 			bump_stop_ticks += 1
+			if phase == "accelerate" and crash_t < 0.0:
+				clean_stop_ticks += 1
 	match phase:
 		"settle":
 			if t >= SETTLE_TIME:
@@ -106,7 +118,8 @@ func _physics_process(delta: float) -> void:
 				odo_start = car.odometer_m
 				last_pos = car.global_position
 			_steer_along_road()
-			_track_crests()
+			if crash_t < 0.0:
+				_track_crests()
 			if prev_rpm >= 0.0:
 				max_rpm_step = maxf(max_rpm_step, absf(car.rpm - prev_rpm))
 			prev_rpm = car.rpm
@@ -127,7 +140,7 @@ func _physics_process(delta: float) -> void:
 					_distance_from_road(), car.global_position.y])
 				var forces := PackedStringArray()
 				for w in car.wheels:
-					forces.append("%s load %d long %d lat %d slip %.3f/%.1f° lift %+.3f" % ["F" if w.front else "R", roundi(w.normal_load), roundi(w.force.x), roundi(w.force.y), w.slip_ratio, rad_to_deg(w.slip_angle), w.compression - car.droop_travel])
+					forces.append("%s load %d long %d lat %d slip %.3f/%.1f° lift %+.3f" % ["F" if w.front else "R", roundi(w.normal_load), roundi(w.force.x), roundi(w.force.y), w.slip_ratio, rad_to_deg(w.slip_angle), w.travel])
 				print("      ", " | ".join(forces), " | body contacts ", car.get_colliding_bodies().map(func(b): return b.get_parent().name))
 			top_speed = maxf(top_speed, speed)
 			max_lat_g = maxf(max_lat_g, absf(float(car.telemetry.get("lat_g", 0.0))))
@@ -215,7 +228,7 @@ func _settle_report() -> String:
 		loads.append("%d" % roundi(w.normal_load))
 	var lifts := PackedStringArray()
 	for w in car.wheels:
-		lifts.append("%+.3f" % (w.compression - car.droop_travel))
+		lifts.append("%+.3f" % (w.travel))
 	return "wheels %d, in contact %d, loads N [%s] (weight/4 = %d), wheel lift m [%s]" % [
 		car.wheels.size(), contacts, ", ".join(loads), roundi(car.mass * 9.81 / 4.0), ", ".join(lifts)]
 
@@ -300,7 +313,7 @@ func _track_crests() -> void:
 		if w.contact:
 			contacts += 1
 		load += w.normal_load
-		droop = droop and (not w.contact or w.compression - car.droop_travel < -0.95 * car.droop_travel)
+		droop = droop and (not w.contact or w.travel < -0.95 * car.droop_travel)
 	recent.append([t, ratio, droop])
 	while not recent.is_empty() and recent[0][0] < t - CREST_WINDOW:
 		recent.pop_front()
@@ -349,6 +362,9 @@ func _crest_report() -> void:
 	print("  crests: max v^2/(R g) %.2f, %d jumps (%d below 1, %d bounces), %.2f s in the air, %.2f s light (< 50 %% weight)" % [
 		max_crest, jumps.size(), thrown, bounces, air, light_ticks / float(Engine.physics_ticks_per_second)])
 	var tps := float(Engine.physics_ticks_per_second)
+	var clean := crash_t if crash_t >= 0.0 else accel_time
+	print("  crest figures cover %.0f s of driving%s, bump stop %.1f s of it, overrides %s" % [
+		clean, " (until the first crash)" if crash_t >= 0.0 else "", clean_stop_ticks / tps, overrides])
 	print("  load vs crest (driver %.2f g): %.2f s over crests, %.2f s with the load > 20 %% of the weight below 1 - v^2/(R g)" % [
 		corner_g, crest_ticks / tps, thrown_ticks / tps])
 	if worst_deficit.has("t"):

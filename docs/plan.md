@@ -1,6 +1,6 @@
 ---
 type: plan
-updated: 2026-10-18
+updated: 2026-10-29
 current_phase: 1
 phases:
   - id: 1
@@ -46,6 +46,7 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
   - [x] Pole s fyzikální jednotkou v prototypu podle exe: 0x104 brzdy v m/s², 0x108 podíl brzd, 0x058 účinnost převodu, 0x098 brzdění motorem
   - [ ] Převést kalibrací 0x0F4/0x0F0 (přilnavost, vyvážení) a 0x10C/0x110 (přítlak ×0,001 × rychlost) a ověřit testy ([návrhy](formats/sim.md#návrhy-testů-v-prototypu))
   - [ ] Přejmenovat v `tools/sim_dump.py` ověřená pole z `unknown` na pojmenované klíče
+  - [x] Rejd řízení zmenšený s rychlostí podle principu 0x0FC, vzorec z rozvoru, μ a vrcholu směrového úhlu (D-026)
   - [ ] Dořešit jednotku 0x0FC (řízení) a pole AI 0x13C–0x144
   - [ ] Ověřit hypotézy v originále přes Wine
 - [x] Převod textur FSH → PNG ([tools/fsh2png.py](../tools/fsh2png.py))
@@ -85,6 +86,8 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Hlavní menu prototypu: výběr auta a trati, Play, Esc zpět do menu, poslední výběr uložený
 - [x] Barva laku z palety originálu vedle výběru auta (D-020)
 - [x] Noční světla tratí z originálu: záře `ef` a `flare.dat`, blikající výstražná světla, tunelová a pouliční světla (D-021, [formats/flare.md](formats/flare.md))
+- [x] Závod od startu do cíle (D-025): odpočet 3-2-1, stopky, kontrolní body, průjezd cílovou čárou, nejlepší čas; kamera při startu obletí auto
+- [ ] Okruhy s počítáním kol (Monte Carlo, `lap` v `_road.json`), mezičasy, zvuk odpočtu
 - [ ] Rozhodnout definitivně o enginu (D-002)
 
 ## Fáze 3 – První vlastní trať

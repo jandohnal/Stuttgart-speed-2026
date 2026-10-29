@@ -19,6 +19,9 @@ extends RefCounted
 const DEFAULT_ROOT := "../assets/hdri"
 const CATALOG := "../data/hdri.json"
 const CACHE := "user://hdri_sun.cfg"
+## Strength of the sun's highlights. Godot's default 0.5 halves them; 1.0 is physically correct, so
+## the low sun glints on the road and the paint.
+const SUN_SPECULAR := 1.0
 const CACHE_VERSION := 1
 const ANALYSIS_WIDTH := 256
 const PEAK_RADIUS_DEG := 3.0  ## window around the peak: refined there, clamped there, left out of the sky irradiance
@@ -93,6 +96,7 @@ static func apply(env: Environment, sun: DirectionalLight3D, track: String, time
 	env.glow_hdr_threshold = p["glow_hdr_threshold"]
 	env.fog_light_color = p["fog_light_color"]
 	sun.light_energy = p["sun_energy"]
+	sun.light_specular = SUN_SPECULAR
 	if night:
 		sun.light_color = NIGHT["sun_color"]
 		sun.rotation_degrees = Vector3(MOON_FALLBACK.x, MOON_FALLBACK.y, 0.0)

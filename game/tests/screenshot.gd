@@ -17,6 +17,7 @@ func _ready() -> void:
 		out_dir = args[0]
 	main = preload("res://scenes/main.tscn").instantiate() as Node3D
 	add_child(main)
+	(main.get_node("Camera") as FollowCamera).intro_duration = 0.0  # shots from behind the car
 
 
 func _process(delta: float) -> void:

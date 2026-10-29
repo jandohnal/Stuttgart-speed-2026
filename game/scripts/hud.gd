@@ -1,5 +1,6 @@
+class_name Hud
 extends CanvasLayer
-## Rev counter and speedometer dials plus a small telemetry readout.
+## Rev counter and speedometer dials, a small telemetry readout and the race stopwatch.
 
 const Odometer := preload("res://scripts/odometer.gd")
 const GAUGE_SIZE := 210.0
@@ -17,6 +18,9 @@ var rpm_gauge := Gauge.new()
 var speed_gauge := Gauge.new()
 var _scales_set := false
 var _gauge_box := HBoxContainer.new()
+var race: RaceTimer  ## set by main on tracks with start / finish lines
+var _stopwatch := _big_label(40)
+var _banner := _big_label(96)  ## countdown, GO, finish
 
 
 func _ready() -> void:
@@ -40,6 +44,24 @@ func _ready() -> void:
 	speed_gauge.band_from = 40.0
 	speed_gauge.band_to = 70.0
 	speed_gauge.odometer = true
+	# Top right: the help and diagnostics text runs along the top left.
+	_stopwatch.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, int(MARGIN))
+	_stopwatch.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_banner.set_anchors_and_offsets_preset(Control.PRESET_CENTER, Control.PRESET_MODE_MINSIZE)
+	_banner.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_banner.grow_vertical = Control.GROW_DIRECTION_BOTH
+	for l: Label in [_stopwatch, _banner]:
+		l.visible = false
+		add_child(l)
+
+
+static func _big_label(font_size: int) -> Label:
+	var l := Label.new()
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.add_theme_font_size_override("font_size", font_size)
+	l.add_theme_constant_override("outline_size", font_size / 6)
+	l.add_theme_color_override("font_outline_color", Color.BLACK)
+	return l
 
 
 func _place_gauges() -> void:
@@ -81,7 +103,35 @@ func _process(_delta: float) -> void:
 		text = "lat %.2f g   long %.2f g   steer %.1f°%s\n" % [t["lat_g"], t["long_g"], t["steer_deg"],
 			"   TC -%d%%" % roundi(t["tc_cut"] * 100.0) if t["tc_cut"] > 0.02 else ""] \
 			+ ("boost %d%%\n" % roundi(t["boost"] * 100.0) if car.turbo else "") + _damage_text(t.get("damage", {}))
-	label.text = text + "W/S throttle/brake  A/D steer  Space handbrake  R reset  F2 telemetry  F5 repair  F11 full screen  Esc menu"
+	label.text = text + "W/S throttle/brake  A/D steer  Space handbrake  R reset  %sF2 telemetry  F5 repair  F11 full screen  Esc menu" \
+		% ("Backspace restart  " if race != null else "")
+	_update_race()
+
+
+func _update_race() -> void:
+	if race == null:
+		return
+	_stopwatch.visible = true
+	_stopwatch.text = RaceTimer.format_time(race.elapsed)
+	_banner.visible = true
+	_banner.modulate = Color.WHITE
+	match race.state:
+		RaceTimer.State.COUNTDOWN:
+			_banner.text = str(ceili(race.countdown))
+		RaceTimer.State.RUNNING:
+			var go := race.since_go()
+			_banner.visible = go >= 0.0
+			_banner.text = "GO!"
+			_banner.modulate.a = 1.0 - go / RaceTimer.GO_SHOW_TIME
+		RaceTimer.State.FINISHED:
+			var text := "FINISH  %s" % RaceTimer.format_time(race.elapsed)
+			if race.previous_best < INF:
+				var diff := race.elapsed - race.previous_best
+				text += "\nbest %s  (%+.2f s)" % [RaceTimer.format_time(race.previous_best), diff]
+			_banner.text = text + "\nBackspace: race again"
+			_banner.add_theme_font_size_override("font_size", 48)
+			return
+	_banner.add_theme_font_size_override("font_size", 96)
 
 
 func _damage_text(d: Dictionary) -> String:

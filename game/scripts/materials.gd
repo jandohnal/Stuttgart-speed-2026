@@ -304,8 +304,15 @@ const DETAIL_COMPENSATION := 1.1
 ## Kinds: normal (OpenGL, +Y up), ambient (occlusion), specular (turned into roughness) and
 ## displacement (white = high, parallax). Any size: the maps follow the UVs.
 const ADVANCED_DIR := "advanced"
-## Roughness from the specular map: 1 - SPECULAR_GLOSS * specular (0.5 -> 0.78, 1.0 -> 0.55).
-const SPECULAR_GLOSS := 0.45
+## Roughness from the specular map, linear: specular 0 -> ROUGHNESS_MATTE, 1 -> ROUGHNESS_GLOSSY
+## (road asphalt, specular about 0.5: 0.65, so the low sun glints on it). Road materials without a
+## specular map take it from the brightness of their base colour.
+## Normal map strength (1 = as painted; at 1 the skidpad asphalt looked like rippled sand).
+const NORMAL_SCALE := 0.8
+## How much the ambient occlusion map also darkens direct light (Godot default 0: ambient only).
+const AO_LIGHT_AFFECT := 0.0
+const ROUGHNESS_MATTE := 0.8
+const ROUGHNESS_GLOSSY := 0.1
 ## Parallax depth in hundredths of one texture tile (road tile about 6 m: 0.3 = about 2 cm).
 ## Plain parallax: deep parallax looked the same from behind the car and cost 5 FPS more.
 const HEIGHTMAP_SCALE := 0.3
@@ -316,6 +323,7 @@ static func setup_track(track: Node3D, gltf := "") -> void:
 	if track == null:
 		return
 	var seen := {}
+	var road := {}
 	var details := {}
 	for group: String in DETAIL:
 		details[group] = _detail_texture(DETAIL[group])
@@ -328,6 +336,8 @@ static func setup_track(track: Node3D, gltf := "") -> void:
 			if seen.has(m):
 				continue
 			seen[m] = true
+			if group == "road":
+				road[m] = true
 			_prepare(m)
 			if m.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
 				continue  # fences, bushes: alpha cut-outs keep their look
@@ -346,11 +356,12 @@ static func setup_track(track: Node3D, gltf := "") -> void:
 			seen[m] = true
 			_prepare(m)
 	if not gltf.is_empty():
-		_add_advanced(seen.keys(), gltf)
+		_add_advanced(seen.keys(), gltf, road)
 
 
 ## Adds the advanced/ maps to the materials; returns how many materials got at least one.
-static func _add_advanced(materials: Array, gltf: String) -> int:
+## road: materials of the road (keys), roughness from the base colour when there is no specular map.
+static func _add_advanced(materials: Array, gltf: String, road := {}) -> int:
 	var dir := gltf.get_base_dir().path_join(ADVANCED_DIR)
 	if not DirAccess.dir_exists_absolute(OriginalAssets.path(dir)):
 		return 0
@@ -370,13 +381,20 @@ static func _add_advanced(materials: Array, gltf: String) -> int:
 		var ambient := _advanced_map(base + "_ambient.png", cache)
 		var roughness := _advanced_map(base + "_specular.png", cache)
 		var height := _advanced_map(base + "_displacement.png", cache)
+		if roughness == null and road.has(m):
+			roughness = _roughness_texture(_image(m.albedo_texture))
 		if normal != null:
 			m.normal_enabled = true
 			m.normal_texture = normal
+			m.normal_scale = NORMAL_SCALE
+			# Godot's detail layer replaces NORMAL_MAP with its detail normal (flat when unset), so the
+			# procedural noise would cancel the normal map; the map gives the detail instead.
+			m.detail_enabled = false
 		if ambient != null:
 			m.ao_enabled = true
 			m.ao_texture = ambient
 			m.ao_texture_channel = BaseMaterial3D.TEXTURE_CHANNEL_RED
+			m.ao_light_affect = AO_LIGHT_AFFECT
 		if roughness != null:
 			m.roughness = 1.0
 			m.roughness_texture = roughness
@@ -415,13 +433,28 @@ static func _advanced_map(relative: String, cache: Dictionary) -> Texture2D:
 		if img != null:
 			if img.is_compressed():
 				img.decompress()
-			img.convert(Image.FORMAT_RGBA8)
 			if relative.ends_with("_specular.png"):
-				img.adjust_bcs(SPECULAR_GLOSS, -1.0, 1.0)  # 1 - SPECULAR_GLOSS * specular
-			img.generate_mipmaps(relative.ends_with("_normal.png"))
-			tex = ImageTexture.create_from_image(img)
+				tex = _roughness_texture(img)
+			else:
+				img.convert(Image.FORMAT_RGBA8)
+				img.generate_mipmaps(relative.ends_with("_normal.png"))
+				tex = ImageTexture.create_from_image(img)
 	cache[relative] = tex
 	return tex
+
+
+## Roughness (red) from a specular image (its brightness), see ROUGHNESS_MATTE.
+static func _roughness_texture(img: Image) -> Texture2D:
+	if img == null:
+		return null
+	img.convert(Image.FORMAT_L8)
+	img.convert(Image.FORMAT_RGBA8)
+	# adjust_bcs gives 0.5 + c * (b * x - 0.5): with c = 1 - 2 * matte and b * c = glossy - matte
+	# it is matte + (glossy - matte) * x.
+	var c := 1.0 - 2.0 * ROUGHNESS_MATTE
+	img.adjust_bcs((ROUGHNESS_GLOSSY - ROUGHNESS_MATTE) / c, c, 1.0)
+	img.generate_mipmaps()
+	return ImageTexture.create_from_image(img)
 
 
 static func _materials(node: Node) -> Array[StandardMaterial3D]:

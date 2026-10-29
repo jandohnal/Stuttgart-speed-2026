@@ -68,12 +68,15 @@ Spuštění přímo `scenes/main.tscn` (F6 v editoru, testy) menu přeskočí: t
 
 Trať určuje nastavení projektu `stuttgart/track` (výchozí `farmland`), z příkazové řádky přepíše argument `-- --track=skidpad`. Argument `--slice=<n>` postaví auto na řez silnice n (kontrola konkrétního místa trati). Auto startuje na startovní čáře originálu (`start` v `_road.json`), na skidpadu na řezu 0.
 
+**Závod** (D-025, `scripts/race_timer.gd`): na tratích se startem i cílem (`start` a `finish` v `_road.json`: farmland, alps, autobahn, canyon, castle, coastal, foothills, forest, industrial) jede závod od startu do cíle. Auto stojí 3 m za startovní čarou, odpočet 3-2-1 ho drží (brzdy, spojka sešlápnutá, plynem jde motor vytočit), stopky běží od GO. Startovní čára je bílý pruh přes silnici (originál ji nemá), cílová čára jsou šachovnicové dlaždice originálu (`FNSH`, skupina `gates`); obě jsou decaly (`scripts/race_lines.gd`), takže kopírují silnici a auto nepřebarví. Za cílem se stopky zastaví, klávesy (i R) přestanou platit a auto samo brzdí (brzda 0,6, asi 0,5 g) podél silnice až do zastavení, pak ho drží brzdy. Backspace, P a Esc fungují dál. Čas se počítá z kroků fyziky, pauza ho zastaví. Cíl platí po průjezdu kontrolních bodů (řez silnice každých 50 řezů, ~300 m, v okruhu 40 m), takže zkratka polem do cíle ani průjezd cílem pozpátku se nepočítají. Čas v cíli je dopočítaný na okamžik průjezdu čárou v rámci kroku. Stopky jsou vpravo nahoře, v cíli se ukáže výsledný čas a rozdíl proti nejlepšímu. Nejlepší čas pro trať a auto se ukládá do `user://records.cfg` (jen ve hře, ne v testech; testy mají odpočet 0). Se `--slice=<n>` se závod nespouští. Kamera při startu obletí auto zepředu dozadu (3 s, `FollowCamera.intro_duration`).
+
 | Klávesa | Akce |
 | --- | --- |
 | W / S, šipky | plyn / brzda (při stání brzda = zpátečka) |
 | A / D, šipky | řízení |
 | mezerník | ruční brzda |
-| R | návrat na nejbližší řez silnice (`SimD`) |
+| R | návrat na nejbližší řez silnice (`SimD`); stopky běží dál (za cílem nefunguje) |
+| Backspace | závod znovu: auto na start, oprava, nový odpočet |
 | P | pauza / pokračovat; v pauze se levým tlačítkem myši otáčí kamera kolem auta, kolečkem přiblížení |
 | F2 | záznam telemetrie do `user://telemetry_*.csv` (cesta se vypíše do konzole) |
 | F5 | oprava auta (vynuluje poškození, prototyp) |
@@ -108,7 +111,9 @@ Samostatně spuštěná hra běží přes celou obrazovku (ne v náhledu editoru
 | `scripts/car_style.gd` | `CarStyle`: varianta modelu auta (D-022) – odebere díly ostatních stylů a vymění atlasy podle `<model>_styles.json`, kabriolety se staženou střechou (`top_up` ji zvedne) |
 | `scripts/main.gd` | načtení trati (kolize z mesh skupin `road`, `terrain`, `objects`), auta, start na řezu silnice, ovládání, záznam telemetrie |
 | `scripts/car.gd` | auto: raycast podvozek nad `RigidBody3D` (D-003), motor a automatická převodovka z `cars.json`, model pneumatik (skluz, rotace kol, setrvačnost motoru), spojka při rozjezdu, turbo, samosvor, kontrola trakce a ABS |
-| `scripts/follow_camera.gd`, `scripts/hud.gd` | kamera za autem, údaje o jízdě |
+| `scripts/follow_camera.gd`, `scripts/hud.gd` | kamera za autem (úvodní oblet, nevjíždí do trati, náklon `roll_degrees`), údaje o jízdě, stopky a odpočet |
+| `scripts/race_timer.gd` | `RaceTimer`: závod od startu do cíle (D-025) – odpočet, stopky, kontrolní body, průjezd cílovou čárou, nejlepší časy |
+| `scripts/race_lines.gd` | startovní a cílová čára jako decaly: cíl z dlaždic originálu (skupina `gates`), start vlastní bílý pruh |
 | `scripts/car_damage.gd` | poškození: impulsy kontaktů karoserie sečtené za prvních 0,1 s nárazu, nad prahem promáčknou zóny u bodu nárazu (blend shapes `dz0`–`dz9` z `<auto>_damage.json`); díly odpadají nebo visí na pantech (`HingeJoint3D`); následky čte `car.gd` |
 | `scripts/car_audio.gd` | zvuk auta: smyčky motoru podle otáček (výška, prolínání dvou nejbližších) a plynu (load / coast), pískání pneumatik podle skluzu, vítr, drhnutí, nárazy a díly ze signálů `CarDamage`; sběrnice `Engine` a `Sfx` |
 | `scripts/track_props.gd` | fyzika objektů kolem trati (skupina `props`, `<trať>_objects.json`): sražitelné jako `RigidBody3D` s původní hmotností, zmrazené, dokud se nepřiblíží pohyblivé těleso (1 m), ostatní statické; kolize z konvexního obalu, ploché jako kvádr 10 cm |
@@ -132,25 +137,28 @@ Auto: nastavení projektu `stuttgart/car` nebo argument `-- --car=<klíč v cars
 | brzdění motorem | 0x098 / 100 × moment při daných otáčkách (dřív 0,12 × max. moment × otáčky / omezovač) | 0,23 | 0,10 |
 | doba řazení | 0,35 s × 0x054 / 8 | 0,35 s | 0,17 s |
 | přítlak Cl·A vpředu / vzadu | (0x10C − 1) a (0x110 − 1) × 1,2 m² | 0 | 0,9 / 1,2 m² |
-| pérování | 1,7 Hz × √(140 / 0x124 světlá výška mm); zdvih nahoru nejvýš 75 % světlé výšky | 1,7 Hz, 8 cm | 2,6 Hz, 4,5 cm |
+| pérování | 1,7 Hz × √(140 / 0x124 světlá výška mm); zdvih nahoru nejvýš 75 % světlé výšky; tlumení stlačení a odskoku zvlášť (`damping_bump`, `damping_rebound`, obojí 0,35 kritického) | 1,7 Hz, 8 cm | 2,6 Hz, 4,5 cm |
 | setrvačnost kola | 1,2 kg·m² × (poloměr / 0,292)² × šířka / 145 | 1,2 | 2,8 |
+| neodpružená hmota kola | 25 kg + 0,1 kg × (šířka pneumatiky − 145 mm) | 25 kg | 41 kg |
 | zadní přilnavost | motor vpředu 1,0, jinak 1,12 | 1,12 | 1,12 |
 | přilnavost μ | 0,444 + 0,353 × 0x0F4 | 0,85 | 1,34 |
 | kolize karoserie | obal nezasahuje pod světlou výšku 0x124 | (obal od 0,19 m) | od 0,06 m |
 
 ## Testy
 
-Automatický jízdní test (bez okna): auto plným plynem jede po skidpadu (nebo po trati z `-- --track=farmland`) podle řezů `SimD`. Před zatáčkami brzdí (dávkovaně), jen když by v nich potřebovalo víc než 0,55 g (plánuje se zpomalením 0,45 g a výhledem asi 240 m), změří 0–100 km/h, rychlost po 40 s, brzdnou dráhu ze 100 km/h a vypíše kontakty karoserie. Na horizontech měří skoky (doba ve vzduchu, výška, roztažené pérování, odskoky) a zatížení kol proti tomu, co dovoluje svislý poloměr silnice (1 − v²/(R·g)); `--time=<s>` prodlouží jízdu, `--corner-g=<g>` zrychlí řidiče (výchozí 0,55). Výsledky z 20. 10. 2026 jsou v [docs/driving-model.md](../docs/driving-model.md#měření-horizontů-20-10-2026).
+Automatický jízdní test (bez okna): auto plným plynem jede po skidpadu (nebo po trati z `-- --track=farmland`) podle řezů `SimD`. Před zatáčkami brzdí (dávkovaně), jen když by v nich potřebovalo víc než 0,55 g (plánuje se zpomalením 0,45 g a výhledem asi 240 m), změří 0–100 km/h, rychlost po 40 s, brzdnou dráhu ze 100 km/h a vypíše kontakty karoserie. Na horizontech měří skoky (doba ve vzduchu, výška, roztažené pérování, odskoky) a zatížení kol proti tomu, co dovoluje svislý poloměr silnice (1 − v²/(R·g)); `--time=<s>` prodlouží jízdu, `--corner-g=<g>` zrychlí řidiče (výchozí 0,55). `--set=vlastnost:hodnota` nastaví vlastnost auta (např. `--set=damping_rebound:0.7`). Údaje o horizontech se počítají jen do první nehody. Výsledky z 20. 10. 2026 jsou v [docs/driving-model.md](../docs/driving-model.md#měření-horizontů-20-10-2026).
 
 ```bash
 ~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/drive_test.tscn
 ```
 
-Brzdění v zatáčce (bez okna): na skidpadu auto jede po kruhu do 100 km/h, pak 3 s drží řízení do zatáčky a brzdu; vypíše rychlost stáčení a úhel smyku karoserie (beta). Brzda a řízení se drží jako klávesy (s náběhem), `--keyboard=0` je dá přímo. Volby `--brake=0..1`, `--steer=0..1`, `--abs=0`, `--set=vlastnost:hodnota` (ladění parametrů `Car`).
+Brzdění v zatáčce (bez okna): na skidpadu auto jede po kruhu do 100 km/h (`--entry=`), pak 3 s drží řízení do zatáčky a brzdu; vypíše rychlost stáčení a úhel smyku karoserie (beta). Měření končí prvním nárazem do čehokoli kromě silnice. Brzda a řízení se drží jako klávesy (s náběhem), `--keyboard=0` je dá přímo. Volby `--car=`, `--brake=0..1`, `--steer=0..1`, `--abs=0`, `--set=vlastnost:hodnota` (ladění parametrů `Car`). Se `--brake=0` měří nedotáčivost při plném rejdu (D-026).
 
 ```bash
 ~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/brake_turn_test.tscn -- --brake=1 --steer=1
 ```
+
+Tabulka níže je ze 17. 10. 2026 a už neplatí (kola s hmotou, rejd podle rychlosti). Dnes auto ze 100 km/h vyjede z kruhu a narazí, viz [driving-model.md](../docs/driving-model.md#rejd-řízení-podle-rychlosti-29-10-2026).
 
 | 17. 10. 2026, 100 km/h, klávesnice | Úhel smyku max | Otočení za 3 s |
 | --- | --- | --- |
@@ -209,6 +217,12 @@ Náraz do objektu (bez okna): auto se rozjede na první dopravní značku na far
 
 ```bash
 ~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/prop_test.tscn
+```
+
+Závod (bez okna): na farmlandu ověří, že odpočet drží auto na místě (29. 10. 2026: posun 4 cm usazením na svahu, motor do 5 800 ot/min), GO po 3 s, že zkratka do cíle bez kontrolních bodů a průjezd cílem pozpátku neplatí, po průjezdu všech 30 kontrolních bodů a cílem ve 30 m/s se stopky zastaví na okamžiku průjezdu (odchylka 8 ms) , za cílem auto s drženým plným plynem a volantem samo zastaví na silnici (ze 30 m/s za 6,1 s, 1,5 m od středu silnice) a stopky se nezmění, a Backspace začne nový odpočet za startovní čarou.
+
+```bash
+~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/race_test.tscn
 ```
 
 Počitadlo kilometrů: bez okna ověří polohy válečků a přenos (např. 999,95 → tři válečky v půlce přenosu). S oknem (bez `--headless`) pak 6 s ukazuje rychloměry všech tří ér s přetočením 99 999,5 → 100 000,5 km, ve druhé polovině s chvěním válečků. Jízdní test navíc porovnává počitadlo s ujetou dráhou (17. 10. 2026: +0,9 %, rozdíl dělá prokluz kol).
@@ -319,6 +333,7 @@ Na farmlandu auto 40 s jede po silnici z kopce bez kolize. Odvážnější řidi
 
 ## Stav a známá omezení
 
+- Pérování (`car.gd`, od 29. 10. 2026): kolo s neodpruženou hmotou (25–41 kg podle pneumatiky) na pružné pneumatice (200 kN/m). Pružina, tlumič (stlačení a odskok zvlášť), tlumený doraz a stabilizátor působí mezi kolem a karoserií, zatížení pro přilnavost dává jen pneumatika. `unsprung_model = false` vrátí dřívější model, kde kolo sedělo přímo na silnici (paprsek) ([docs/driving-model.md](../docs/driving-model.md#neodpružená-hmota-29-10-2026)).
 - Model pneumatik (`car.gd`): každé kolo má vlastní rotaci se setrvačností 1,2 kg·m², poháněná kola navíc setrvačnost motoru přes převod (pevně 0,09 kg·m², v datech není). Podélný skluz a úhel skluzu tvoří jeden normovaný vektor skluzu. Síla roste k vrcholu (délka 1), pak klesá na 75 % (smyk). Vrchol: skluz 0,12, úhel 3° + 0,08° × profilové číslo (356: 8,6°). Přilnavost μ = 0,444 + 0,353 × `.sim` 0x0F4 (356: 0,85, hypotéza), citlivost na zatížení 10 %, valivý odpor 0,015. Kola se integrují v 8 podkrocích. Brzdy působí momentem (zpomalení 0x104 v m/s², 356: 0,66 g, podíl vpředu 0x108, 356: 60 %), bez ABS mohou kola zablokovat. Zadní pneumatiky mají 1,12× přilnavost předních (geometrie zadní nápravy, tlaky): bez brzdy je auto mírně nedotáčivé, při brzdění se zatížení přesune dopředu a záď ztratí rezervu. Se stejnou přilnavostí se auto se 56 % váhy vzadu roztočilo už při plném řízení bez brzdy, motor brzdí podílem 0x098 momentu při daných otáčkách (356: 23 %). Převodovka řadí nahoru, když vyšší stupeň dá na kolech víc síly. Ladění proti originálu přes Wine zbývá.
 - Stabilizátory: vpředu 1,0 × tuhost pružiny, vzadu 0,3 (356 měla stabilizátor jen vpředu). Se stejně tuhým vzadu se zadní vnitřní kolo při brzdění v zatáčce odlehčovalo a auto se roztáčelo.
 - Kamera je 6 m za autem a 2,4 m nad ním.
@@ -332,7 +347,7 @@ Na farmlandu auto 40 s jede po silnici z kopce bez kolize. Odvážnější řidi
 
 ## Grafika (IDEA-009)
 
-Materiály modelů nastavuje `scripts/materials.gd`: u auta podle stránky `.tpg` (lak s clearcoatem, chrom, světla, sklo s průhlednou tabulí, interiér, kola s chromem nebo gumou podle jasu textury), odrazy okolí v laku a sklech z `ReflectionProbe`, který jede s autem (auto na vizuální vrstvě 2, sklo s premultiplied alpha, D-018), u trati anizotropní filtrování a procedurální detailní šum (triplanárně na UV2) na silnici a terénu; má-li trať vedle glTF složku `advanced/` s mapami `<textura>_normal|ambient|specular|displacement.png` (vlastní, dělané k původním texturám, jen lokálně v `decomposed/`), přidají se k materiálům se stejnou základní texturou: normálová mapa (OpenGL), ambientní okluze, spekulár převedený na drsnost (1 − 0,45 × spekulár) a výšková mapa jako jednoduchá paralaxa (hloubka 0,3 % dlaždice). Každá mapa je volitelná, velikost libovolná. Prostředí: obloha z HDRI podle trati a denní doby (viz níže, bez HDRI `PhysicalSkyMaterial`), AgX, SSAO, glow, výšková mlha se sun scatter, slunce ze směru slunce v HDRI s PSSM 4 do 500 m a měkkými stíny.
+Materiály modelů nastavuje `scripts/materials.gd`: u auta podle stránky `.tpg` (lak s clearcoatem, chrom, světla, sklo s průhlednou tabulí, interiér, kola s chromem nebo gumou podle jasu textury), odrazy okolí v laku a sklech z `ReflectionProbe`, který jede s autem (auto na vizuální vrstvě 2, sklo s premultiplied alpha, D-018), slunce s plnou silou odlesků (`light_specular` 1,0 místo výchozích 0,5 Godotu, nízké slunce se leskne na silnici), u trati anizotropní filtrování a procedurální detailní šum (triplanárně na UV2) na silnici a terénu; má-li trať vedle glTF složku `advanced/` s mapami `<textura>_normal|ambient|specular|displacement.png` (vlastní, dělané k původním texturám, jen lokálně v `decomposed/`), přidají se k materiálům se stejnou základní texturou: normálová mapa (OpenGL, síla 0,5; materiál s ní nemá procedurální detailní šum, protože detailní vrstva Godotu normálovou mapu přepíše plochou), ambientní okluze, spekulár převedený na drsnost (lineárně 0 → 0,9, 1 → 0,4; silnice bez spekulární mapy ho berou z jasu své základní textury) a výšková mapa jako jednoduchá paralaxa (hloubka 0,3 % dlaždice). Každá mapa je volitelná, velikost libovolná. Prostředí: obloha z HDRI podle trati a denní doby (viz níže, bez HDRI `PhysicalSkyMaterial`), AgX, SSAO, glow, výšková mlha se sun scatter, slunce ze směru slunce v HDRI s PSSM 4 do 500 m a měkkými stíny.
 
 ### Den a noc (D-019)
 

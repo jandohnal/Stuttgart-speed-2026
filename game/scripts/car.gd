@@ -26,10 +26,19 @@ const AIR_DENSITY := 1.225
 @export var bump_travel := 0.08  ## m the wheel can move up from the model's ride height
 @export var droop_travel := 0.10  ## m the wheel can drop below it
 @export var ride_frequency := 1.7  ## Hz, sets the spring rate; springs are preloaded to the model's ride height
-@export var damping_ratio := 0.35
+@export var damping_bump := 0.35  ## damper on compression, share of critical damping
+@export var damping_rebound := 0.35  ## damper on extension (rebound), share of critical damping
 @export var anti_roll_front := 1.0  ## anti-roll bar stiffness relative to the spring rate
 @export var anti_roll_rear := 0.3  ## 356: front bar only, rear swing axle without one
 @export var bump_stop_rate := 10.0  ## stiffness multiplier in the last 25 % of bump travel
+@export var bump_stop_damping := 1.0  ## extra damping inside the bump stop, share of critical damping (0 = elastic rubber)
+## Unsprung mass: each wheel has its own mass on a tyre spring and follows the road on its own; the
+## spring and damper act between the wheel and the body. Off: the wheel sits on the road (ray only)
+## and the damper reacts to the road profile directly, which over a crest takes the load off the tyre.
+@export var unsprung_model := true
+@export var unsprung_mass := 30.0  ## kg per corner (wheel, tyre, brake, hub, part of the axle); from the tyre size
+@export var tyre_rate := 200000.0  ## N/m, vertical stiffness of the tyre
+@export var tyre_damping := 0.05  ## share of the tyre's critical damping
 @export var grip := 1.0  ## multiplier on the friction coefficient derived from .sim 0x0F4
 @export var grip_base := 0.444  ## mu = grip_base + grip_per_sim * 0x0F4 (356 A 1.15 -> 0.85, 2.0 -> 1.15)
 @export var grip_per_sim := 0.353
@@ -43,6 +52,11 @@ const AIR_DENSITY := 1.225
 @export var brake_front_bias := 0.58  ## front share of the brake torque (.sim 0x108)
 @export var wheel_substeps := 8
 @export var max_steer_deg := 30.0
+## Front wheel angle shrinks with speed, as in the original (.sim 0x0FC): the angle for the
+## tightest circle the grip allows (wheelbase x mu g / v^2) plus steer_lock_margin x the peak slip
+## angle, never under max_steer_deg at low speed. Countersteering into a slide may go further.
+@export var speed_sensitive_steering := true
+@export var steer_lock_margin := 1.0
 @export var steering_assist := false  ## limit front wheel angle to the tyres' peak slip angle
 @export var brake_assist := false  ## ABS: wheels do not lock under the foot brake (the original does not lock them)
 @export var abs_slip := 0.8  ## ABS releases a front wheel above this share of the peak slip ratio (keeps steering)
@@ -115,7 +129,7 @@ var redline := 6000.0
 var wheel_radius := 0.3
 var front_drive_share := 0.0
 var spring_rate := 0.0
-var damper_rate := 0.0
+var critical_damping := 0.0  ## N s/m for one corner (quarter of the mass on its spring)
 var mu := 1.0  ## tyre friction coefficient at static load
 var peak_slip_angle := 0.12  ## rad, from the tyre aspect ratio (taller sidewall = larger)
 var engine_inertia := 0.09  ## kg m2; not in the .sim data (0x058 is the drivetrain efficiency)
@@ -128,6 +142,12 @@ var rpm := IDLE_RPM
 var throttle := 0.0
 var brake := 0.0
 var handbrake := false
+## Held on the start line (race countdown): brakes on, clutch open, the engine revs freely.
+var held := false
+## The player's keys are ignored and the car follows auto_steer / auto_brake (after the finish).
+var auto_drive := false
+var auto_steer := 0.0  ## -1 right .. 1 left, like the steering keys
+var auto_brake := 0.0  ## 0..1
 var steer := 0.0
 var forward_speed := 0.0
 var odometer_m := 0.0  ## total distance, driven by the driven wheels' rotation like a gearbox-driven odometer
@@ -164,6 +184,9 @@ class Wheel:
 	var point := Vector3.ZERO
 	var normal := Vector3.UP
 	var compression_speed := 0.0
+	var travel := 0.0  ## wheel position relative to the model's ride height, m, positive = up (bump)
+	var travel_speed := 0.0  ## m/s, of the wheel relative to the body
+	var mount_speed := 0.0  ## m/s along the body's up axis, last tick (for the body's acceleration)
 	var zone := -1  ## damage corner zone (CarDamage.CORNER_ZONES)
 	var toe := 0.0  ## rad, from damage, positive = to the left
 	var grip_factor := 1.0  ## from damage
@@ -207,7 +230,7 @@ func setup(model: Node3D, car_params: Dictionary) -> void:
 		_derive_from_data(unknown)
 	launch_rpm = maxf(IDLE_RPM, launch_rpm_share * redline)
 	spring_rate = mass / 4.0 * pow(TAU * ride_frequency, 2.0)
-	damper_rate = 2.0 * damping_ratio * sqrt(spring_rate * mass / 4.0)
+	critical_damping = 2.0 * sqrt(spring_rate * mass / 4.0)
 	_model = model
 	if model != null:
 		add_child(model)
@@ -236,6 +259,7 @@ func _derive_from_data(unknown: Dictionary) -> void:
 	bump_travel = minf(bump_travel, 0.75 * clearance / 1000.0)  # the body must not reach the road first
 	var tyre: Dictionary = params["tyre"]
 	wheel_inertia = 1.2 * pow(wheel_radius / 0.292, 2.0) * float(tyre["width_mm"]) / 145.0
+	unsprung_mass = 25.0 + 0.1 * maxf(float(tyre["width_mm"]) - 145.0, 0.0)  # 356: 25 kg, 993 Turbo: 39 kg
 	rear_grip = 1.0 if str(params.get("engine_position", "rear")) == "front" else 1.12
 	lsd_lock = 0.6 if float(unknown.get("0x10C", 1.0)) >= 1.3 else 0.0
 	# Turbo lag by era: KKK single turbos of the 1970s (930, 935) lag badly, 1980s water cooled
@@ -295,6 +319,8 @@ func _detach_wheel(w: Wheel) -> void:
 	w.detached = true
 	w.contact = false
 	w.compression = 0.0
+	w.travel = 0.0
+	w.travel_speed = 0.0
 	w.omega = 0.0
 	w.ray.enabled = false
 	var nodes: Array[Node3D] = []
@@ -358,6 +384,9 @@ func reset_to(xf: Transform3D) -> void:
 	boost = 0.0
 	for w in wheels:
 		w.omega = 0.0
+		w.travel = 0.0
+		w.travel_speed = 0.0
+		w.mount_speed = 0.0
 	_accel_key = 0.0
 	_brake_key = 0.0
 	_steer_key = 0.0
@@ -483,7 +512,7 @@ func _physics_process(delta: float) -> void:
 	_read_input(delta)
 	_update_damage()
 	_update_gearbox(delta)
-	var engaged := _shift_timer <= 0.0
+	var engaged := _shift_timer <= 0.0 and not held
 	_update_boost(delta, engaged)
 	var gearing := _gear_ratio() * final_drive
 	var engine_torque := 0.0
@@ -535,6 +564,10 @@ func _read_input(delta: float) -> void:
 	var accel_raw := Input.get_action_strength("accelerate")
 	var brk_raw := Input.get_action_strength("brake")
 	var steer_raw := Input.get_action_strength("steer_left") - Input.get_action_strength("steer_right")
+	if auto_drive:
+		accel_raw = 0.0
+		brk_raw = auto_brake
+		steer_raw = auto_steer
 	var accel := accel_raw
 	var brk := brk_raw
 	var steer_input := steer_raw
@@ -564,10 +597,12 @@ func _read_input(delta: float) -> void:
 	else:
 		throttle = accel
 		brake = brk
-		if brk_raw > 0.1 and accel_raw < 0.1 and absf(forward_speed) < 0.5:
+		if brk_raw > 0.1 and accel_raw < 0.1 and absf(forward_speed) < 0.5 and not held and not auto_drive:
 			gear = -1  # arcade style: holding brake at standstill reverses
 	var lock := deg_to_rad(max_steer_deg) * (1.0 - damage_steer_loss * (damage.zone(1) if damage != null else 0.0))
 	var target := steer_input * lock
+	if speed_sensitive_steering:
+		target = clampf(target, -_speed_lock(lock, -1.0), _speed_lock(lock, 1.0))
 	if steering_assist:
 		target = _assisted_steer(target, lock)
 	steer = move_toward(steer, target, steer_rate * delta)
@@ -579,25 +614,40 @@ func _ramp(value: float, target: float, rise_time: float, fall_time: float, delt
 	return move_toward(value, target, delta / maxf(time, 0.001))
 
 
+## Steering lock towards one side (+1 left) at the current speed: enough for the tightest circle
+## the grip allows plus a margin past the tyres' peak slip angle. Towards the side the front axle
+## travels (a slide) it reaches that direction plus the same margin, so countersteering works.
+func _speed_lock(lock: float, side: float) -> float:
+	var v := absf(forward_speed)
+	if v < 1.0:
+		return lock
+	var wheelbase := absf(_axle_z(false) - _axle_z(true))
+	var limit := wheelbase * mu * GRAVITY / (v * v) + steer_lock_margin * peak_slip_angle
+	var travel := _front_travel() * side
+	if travel > 0.0:
+		limit = maxf(limit, travel + steer_lock_margin * peak_slip_angle)
+	return minf(limit, lock)
+
+
+## Direction the front axle travels relative to the car (rad, positive = left).
+func _front_travel() -> float:
+	var front_offset := Vector3(0.0, 0.0, _axle_z(true))
+	var v := global_basis.inverse() * (linear_velocity + angular_velocity.cross(global_basis * (front_offset - center_of_mass)))
+	if -v.z < 0.5:
+		return 0.0
+	return atan2(-v.x, -v.z)
+
+
 ## Steering assist: keeps the front wheels within assist_margin x peak slip angle of the
 ## direction the front axle actually travels, so full lock means "as much grip as there is"
 ## and countersteering in a slide still works. Fades in between 2 and 6 m/s.
 func _assisted_steer(target: float, lock: float) -> float:
-	var front_offset := Vector3.ZERO
-	var n := 0
-	for w in wheels:
-		if w.front:
-			front_offset += w.center
-			n += 1
-	if n > 0:
-		front_offset /= n
-	var v := global_basis.inverse() * (linear_velocity + angular_velocity.cross(global_basis * (front_offset - center_of_mass)))
-	if -v.z < 0.5:
+	if forward_speed < 0.5:
 		return target  # standing or reversing
-	var travel := atan2(-v.x, -v.z)  # front axle heading relative to the car, positive = left
+	var travel := _front_travel()
 	var window := peak_slip_angle * assist_margin
 	var assisted := clampf(target, travel - window, travel + window)
-	var blend := clampf((-v.z - 2.0) / 4.0, 0.0, 1.0)
+	var blend := clampf((forward_speed - 2.0) / 4.0, 0.0, 1.0)
 	return clampf(lerpf(target, assisted, blend), -lock, lock)
 
 
@@ -614,6 +664,13 @@ func _gear_ratio() -> float:
 
 func _update_gearbox(delta: float) -> void:
 	_shift_timer = maxf(_shift_timer - delta, 0.0)
+	if held:
+		# Clutch pedal down: throttle revs the free engine, first gear waits for the start.
+		gear = 1
+		_launch_slip = false
+		var free := lerpf(IDLE_RPM, redline, clampf(throttle, 0.0, 1.0))
+		rpm = move_toward(rpm, free, (rev_rise_rate if free > rpm else rev_drop_rate) * delta)
+		return
 	# Engine speed follows the driven wheels (the clutch slips below idle).
 	var omega := 0.0
 	var driven := 0
@@ -764,11 +821,22 @@ func _apply_wheel(w: Wheel, delta: float, drive_torque: float, inertia: float) -
 		* (brake_front_bias if w.front else 1.0 - brake_front_bias) / 2.0
 	var abs_on := brake_assist and (w.front or not handbrake)
 	var abs_limit := (abs_slip if w.front else abs_slip_rear) * peak_slip_ratio
-	if handbrake and not w.front:
+	if handbrake and not w.front or held:
 		brake_torque = maxf(brake_torque, mass * GRAVITY * wheel_radius)
 	if throttle < 0.05 and absf(forward_speed) < 0.5:
 		brake_torque = maxf(brake_torque, 0.3 * mass * GRAVITY * wheel_radius / 4.0)  # hold at standstill
+	if unsprung_model:
+		# The body gets the suspension force along its up axis; the tyre load is what the tyre
+		# spring carries. The part of the road's reaction across that axis (body pitched or rolled
+		# against the road) reaches the body through the suspension links, at the contact patch.
+		var up := global_basis.y
+		apply_force(up * _update_unsprung(w, delta), w.ray.global_position - global_position)
+		w.contact = w.normal_load > 0.0
+		if w.contact:
+			apply_force((w.normal - up * w.normal.dot(up)) * w.normal_load, w.point - global_position)
 	if not w.contact:
+		if not unsprung_model:
+			w.travel = -droop_travel
 		w.normal_load = 0.0
 		w.force = Vector2.ZERO
 		w.slip_ratio = 0.0
@@ -777,19 +845,23 @@ func _apply_wheel(w: Wheel, delta: float, drive_torque: float, inertia: float) -
 		w.spin = fmod(w.spin + w.omega * delta, TAU)
 		_update_visual(w)
 		return drive_torque
-	# Preloaded spring: carries a quarter of the weight at the model's ride height (lift 0).
-	var lift := w.compression - droop_travel
-	var wheel_load := mass * GRAVITY / 4.0 + spring_rate * lift + damper_rate * w.compression_speed
-	var stop_start := bump_travel * 0.75
-	if lift > stop_start:
-		wheel_load += spring_rate * bump_stop_rate * (lift - stop_start)
-	if w.partner != null:
-		var bar := anti_roll_front if w.front else anti_roll_rear
-		wheel_load += spring_rate * bar * (w.compression - w.partner.compression)
-	w.normal_load = maxf(wheel_load, 0.0)
 	var normal := w.normal
 	var offset := w.point - global_position
-	apply_force(normal * w.normal_load, offset)
+	if not unsprung_model:
+		# Preloaded spring: carries a quarter of the weight at the model's ride height (lift 0).
+		var lift := w.compression - droop_travel
+		w.travel = lift
+		w.travel_speed = w.compression_speed
+		var damping := damping_bump if w.compression_speed > 0.0 else damping_rebound
+		var wheel_load := mass * GRAVITY / 4.0 + spring_rate * lift + damping * critical_damping * w.compression_speed
+		var stop_start := bump_travel * 0.75
+		if lift > stop_start:
+			wheel_load += spring_rate * bump_stop_rate * (lift - stop_start)
+		if w.partner != null:
+			var bar := anti_roll_front if w.front else anti_roll_rear
+			wheel_load += spring_rate * bar * (w.compression - w.partner.compression)
+		w.normal_load = maxf(wheel_load, 0.0)
+		apply_force(normal * w.normal_load, offset)
 
 	# A wobbling wheel also shakes the car: its toe swings with the turn of the wheel.
 	var wheel_basis := global_basis * Basis(Vector3.UP, (steer if w.front else 0.0) + w.toe + 0.3 * w.wobble * sin(w.spin))
@@ -846,6 +918,63 @@ func _tyre_force(slip_ratio: float, slip_y: float, max_force: float) -> Vector2:
 
 
 ## Integrates wheel speed: net torque, then brakes as friction that stops but never reverses it.
+## Unsprung wheel: integrates the wheel's travel relative to the body in substeps (body motion held
+## for the tick) and returns the mean suspension force on the body (N, along its up axis). Sets
+## normal_load to the mean tyre load. The car's mass includes the wheels, so the springs carry the
+## body without them and a wheel's weight reaches the body only while its tyre is on the road.
+func _update_unsprung(w: Wheel, delta: float) -> float:
+	var up := global_basis.y
+	var mount := w.ray.global_position
+	var mount_speed := (linear_velocity + angular_velocity.cross(mount - global_position)).dot(up)
+	var mount_accel := (mount_speed - w.mount_speed) / delta
+	w.mount_speed = mount_speed
+	var gravity := -GRAVITY * up.y  # along the body's up axis
+	var on_road := w.contact  # ray hit: road_lift is where the wheel would sit on the undeflected tyre
+	var along := w.normal.dot(up) if on_road else 1.0  # share of the tyre load along the strut
+	var road_lift := w.compression - droop_travel
+	var road_speed := w.compression_speed
+	var spring_preload := (mass / 4.0 - unsprung_mass) * GRAVITY
+	var tyre_c := tyre_damping * 2.0 * sqrt(tyre_rate * unsprung_mass)
+	var static_deflection := mass / 4.0 * GRAVITY / tyre_rate  # the model's ride height is with the tyre loaded
+	var stop_start := bump_travel * 0.75
+	var bar := (anti_roll_front if w.front else anti_roll_rear) * spring_rate
+	var partner_travel := w.partner.travel if w.partner != null and not w.partner.detached else w.travel
+	var steps := maxi(wheel_substeps, 1)
+	var h := delta / steps
+	var body_sum := 0.0
+	var tyre_sum := 0.0
+	for i in steps:
+		var x := w.travel
+		var u := w.travel_speed
+		var spring := maxf(spring_preload + spring_rate * x, 0.0)  # a coil spring pushes, never pulls
+		var damper := (damping_bump if u > 0.0 else damping_rebound) * critical_damping * u
+		var stop := 0.0
+		if x > stop_start:
+			stop = maxf(spring_rate * bump_stop_rate * (x - stop_start) + bump_stop_damping * critical_damping * u, 0.0)
+		var suspension := spring + damper + stop + bar * (x - partner_travel)
+		var tyre := 0.0
+		if on_road:
+			var deflection := road_lift + road_speed * h * i - x + static_deflection
+			if deflection > 0.0:
+				tyre = maxf(tyre_rate * deflection + tyre_c * (road_speed - u), 0.0)
+		# Relative to the body: the wheel's own acceleration minus the body's at the mount.
+		u += ((tyre * along - suspension) / unsprung_mass + gravity - mount_accel) * h
+		x += u * h
+		if x < -droop_travel:  # hangs on the droop limit, moves with the body
+			x = -droop_travel
+			u = maxf(u, 0.0)
+		elif x > bump_travel:  # solid stop
+			x = bump_travel
+			u = minf(u, 0.0)
+		w.travel = x
+		w.travel_speed = u
+		body_sum += suspension
+		tyre_sum += tyre
+	w.normal_load = tyre_sum / steps
+	# The wheel's weight is part of the body's mass: while the tyre carries it, the body is relieved of it.
+	return body_sum / steps + (unsprung_mass * GRAVITY if w.normal_load > 0.0 else 0.0)
+
+
 func _spin_wheel(omega: float, torque: float, brake_torque: float, inertia: float, h: float) -> float:
 	omega += torque / inertia * h
 	var brake_step := brake_torque / inertia * h
@@ -855,7 +984,7 @@ func _spin_wheel(omega: float, torque: float, brake_torque: float, inertia: floa
 
 
 func _update_visual(w: Wheel) -> void:
-	var lift := w.compression - droop_travel
+	var lift := w.travel
 	var steer_basis := Basis(Vector3.UP, (steer if w.front else 0.0) + w.toe)
 	var spin_basis := Basis(Vector3.RIGHT, -w.spin)
 	# A bent wheel leans (camber) and wobbles: its axle tilt circles once per turn.

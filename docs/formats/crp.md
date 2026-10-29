@@ -278,7 +278,7 @@ python3 tools/track2gltf.py sources/GameData/Track/skidpad.crp decomposed/GameDa
 ```
 
 - Výstup: `.gltf` + `.bin` + `<trať>_road.json` (všechny řezy `SimD`, `segments` = úseky `{first, last, length_m, closed}`, `start`/`finish` z `_fstart.scn` s nejbližším řezem); textury jsou PNG z `fsh2png` ve stejné složce (chybí-li `index.json`, převedou se).
-- Uzly ve skupinách `road`, `terrain`, `vegetation`, `objects`, `props` (rozmístěné objekty s maticí `tr`, jméno uzlu začíná pořadím `000 …`), `simd` (červený poloprůhledný pás podle `SimD` pro kontrolu), s `--library` i `library` (předlohy v řadě na z = −60 m).
+- Uzly ve skupinách `road`, `terrain`, `vegetation`, `objects`, `props` (rozmístěné objekty s maticí `tr`, jméno uzlu začíná pořadím `000 …`), `gates` (předlohy, které rozmisťuje `_fstart.scn`: dlaždice cílové čáry `FNSH 0`, `FNSH 1` …, [scn.md](scn.md#umístění-předlohy)), `simd` (červený poloprůhledný pás podle `SimD` pro kontrolu), s `--library` i `library` (předlohy v řadě na z = −60 m).
 - `<trať>_objects.json`: pro každý uzel `props` jméno, značka, typ kolize (`smackable`, `box`, `cylinder`, `none`, `static`), hmotnost a průjezdnost z `animdefs.txt`, poloha.
 - Matice `tr` se zrcadlí stejně jako vrcholy: S·M·S se S = diag(−1, 1, 1, 1), tedy změna znaménka u prvků 1, 2, 3, 4, 8, 12. Těch 16 floatů čtených po sloupcích je přímo matice glTF.
 - `--level` 0–3 (skidpad: 7 314 / 2 636 trojúhelníků pro úroveň 0 / 2).

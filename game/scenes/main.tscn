@@ -1,9 +1,9 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene format=3 uid="uid://dk07x5tcbyun"]
 
-[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
-[ext_resource type="Script" path="res://scripts/car.gd" id="2_car"]
-[ext_resource type="Script" path="res://scripts/follow_camera.gd" id="3_camera"]
-[ext_resource type="Script" path="res://scripts/hud.gd" id="4_hud"]
+[ext_resource type="Script" uid="uid://bcccbq0gt76l1" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" uid="uid://l82hrqqjn65f" path="res://scripts/car.gd" id="2_car"]
+[ext_resource type="Script" uid="uid://3n3o3c1wtu5c" path="res://scripts/follow_camera.gd" id="3_camera"]
+[ext_resource type="Script" uid="uid://butkhiibagova" path="res://scripts/hud.gd" id="4_hud"]
 
 [sub_resource type="PhysicalSkyMaterial" id="sky_material"]
 rayleigh_coefficient = 2.5
@@ -36,41 +36,38 @@ fog_sun_scatter = 0.35
 fog_density = 0.0006
 fog_aerial_perspective = 0.6
 fog_sky_affect = 0.0
-fog_height = 0.0
 fog_height_density = 0.004
 adjustment_enabled = true
 adjustment_saturation = 1.1
 
-[node name="Main" type="Node3D"]
+[node name="Main" type="Node3D" unique_id=1503150449]
 script = ExtResource("1_main")
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1942227714]
 environment = SubResource("environment")
 
-[node name="Sun" type="DirectionalLight3D" parent="."]
-rotation = Vector3(-0.4, 0.75, 0)
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=576406497]
+transform = Transform3D(0.73168886, -0.26544264, 0.62783086, 0, 0.921061, 0.38941833, -0.6816388, -0.28493306, 0.67393005, 0, 0, 0)
 light_color = Color(1, 0.91, 0.8, 1)
 light_energy = 1.4
-light_angular_distance = 0.5
+light_angular_distance = 3.0
 shadow_enabled = true
-directional_shadow_mode = 2
 directional_shadow_blend_splits = true
 directional_shadow_max_distance = 500.0
 
-[node name="Car" type="RigidBody3D" parent="."]
+[node name="Car" type="RigidBody3D" parent="." unique_id=1493841998]
 script = ExtResource("2_car")
 
-[node name="Camera" type="Camera3D" parent="."]
-far = 4000.0
+[node name="Camera" type="Camera3D" parent="." unique_id=900309390]
 current = true
 script = ExtResource("3_camera")
 target_path = NodePath("../Car")
 
-[node name="HUD" type="CanvasLayer" parent="."]
+[node name="HUD" type="CanvasLayer" parent="." unique_id=845844018]
 script = ExtResource("4_hud")
 car_path = NodePath("../Car")
 
-[node name="Label" type="Label" parent="HUD"]
+[node name="Label" type="Label" parent="HUD" unique_id=1531919723]
 offset_left = 16.0
 offset_top = 12.0
 offset_right = 520.0

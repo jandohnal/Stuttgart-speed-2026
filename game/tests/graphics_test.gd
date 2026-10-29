@@ -37,6 +37,7 @@ func _ready() -> void:
 	add_child(main)
 	car = main.get_node("Car")
 	camera = main.get_node("Camera")
+	(camera as FollowCamera).intro_duration = 0.0  # measure from behind the car
 	var env := (main.get_node("WorldEnvironment") as WorldEnvironment).environment
 	var targets := {"env": [env], "sky": [env.sky.sky_material], "sun": [main.get_node("Sun")], "vp": [get_viewport()],
 		"head": main.lights.headlights if main.lights != null else []}

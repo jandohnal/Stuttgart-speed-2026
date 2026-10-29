@@ -36,6 +36,19 @@ SEGMENT_GAP = 30.0  # m; slices are ~6 m apart, a bigger jump starts the next ro
 CENTERLINE = "__road_centerline"
 
 
+def geom_matrix(geom):
+    """A GEOM_ELEMENT's placement as a glTF column-major matrix, mirrored like crp.article_matrix
+    (rows of the basis = axes, as in the tr matrix of placed articles; scale per axis)."""
+    b, s, p = geom["basis"], geom["scale"], geom["position"]
+    m = [b[0] * s[0], b[1] * s[0], b[2] * s[0], 0.0,
+         b[3] * s[1], b[4] * s[1], b[5] * s[1], 0.0,
+         b[6] * s[2], b[7] * s[2], b[8] * s[2], 0.0,
+         p[0], p[1], p[2], 1.0]
+    for i in (1, 2, 3, 4, 8, 12):
+        m[i] = -m[i]
+    return m
+
+
 def group_of(name):
     for group, pattern in GROUPS:
         if re.match(pattern, name, re.I):
@@ -167,6 +180,10 @@ def convert(src, out_path, level=0, library=False):
             mat_info[e.index] = (tex, method)
 
     nodes, props, lib_x, stats = [], [], 0.0, {"library_skipped": 0, "no_level": 0}
+    # Prototypes the start scene places (finish line tiles FNSH): exported where it puts them.
+    gate_geoms = {}
+    for geom in scn.start_geoms(src):
+        gate_geoms.setdefault(geom["tag"], []).append(geom)
     lights = {"world": [], "props": {}, "library": {}, "emitters": []}
     for art in arts:
         name_e = find(art.sub, "Name")
@@ -187,7 +204,8 @@ def convert(src, out_path, level=0, library=False):
             flares = [light_entry(e) for e in effects if e["kind"] == EFFECT_FLARE]
             if tag and flares and tag not in lights["library"]:
                 lights["library"][tag] = flares
-        if is_library and not library:
+        gate_tag = base_info(d, art)["tag"] if is_library else ""
+        if is_library and not library and gate_tag not in gate_geoms:
             stats["library_skipped"] += 1
             continue
         levels = sorted({s.index >> 12 for s in art.sub if s.tag == "pr"})
@@ -197,6 +215,16 @@ def convert(src, out_path, level=0, library=False):
         if lev is None:
             stats["no_level"] += 1
             continue
+        if gate_tag in gate_geoms:
+            gate_mesh = article_mesh(d, art, lev, lev, materials)
+            if gate_mesh and gate_mesh[1]:
+                # The scene places the vertices as they are; the prototype's tr (pivot) is not applied:
+                # on farmland the two FNSH tiles then cover the 2 x 6 m road exactly.
+                for i, geom in enumerate(gate_geoms.pop(gate_tag)):
+                    nodes.append({"name": f"{gate_tag} {i}", "offset": (0.0, 0.0, 0.0), "matrix": geom_matrix(geom),
+                                  "prims": gate_mesh[1], "group": "gates"})
+            if not library:
+                continue
         ground = not placed and not is_library and group_of(name) in ("road", "terrain")
         mesh = article_mesh(d, art, lev, lev, materials, up=ground)
         if not mesh or not mesh[1]:

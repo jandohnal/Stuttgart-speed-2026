@@ -1,6 +1,6 @@
 extends Node
 ## Straight-line test of a car on a flat 8 km test ground 500 m below the skidpad:
-##   godot --headless --path game res://tests/straight_test.tscn [-- --car=935race]
+##   godot --headless --path game res://tests/straight_test.tscn [-- --car=935race --set=prop:value]
 ## Full throttle for RUN_TIME (holding the heading), then full brake. Reports the settings derived
 ## from the car data, 0-100 and 0-200 km/h, the top speed and the braking distances, to compare
 ## with the car's real figures.
@@ -27,6 +27,10 @@ func _ready() -> void:
 	add_child(main)
 	car = main.get_node("Car") as Car
 	car.digital_input = false
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--set="):  # car property, e.g. --set=unsprung_model:0
+			var kv := arg.trim_prefix("--set=").split(":")
+			car.set(kv[0], kv[1].to_float())
 	var ground := StaticBody3D.new()
 	var shape := BoxShape3D.new()
 	shape.size = Vector3(400.0, 2.0, 8000.0)

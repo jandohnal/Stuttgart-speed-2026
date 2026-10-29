@@ -159,3 +159,21 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
   - Auta, u kterých originál díly ignoruje (959, 928, GT2, GT3), mají jen Stock a sériové pneumatiky.
 - **Důvod:** Přání uživatele (19. 10. 2026): z dílů originálu jen jednoduchý přepínač, pneumatiky zvlášť. Ze tří voleb pneumatik a z výměny motoru rozhodl uživatel.
 - **Důsledky:** Sport u 356 A 1600: 850 → 761 kg, moment 110 → 137 Nm, 0–100 km/h 14,4 → 9,9 s, brzdná dráha ze 100 km/h 60 → 50 m (`drive_test` na skidpadu). Slicky 58,5 m, pneumatiky do deště 61,1 m. Konstanty vzorců jsou jen v `parts.json` (D-023). Až budou tratě rozlišovat povrchy a počasí, má se použít celá tabulka povrch × typ pneumatik (sucho/déšť) z exe.
+
+## D-025 Závod od startu do cíle s odpočtem
+- **Stav:** accepted
+- **Rozhodnutí:** Na tratích se startem a cílem z `_fstart.scn` (`start`, `finish` v `_road.json`) jede hra závod od startu do cíle (`game/scripts/race_timer.gd`).
+  - **Start:** odpočet 3-2-1, auto stojí na startovní čáře originálu, drží ho brzdy a sešlápnutá spojka, motor jde vytočit. Stopky běží od GO, ne od průjezdu startovní čárou.
+  - **Čas:** součet kroků fyziky (pauza ho zastaví, testy jsou opakovatelné), v cíli dopočítaný na okamžik průjezdu čárou v rámci kroku. Formát m:ss.cc.
+  - **Cíl** platí jen ve směru jízdy, v šířce čáry a po průjezdu všech kontrolních bodů (řez silnice každých 50 řezů v okruhu 40 m). Návrat na silnici (R) čas nezastaví.
+  - **Nejlepší čas** pro trať a auto v `user://records.cfg`. Backspace = závod znovu (auto na start, oprava, nový odpočet).
+  - **Za cílem** se stopky zastaví, hráč auto neovládá (ani R) a auto samo brzdí podél silnice do zastavení, pak stojí na brzdách.
+  - **Čáry:** cílová čára jsou dlaždice originálu (`FNSH` z `_fstart.scn`, D-009), startovní čára vlastní bílý pruh (originál ji nemá); obě jako decaly. Auto stojí 3 m za startovní čarou (trigger startu je 2,2 m před řezem, na kterém auto dřív stálo).
+- **Důvod:** Přání uživatele (29. 10. 2026): funkční start a cíl se stopkami, start odpočtem místo průjezdu čarou; viditelné čáry a za cílem zastavit hru (ovládání, auto bezpečně zastavit, stopky). Jak start řešil originál při jízdě bez soupeřů, se ověří přes Wine.
+- **Důsledky:** Monte Carlo a skidpad start a cíl nemají, jezdí se volně; okruhy s počítáním kol (`lap` v `_road.json`), mezičasy a zvuk odpočtu zatím nejsou. Kontrolní body jsou jen po hlavní trase mezi startem a cílem, alternativní úseky `SimD` se neberou v úvahu.
+
+## D-026 Rejd řízení zmenšený s rychlostí
+- **Stav:** accepted
+- **Rozhodnutí:** Úhel předních kol je omezený podle rychlosti na rozvor × μ·g / v² + `steer_lock_margin` (1,0) × vrchol směrového úhlu pneumatik, nejvýš `max_steer_deg` (30°). Ke straně smyku smí kola až do směru pohybu přední nápravy plus stejná rezerva (kontrování). Platí pro všechny vstupy a není to asistent (D-017), ale vlastnost modelu jako v originálu. Vypnout jde přes `speed_sensitive_steering`.
+- **Důvod:** Uživatel řešil nedotáčivost (29. 10. 2026) a zvolil začít rejdem. Pevný rejd 30° přetáhne přední pneumatiky z klávesnice na 3–6násobek vrcholu směrového úhlu. Originál zmenšuje rozsah řízení s rychlostí (0x0FC, jednotka zatím neurčená).
+- **Důsledky:** Na skidpadu při plném rejdu z klávesnice: boční zrychlení +40–60 % (356 A 0,55 → 0,76 g při 60 km/h), auto už nevyjede z kruhu ([driving-model.md](driving-model.md#rejd-řízení-podle-rychlosti-29-10-2026)). Jízda robota v `drive_test` se nemění. Zbývá vyvážení náprav z 0x0F0 místo `rear_grip` 1,12 a nové měření brzdění v zatáčce.

@@ -7,7 +7,7 @@ count: "78 .scn, 1 animdefs.txt"
 encoding: "text, latin1, CRLF"
 status: partial
 tool: "tools/track2gltf.py (start/cíl z _fstart.scn, vlastnosti objektů z animdefs.txt)"
-updated: 2026-10-16
+updated: 2026-10-29
 ---
 
 # Scény tratí (`.scn`) a vlastnosti objektů (`animdefs.txt`)
@@ -36,6 +36,12 @@ Výskyt ve všech 78 souborech: `TRIGGER_ELEMENT` 1 645, `AUDIO_ELEMENT` 1 538, 
 
 Značka odkazuje na předlohu v CRP trati (`Base` 0x44, [crp.md](crp.md)) a na vlastnosti v `animdefs.txt`. Všechny `GEOM_ELEMENT`: CONE 291, ARW1 138, ENDW 61, ARW2 51, FNSH 46, ARW3 18, ARW4 9.
 
+#### Umístění předlohy
+
+Vrcholy předlohy se umístí maticí z řádků 1 a 2 tak, jak jsou: řádky báze jsou osy jako v matici `tr` rozmístěných objektů (zrcadlí se stejně, [crp.md](crp.md#převod-do-gltf)), poloha je počátek předlohy. Vlastní `tr` předlohy (pivot) se **nepoužije**. Ověřeno na cílové čáře (29. 10. 2026): s `tr` by dlaždice na farmlandu byly 3 m vedle silnice, bez ní pokryjí silnici širokou 2 × 6 m přesně.
+
+**FNSH** (předloha `FinishLine`) je plochá dlaždice 6 × 6 m, 0,18 m nad počátkem, jedna textura šachovnice (`fini`, 2 × 2 pole po 3 m). V `_fstart.scn` ji mají všechny tratě se startem a cílem (farmland, alps, foothills, forest, industrial, coastal 2×, canyon 3×, castle 4×, autobahn 5×) vedle sebe přes silnici u cílového triggeru, pás začíná 0–3 m před čárou. Startovní čára vlastní předlohu nemá.
+
 ### `TRIGGER_ELEMENT 5`
 
 Popis start/cíl je v [crp.md](crp.md#start-a-cíl--tratfstartscn-tratbstartscn): poloha, báze, parametry (typ první), dva krajní body čáry, řádek s nulami. V `_stNN.scn` mají triggery jiné typy (0 = ?), zatím nerozluštěno.
@@ -52,6 +58,6 @@ Příklady: SIGN sražitelná 80 kg, CONE 20 kg, CLMH 3 500 kg, auta provozu 1 5
 
 ## Využití
 
-- `tools/track2gltf.py` čte start/cíl z `_fstart.scn` a pro rozmístěné objekty typ kolize, hmotnost a průjezdnost z `animdefs.txt` (`<trať>_objects.json`).
+- `tools/track2gltf.py` čte start/cíl z `_fstart.scn` (triggery do `_road.json`, `GEOM_ELEMENT` jako uzly skupiny `gates`) a pro rozmístěné objekty typ kolize, hmotnost a průjezdnost z `animdefs.txt` (`<trať>_objects.json`).
 - Hra (`game/scripts/track_props.gd`): sražitelné objekty jsou dynamická tělesa s původní hmotností, zmrazená, dokud se nepřiblíží pohyblivé těleso; ostatní statické.
 - Zbývá: rozmístění předloh z `_stNN.scn` (úlohy), triggery úloh, kamery, zvuky, úlomky a animace (`SECTION:PIECE`).
