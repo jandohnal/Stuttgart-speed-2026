@@ -10,6 +10,7 @@ extends Node3D
 ## stuttgart/time (default day); the sky and sun come from SkyLighting, the car lamps from CarLights,
 ## the track's lamps and warning lights from TrackLights.
 ## Paint: GameSettings.car_color, else --color=<#rrggbb>; empty = the body texture untinted.
+## --ai=0|1: the car is driven by AIDriver along the original's racing line 0 or 1 (D-026).
 ## Parts (CarParts): GameSettings.car_tune (stock / sport) and tyres (stock / slick / rain), else
 ## --tune= / --tyres=; default stock.
 
@@ -238,10 +239,12 @@ var time_of_day := ""
 var hdri_sky := false  ## the sky is an HDRI (false: procedural fallback)
 var lights: Node3D  ## CarLights
 var track_lights: Node3D  ## TrackLights
-var road_slices: Array = []
-var road_segments: Array = []
+var road := Road.new()
+var road_slices: Array = []  ## road.slices (the tests read them)
 var start_slice := 0
 var race: RaceTimer  ## null on tracks without start / finish lines (free driving)
+var ai_driver: AIDriver  ## null: the player drives
+var _stopping := false  ## past the finish: the car brakes along the road (_drive_to_stop)
 var _grid := Transform3D.IDENTITY  ## where the race starts (behind the start line)
 var prop_counts := {}  ## placed objects per collision type (TrackProps)
 var car_style := 0  ## [styleN] of the car's model in use (CarStyle), 0 = model without styles
@@ -284,12 +287,12 @@ func _ready() -> void:
 		var simd := track.find_child("simd", true, false) as Node3D
 		if simd != null:
 			simd.visible = false  # road data overlay from track2gltf, only for checking
-	var road: Variant = OriginalAssets.load_json(folder + track_name + "_road.json")
-	if road is Dictionary:
-		road_slices = road["slices"]
-		road_segments = road.get("segments", [])
-		if road.has("start"):
-			start_slice = int(road["start"]["slice"])
+	var road_data: Variant = OriginalAssets.load_json(folder + track_name + "_road.json")
+	if road_data is Dictionary:
+		road = Road.new(road_data)
+		road_slices = road.slices
+		if road_data.has("start"):
+			start_slice = int(road_data["start"]["slice"])
 		var arg := _user_arg("slice")
 		if arg.is_valid_int():
 			start_slice = clampi(arg.to_int(), 0, road_slices.size() - 1)
@@ -327,23 +330,25 @@ func _ready() -> void:
 	else:
 		push_error("Car %s (physics %s) not found in %s" % [car_key, physics, CAR_PHYSICS])
 	_reset_car(start_slice)
-	if road is Dictionary and road.has("start") and road.has("finish") and _user_arg("slice").is_empty():
-		_setup_race(road)
+	if road_data is Dictionary and road_data.has("start") and road_data.has("finish") and _user_arg("slice").is_empty():
+		_setup_race(road_data)
+	if _user_arg("ai").is_valid_int():
+		drive_by_ai(_user_arg("ai").to_int())
 	if track != null:
 		RaceLines.gate_decals(track)
-		if road is Dictionary and road.has("start"):
-			track.add_child(RaceLines.start_line(road["start"], road_slices[int(road["start"]["slice"])]))
+		if road_data is Dictionary and road_data.has("start"):
+			track.add_child(RaceLines.start_line(road_data["start"], road_slices[int(road_data["start"]["slice"])]))
 
 
 ## Countdown, clock and best time between the original's start and finish lines. The tests load
 ## this scene inside their own: there the clock starts at once and no record is written.
-func _setup_race(road: Dictionary) -> void:
+func _setup_race(road_data: Dictionary) -> void:
 	race = RaceTimer.new()
 	race.name = "Race"
 	add_child(race)
-	race.setup(car, road["start"], road["finish"], road_slices)
+	race.setup(car, road_data["start"], road_data["finish"], road_slices)
 	race.finished.connect(_on_race_finished)
-	_grid = _grid_transform(road["start"])
+	_grid = _grid_transform(road_data["start"])
 	car.reset_to(_grid)
 	if _is_game():
 		race.keep_records(RECORDS_FILE, track_name, car_key)
@@ -362,8 +367,23 @@ func _grid_transform(start: Dictionary) -> Transform3D:
 ## Past the finish line the player's keys stop working: the car brakes firmly along the road
 ## until it stands, then it is held. The clock has stopped (RaceTimer).
 func _on_race_finished(_time: float) -> void:
+	if ai_driver != null:
+		ai_driver.enabled = false
+	_stopping = true
 	car.auto_drive = true
+	car.auto_throttle = 0.0
 	car.auto_brake = STOP_BRAKE
+
+
+## Hands the car to AIDriver on the original's racing line `line_index` (<track>_ai.json).
+func drive_by_ai(line_index := 0) -> AIDriver:
+	if ai_driver == null:
+		ai_driver = AIDriver.new()
+		ai_driver.name = "AIDriver"
+		car.add_child(ai_driver)
+	var ai_data: Variant = OriginalAssets.load_json("GameData/Track/%s/%s_ai.json" % [track_name, track_name])
+	ai_driver.setup(car, road, ai_data, line_index)
+	return ai_driver
 
 
 func _drive_to_stop() -> void:
@@ -377,8 +397,11 @@ func _drive_to_stop() -> void:
 
 func _restart_race() -> void:
 	car.repair()
-	car.auto_drive = false
+	_stopping = false
+	car.auto_drive = ai_driver != null
 	car.auto_steer = 0.0
+	if ai_driver != null:
+		ai_driver.enabled = true
 	car.reset_to(_grid)
 	race.begin(COUNTDOWN)
 	($Camera as FollowCamera).play_intro()
@@ -586,59 +609,19 @@ func _add_track_collision(track: Node3D) -> void:
 
 
 func _reset_car(slice_index: int) -> void:
-	if road_slices.is_empty():
+	if road.size() == 0:
 		car.reset_to(Transform3D(Basis.IDENTITY, Vector3(0, 1, 0)))
 		return
-	var s: Dictionary = road_slices[slice_index]
-	var pos := _vec(s["position"])
-	var up := _vec(s["up"])
-	var rot := Basis.looking_at(_vec(s["forward"]), up)  # car front is -Z, as in the original
-	car.reset_to(Transform3D(rot, pos + up * 0.4))
+	car.reset_to(road.transform_at(slice_index))
 
 
 func _nearest_slice() -> int:
-	var best := 0
-	var best_dist := INF
-	for i in road_slices.size():
-		var d := _vec(road_slices[i]["position"]).distance_squared_to(car.global_position)
-		if d < best_dist:
-			best_dist = d
-			best = i
-	return best
+	return road.nearest(car.global_position)
 
 
-## Index of the slice `ahead` slices after `index` along the road: within its segment, then into
-## the segment it continues into ("next", e.g. the laps of Monte Carlo), wrapping closed segments
-## and stopping at the end of a road that goes nowhere.
+## Index of the slice `ahead` slices after `index` along the road (Road.ahead).
 func slice_ahead(index: int, ahead: int) -> int:
-	var seg := _segment_of(index)
-	if seg.is_empty():
-		return (index + ahead) % road_slices.size()
-	var i := index
-	var left := ahead
-	while left > 0:
-		var last := int(seg["last"])
-		if i < last:
-			var step := mini(left, last - i)
-			i += step
-			left -= step
-		elif seg["closed"]:
-			i = int(seg["first"])
-			left -= 1
-		elif seg.get("next") != null:
-			seg = road_segments[int(seg["next"])]
-			i = int(seg["first"])
-			left -= 1
-		else:
-			break
-	return i
-
-
-func _segment_of(index: int) -> Dictionary:
-	for seg: Dictionary in road_segments:
-		if index >= int(seg["first"]) and index <= int(seg["last"]):
-			return seg
-	return {}
+	return road.ahead(index, ahead)
 
 
 func _vec(a: Array) -> Vector3:
@@ -690,7 +673,7 @@ func _toggle_log() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if car.auto_drive and not get_tree().paused:
+	if _stopping and not get_tree().paused:
 		_drive_to_stop()
 	if _log == null or get_tree().paused or car.telemetry.is_empty():
 		return

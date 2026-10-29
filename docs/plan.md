@@ -67,6 +67,8 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [ ] Spáry mezi silnicí a terénem a vedlejší úseky `SimD` mimo geometrii (varování z kontroly)
 - [x] Exportér tratí: světelné záře a zdroje částic z `ef` (`_lights.json`), vzhled září z `flare.dat` ([tools/flare.py](../tools/flare.py))
 - [ ] Exportér tratí: význam šířek `SimD`, spojení úseků (`.jnc`), předlohy z úloh (`_stNN.scn`), animace objektů, zdroje částic a stíny `ef`, `<trať>.map`
+- [x] Ideální stopy soupeřů `.lsp` a klíče `.key` do `<trať>_ai.json` ([tools/ai_lines.py](../tools/ai_lines.py), [formats/lsp.md](formats/lsp.md)), profily `.ais` a řízení `TRAFCFG` ([tools/ais2json.py](../tools/ais2json.py), [formats/ais.md](formats/ais.md))
+- [ ] Ověřit v exe význam `.key`, tabulek `.ais` A/B a rozdíl stop `.lsp` 0/1 (D-023)
 - [ ] Spustit originál na Macu přes Wine jako referenci
 
 ## Fáze 2 – Prototyp jízdy
@@ -98,7 +100,12 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 
 ## Fáze 3 – Opravený původní obsah
 
-- [ ] Kontrola překryvů ploch v `tools/mesh_check.py`: dvojice dílů ve stejné rovině (stejným směrem / dvě strany jedné plochy), protnutí, topologie dílů; výsledky v [model-check.md](model-check.md)
+- [ ] Kontrola překryvů ploch v `tools/mesh_check.py`; výsledky v [model-check.md](model-check.md)
+  - [x] Pořadí vrcholů dílů kreslených jen z lícové strany, vrstvené díly bez odsazení a zapuštěné (29. 10. 2026)
+  - [x] Vnitřní panely víek otočené po souvislých kusech, varianty `TrunkIn1` a víko f996 (všech 44 aut bez chyby)
+  - [ ] Pořadí vrcholů dalších jednostranných dílů (motor, zrcátka, interiér, zavazadlový prostor)
+  - [ ] Odsazení vrstev o 1 mm v převodníku (světla, stíny kol, obtisky), i u cílů poškození
+  - [ ] Hloubka protnutí dílů (bez dílů, které se jen dotýkají hranou)
 - [ ] Auta: opravy jako pravidla v `crp2gltf.py` a `materials.gd` (světla a odznaky na laku, interiér / exteriér, vnitřní a vnější sklo, okna, dveře a víka), přegenerovat všech 44 aut a ověřit kontrolou a snímky za autem
 - [ ] Tratě: spáry silnice a terénu, díry, orientace ploch, objekty kolem trati u všech 15 tratí
 - [ ] Zvuky: sady motorů pro všechna auta (`engine.json`), chybějící nebo vadné smyčky, hlasitosti
@@ -107,7 +114,12 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 ## Fáze 4 – Hra a atmosféra
 
 - [ ] Rychlý závod, mise testovacího jezdce, kariéra
-- [ ] AI soupeřů, provoz, policie
+- [x] Rozbor AI originálu, srovnání s dnešními hrami a plán ([opponents.md](opponents.md), D-026)
+- [x] Soupeři B: řidič AI pro jedno auto (`Car.auto_drive` bez klávesových ramp, `scripts/ai_driver.gd`, sdílená silnice `scripts/road.gd`, stopa `.lsp`, rychlostní profil, návrat na stopu); `ai_drive_test`: 356 A farmland 5:57, 935 a 356 A dvě kola Monte Carla (stopa 1) bez resetu, doteku a smyku nad 12° (po prvním vyzkoušení ve hře doplněno brzdění podle kruhu přilnavosti a ubírání plynu v zatáčce a ve smyku) ([game/README.md](../game/README.md))
+- [ ] Soupeři C: závod se soupeři (startovní rošt, pořadí a cíl pro každé auto, pozice v HUD), měření FPS s 1 / 3 / 7 soupeři
+- [ ] Soupeři D: racecraft (předjíždění, prostor) a osobnosti z `prsonal`
+- [ ] Soupeři E: síla AI v menu, volitelná gumička
+- [ ] Provoz, policie
 - [ ] Zvuky originálu pro všechny situace (soupeři, provoz, policie, prostředí)
 
 ## Fáze 5 – Vylepšený a doplněný obsah

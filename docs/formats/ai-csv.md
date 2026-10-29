@@ -50,5 +50,5 @@ Akce hráče: collision, opp wizzed by, human block opp, opp block human, opp pa
 ## Poznámky
 
 - Kódy aut v `tuning.csv` (`MSLK`, `BMWZ`, `F550`, `MCF1` …) a jména tratí (Snowy, Celtic, …) pocházejí z NFS4 High Stakes. Tabulky byly převzaty a hra je zřejmě používá jen podle pořadí.
-- `TRAFCFG.DAT` (108 B) + `TRAFCFG.DES` (popis polí: lookahead, lateral velocity, „In Control AI Physics parameters“) jsou jiný formát, zatím nepřevedeno.
+- `TRAFCFG.DAT` (108 B) + `TRAFCFG.DES` (popis polí) jsou jiný formát: regulátory řízení AI, převádí `tools/ais2json.py`, viz [ais.md](ais.md#trafcfgdat-a-trafcfgdes).
 - Pro naši hru jsou cenné hlavně myšlenky: gumička podle vzdálenosti, osobnosti jako sada 0–3 vlastností, skriptované reakce na akce hráče, rozestupy v koloně.

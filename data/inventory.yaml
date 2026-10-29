@@ -35,12 +35,17 @@ items:
     use: "Logika a výchozí čísla AI"
 
   - id: ai_car_profiles
-    category: to_write
+    category: usable_now
     priority: medium
-    path: GameData/Simulation/AICarData/*.ais
-    count: 22
+    path: ["GameData/Simulation/AICarData/*.ais", "GameData/Simulation/AI/TRAFCFG.DAT"]
+    count: 23
     format: ais
-    status: unknown
+    doc: docs/formats/ais.md
+    tool: tools/ais2json.py
+    output: ["decomposed/GameData/Simulation/AICarData/ais.json", "decomposed/GameData/Simulation/AI/trafcfg.json"]
+    status: partial_decoded
+    notes: "304 B: jméno rodiny + tabulka A (24 float, 8 → 30, hypotéza dohled v m podle rychlosti) + tabulka B (40 float, klesá, hypotéza max. rychlost podle ostrosti zatáčky). TRAFCFG: dohled 12–30 m a regulátory boční polohy a natočení AI ve dvou sadách (in control / out of control) – originál neřídil AI plnou simulací"
+    use: "Srovnání a výchozí hodnoty pro AI soupeřů (docs/opponents.md)"
 
   - id: car_text_config
     category: usable_now
@@ -140,9 +145,22 @@ items:
   - id: track_binary_data
     category: to_write
     priority: low
-    path: ["GameData/Track/*.key", "*.edg", "*.jnc", "*.lsp", "*.rho", "Cops/*.cop"]
+    path: ["GameData/Track/*.edg", "*.jnc", "Data/*.rho", "Cops/*.cop"]
     status: unknown
-    notes: "Podle názvů: ideální stopa vpřed/vzad (.key), okraje (.edg), rozcestí (.jnc), policie (.cop)"
+    notes: "Podle názvů: okraje (.edg), rozcestí (.jnc), policie (.cop); Data/TR*.RHO (2048 B) zřejmě z NFS4"
+
+  - id: track_ai_lines
+    category: usable_now
+    priority: high
+    path: ["GameData/Track/racer/work/*.lsp", "GameData/Track/*_forward.key", "GameData/Track/*_backwards.key"]
+    count: 58
+    format: lsp
+    doc: docs/formats/lsp.md
+    tool: tools/ai_lines.py
+    output: decomposed/GameData/Track/<trať>/<trať>_ai.json
+    status: partial_decoded
+    notes: "Ideální stopy soupeřů: dvě na trať, bod (−x, z) pro každý řez SimD (ověřeno na 15 tratích), uložené jako boční odchylka od středu řezu. .key: páry (řez, hodnota 149–600) se zarážkou (100000, 600), význam zatím neznámý (tempo po úsecích?)"
+    use: "Stopa pro AI soupeřů v prototypu (D-026)"
 
   - id: textures
     category: unpack

@@ -149,12 +149,16 @@ var brake := 0.0
 var handbrake := false
 ## Held on the start line (race countdown): brakes on, clutch open, the engine revs freely.
 var held := false
-## The player's keys are ignored and the car follows auto_steer / auto_brake (after the finish).
+## The player's keys are ignored and the car follows auto_throttle / auto_brake / auto_steer
+## (AIDriver, or the stop after the finish). The values are pedals and wheel as they are,
+## without the keyboard ramps.
 var auto_drive := false
+var auto_throttle := 0.0  ## 0..1
 var auto_steer := 0.0  ## -1 right .. 1 left, like the steering keys
 var auto_brake := 0.0  ## 0..1
 var steer := 0.0
 var forward_speed := 0.0
+var side_contacts := 0  ## body contacts this tick pushing sideways or lengthways (walls, barriers, cars), not the ground
 var odometer_m := 0.0  ## total distance, driven by the driven wheels' rotation like a gearbox-driven odometer
 var telemetry: Dictionary = {}
 var engine_torque_nm := 0.0  ## torque the engine gives this tick (after throttle), for telemetry
@@ -302,11 +306,15 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 		return
 	var contacts := []
 	var to_car := global_basis.inverse()
+	side_contacts = 0
 	for i in state.get_contact_count():
 		var impulse := state.get_contact_impulse(i).length()
 		if impulse > 0.0:
+			var normal := to_car * state.get_contact_local_normal(i)
 			contacts.append({"impulse": impulse, "point": to_local(state.get_contact_local_position(i)),
-				"normal": to_car * state.get_contact_local_normal(i)})
+				"normal": normal})
+			if absf(normal.y) < 0.5:
+				side_contacts += 1
 	damage.add_tick(contacts)
 
 
@@ -574,13 +582,13 @@ func _read_input(delta: float) -> void:
 	var brk_raw := Input.get_action_strength("brake")
 	var steer_raw := Input.get_action_strength("steer_left") - Input.get_action_strength("steer_right")
 	if auto_drive:
-		accel_raw = 0.0
+		accel_raw = auto_throttle
 		brk_raw = auto_brake
 		steer_raw = auto_steer
 	var accel := accel_raw
 	var brk := brk_raw
 	var steer_input := steer_raw
-	if digital_input:
+	if digital_input and not auto_drive:
 		# In reverse the keys swap roles, so each key ramps as the pedal it currently drives.
 		var accel_is_brake := gear == -1
 		# Gentle off the line, quicker at speed and in the higher gears (less wheelspin to fear).
@@ -597,7 +605,7 @@ func _read_input(delta: float) -> void:
 		var turn_time := lerpf(steer_time_slow, steer_time_fast, clampf(absf(forward_speed) / steer_fast_speed, 0.0, 1.0))
 		_steer_key = move_toward(_steer_key, steer_raw, delta / (turn_time if away else steer_return_time))
 		steer_input = _steer_key
-	handbrake = Input.is_action_pressed("handbrake")
+	handbrake = Input.is_action_pressed("handbrake") and not auto_drive
 	if gear == -1:
 		throttle = brk
 		brake = accel

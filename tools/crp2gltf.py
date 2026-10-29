@@ -436,20 +436,32 @@ def redundant_lods(candidates, level, styles):
     return out
 
 
-# Inner skin of a lid -> its outer skin (part names). They lie in one plane; the inner one must face
-# away from the outer one, or seen from outside the two z-fight (901, 914: the luggage-space texture
-# showed through the front lid). The game draws inner skins from their front only (materials.gd).
-INNER_SKINS = {"HoodIn": "HoodOut", "TrunkIn": "TrunkOut", "MoveSpoilerIn": "MoveSpoiler"}
-SKIN_DIST = 0.05  # m: an inner triangle takes its side from the outer triangle nearest to its centre
+# Inner skin of a lid -> its outer skins, first found wins (part names without the variant digits:
+# TrunkIn1 goes with TrunkOut / TrunkOut1 / TrunkOut2; the f996 engine lid has no TrunkOut, its
+# SpoilerDown is the outer skin; names starting with the outer one). They lie in one plane; the inner one must face away from the outer
+# one, or seen from outside the two z-fight (901, 914: the luggage-space texture showed through the
+# front lid). The game draws inner skins from their front only (materials.gd).
+INNER_SKINS = {"HoodIn": ("HoodOut",), "TrunkIn": ("TrunkOut", "Spoiler"), "MoveSpoilerIn": ("MoveSpoiler",)}
+SKIN_DIST = 0.05  # m: an inner triangle votes for its side from the outer triangle nearest to its centre
+SKIN_WELD = 1000.0  # 1/m: corners closer than 1 mm are one vertex when walking from triangle to triangle
 
 
 def orient_inner_skins(candidates):
-    """Turn every triangle of an inner skin (INNER_SKINS) to face away from the nearest triangle of
-    its outer skin and recompute its normals from the faces. Stored winding and normals of the inner
-    skins are mixed (half of the 356 A HoodIn faces up, half down)."""
+    """Turn the triangles of an inner skin (INNER_SKINS) to face away from its outer skin, with one
+    winding across every connected piece, and recompute its normals from the faces.
+
+    Stored winding and normals of the inner skins are mixed (half of the 356 A HoodIn faces up, half
+    down). Each triangle near the outer skin votes for its side (away from the nearest outer
+    triangle, weighted by area and by how parallel the two are), and the side of each connected
+    piece is the vote of all its triangles. Deciding triangle by triangle went wrong where the lid
+    bends down to its edge: the nearest outer triangle there lies across the bend, and with the
+    inner skin drawn from its front only the corners of a loose or torn-off lid had holes."""
     flipped = 0
-    for inner, outer in INNER_SKINS.items():
-        outs = [mesh_triangles(c[5]) for c in candidates if c[2].strip() == outer]
+    variant = lambda c: re.sub(r"\d+$", "", c[2].strip())
+    for inner, outers in INNER_SKINS.items():
+        skin = lambda c, o: variant(c).startswith(o) and variant(c) not in INNER_SKINS
+        outs = next(([mesh_triangles(c[5]) for c in candidates if skin(c, o)] for o in outers
+                     if any(skin(c, o) for c in candidates)), [])
         if not outs:
             continue
         faces = []
@@ -463,24 +475,66 @@ def orient_inner_skins(candidates):
         for f in faces:
             grid.setdefault(tuple(math.floor(f[0][i] / SKIN_DIST) for i in range(3)), []).append(f)
         for c in candidates:
-            if c[2].strip() != inner:
+            if variant(c) != inner:
                 continue
             offset, prims = c[5][0], c[5][1]
-            for pos, nrm, _, idx in prims.values():
+            # Every triangle of the part: (prim, first index), world corners.
+            tris = []
+            for key, (pos, nrm, _, idx) in prims.items():
                 for t in range(0, len(idx) - 2, 3):
-                    tri = [tuple(pos[i][k] + offset[k] for k in range(3)) for i in idx[t:t + 3]]
-                    n = cross(*tri)
-                    centre = tuple(sum(p[i] for p in tri) / 3.0 for i in range(3))
-                    cell = tuple(math.floor(centre[i] / SKIN_DIST) for i in range(3))
-                    near = [f for dx in (-1, 0, 1) for dy in (-1, 0, 1) for dz in (-1, 0, 1)
-                            for f in grid.get((cell[0] + dx, cell[1] + dy, cell[2] + dz), ())]
-                    if not near:
-                        continue
-                    on = min(near, key=lambda f: math.dist(f[0], centre))[1]
-                    if sum(n[i] * on[i] for i in range(3)) > 0.0:
-                        idx[t], idx[t + 1] = idx[t + 1], idx[t]
-                        flipped += 1
-                # Normals from the faces as they now are (area weighted): away from the outer skin.
+                    tris.append((key, t, [tuple(pos[i][k] + offset[k] for k in range(3)) for i in idx[t:t + 3]]))
+            weld = lambda p: (round(p[0] * SKIN_WELD), round(p[1] * SKIN_WELD), round(p[2] * SKIN_WELD))
+            # Directed edges: a neighbour with the same winding walks a shared edge the other way.
+            edges = {}
+            for n, (_, _, w) in enumerate(tris):
+                k = [weld(p) for p in w]
+                for a, b in ((0, 1), (1, 2), (2, 0)):
+                    if k[a] != k[b]:
+                        edges.setdefault(frozenset((k[a], k[b])), []).append((n, k[a]))
+            links = [[] for _ in tris]
+            for uses in edges.values():
+                if len(uses) == 2:  # manifold edges only
+                    (n, start), (m, other) = uses
+                    links[n].append((m, start == other))  # same start: the two windings disagree
+                    links[m].append((n, start == other))
+            vote = []
+            for _, _, w in tris:
+                n = cross(*w)
+                length = math.sqrt(sum(x * x for x in n))
+                centre = tuple(sum(p[i] for p in w) / 3.0 for i in range(3))
+                cell = tuple(math.floor(centre[i] / SKIN_DIST) for i in range(3))
+                near = [f for dx in (-1, 0, 1) for dy in (-1, 0, 1) for dz in (-1, 0, 1)
+                        for f in grid.get((cell[0] + dx, cell[1] + dy, cell[2] + dz), ())]
+                if length < 1e-12 or not near:
+                    vote.append(0.0)
+                    continue
+                on = min(near, key=lambda f: math.dist(f[0], centre))[1]
+                facing = sum(n[i] * on[i] for i in range(3)) / length
+                vote.append(-facing * abs(facing) * length)  # > 0: keep, < 0: turn over
+            # Walk each connected piece: turn[n] relative to its first triangle, then let the piece vote.
+            turn = [None] * len(tris)
+            for root in range(len(tris)):
+                if turn[root] is not None:
+                    continue
+                turn[root] = False
+                piece, todo = [root], [root]
+                while todo:
+                    n = todo.pop()
+                    for m, differ in links[n]:
+                        if turn[m] is None:
+                            turn[m] = turn[n] != differ
+                            piece.append(m)
+                            todo.append(m)
+                if sum(-vote[n] if turn[n] else vote[n] for n in piece) < 0.0:
+                    for n in piece:
+                        turn[n] = not turn[n]
+            for n, (key, t, _) in enumerate(tris):
+                if turn[n]:
+                    idx = prims[key][3]
+                    idx[t], idx[t + 1] = idx[t + 1], idx[t]
+                    flipped += 1
+            # Normals from the faces as they now are (area weighted): away from the outer skin.
+            for pos, nrm, _, idx in prims.values():
                 acc = {}
                 for t in range(0, len(idx) - 2, 3):
                     n = cross(*(pos[i] for i in idx[t:t + 3]))

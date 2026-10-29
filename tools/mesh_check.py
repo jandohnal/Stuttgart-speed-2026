@@ -21,6 +21,11 @@ Checks:
   Open edges (used by one triangle only, corners welded at 1 mm) as total length per style: the
   styles of one model should differ only by their own parts, so an outlier is a missing part.
   Other overlaps (a part doubled, parts of two styles at once): WARN
+  Layered parts (LAYERED) closer than FLUSH to the part below them (z-fighting in the game, which
+  draws both at one depth), or with corners sunk more than SUNK below it: WARN (layers)
+- winding (cars): per part, shared edges whose two triangles disagree on the winding (corners
+  welded at 1 mm, manifold edges only). Parts the game draws from their front only (ONE_SIDED:
+  inner lid skins, interior, glass): WARN, their wrongly wound triangles are holes; others counted
 
 Usage:
     python3 tools/mesh_check.py decomposed/GameData/CarModel        # every glTF below, recursively
@@ -181,7 +186,16 @@ def check(path):
             problems.append(f"road misses off the main route or offset {holes['road_minor']} rays "
                             f"at {len(holes['road_minor_slices'])} slices")
     if not is_track:
+        result["winding"] = winding_conflicts(gl, accessor)
+        bad_winding = [w for w in result["winding"] if w["one_sided"]]
+        if bad_winding:
+            status = "FAIL" if status == "FAIL" else "WARN"
+            problems.append("winding of one-sided parts " + ", ".join(w["node"] for w in bad_winding))
         result["styles"] = check_styles(path, gl, accessor)
+        layers = sorted({f"{p['parts'][0]}/{p['parts'][1]}" for st in result["styles"] for p in st["layers"]})
+        if layers:
+            status = "FAIL" if status == "FAIL" else "WARN"
+            problems.append("flush or sunk layers " + ", ".join(layers))
         bad = [st for st in result["styles"] if st["part_overlaps"]]
         if bad:
             status = "FAIL" if status == "FAIL" else "WARN"
@@ -242,6 +256,95 @@ def layered(a, b):
         return True
     ka, kb = (re.sub(r"(In|Out)$", "", base_name(n)) for n in (a, b))
     return ka == kb and base_name(a) != base_name(b)
+
+
+# Parts the game draws from their front only (materials.gd, _car_kind / _car_material): inner lid
+# skins by name, interior and glass by texture page.
+ONE_SIDED_PARTS = ("HoodIn", "TrunkIn", "MoveSpoilerIn")
+ONE_SIDED_PAGES = ("interior", "glass", "intglass")
+
+
+def winding_conflicts(gl, accessor):
+    """[{node, edges, one_sided}] for parts with shared edges whose triangles disagree on the winding
+    (one_sided: edges where one of the two triangles is drawn from its front only)."""
+    key = lambda p: (round(p[0] * WELD), round(p[1] * WELD), round(p[2] * WELD))
+    out = []
+    for node, m, _ in mesh_nodes(gl):
+        uses = {}
+        by_name = base_name(node["name"]).startswith(ONE_SIDED_PARTS)
+        for prim in gl["meshes"][node["mesh"]]["primitives"]:
+            page = gl["materials"][prim["material"]]["name"].split(" ")[-1] if "material" in prim else ""
+            one_sided = by_name or page in ONE_SIDED_PAGES
+            pos = accessor(prim["attributes"]["POSITION"])
+            idx = accessor(prim["indices"])
+            for t in range(0, len(idx) - 2, 3):
+                k = [key(pos[3 * i:3 * i + 3]) for i in idx[t:t + 3]]
+                if len(set(k)) < 3:
+                    continue
+                for a, b in ((0, 1), (1, 2), (2, 0)):
+                    uses.setdefault(frozenset((k[a], k[b])), []).append((k[a], one_sided))
+        bad = [u for u in uses.values() if len(u) == 2 and u[0][0] == u[1][0]]
+        if bad:
+            out.append({"node": node["name"], "edges": len(bad), "one_sided": sum(1 for u in bad if u[0][1] or u[1][1])})
+    return sorted(out, key=lambda e: -e["edges"])
+
+
+FLUSH = 0.0002  # m: a layered part closer than this to the part below z-fights
+SUNK = 0.0005  # m: corners of a layered part this far below the part it lies on are hidden in it
+SUNK_MIN = 3  # corners: one or two are an end touching a curved surface (wiper on the glass)
+LAYER_TOL = 0.005  # m: how far above or below a part a layered part's corner still lies on it
+LAYER_PARALLEL = 0.9  # |cos| between the normals of a layered part and the part below
+
+
+def layer_check(parts):
+    """Layered parts on the parts below them: [{parts, min_mm, sunk}] with min_mm < FLUSH or sunk corners."""
+    base = {name: tris for name, tris in parts.items() if not base_name(name).startswith(LAYERED)}
+    planes, grid = [], {}
+    for name, tris in base.items():
+        for tri in tris:
+            n = cross(*tri)
+            length = math.sqrt(sum(c * c for c in n))
+            if length < 1e-9:
+                continue
+            planes.append((name, tri, tuple(c / length for c in n)))
+            lo = [min(p[i] for p in tri) - LAYER_TOL for i in range(3)]
+            hi = [max(p[i] for p in tri) + LAYER_TOL for i in range(3)]
+            for cx in range(math.floor(lo[0] / OVERLAP_CELL), math.floor(hi[0] / OVERLAP_CELL) + 1):
+                for cy in range(math.floor(lo[1] / OVERLAP_CELL), math.floor(hi[1] / OVERLAP_CELL) + 1):
+                    for cz in range(math.floor(lo[2] / OVERLAP_CELL), math.floor(hi[2] / OVERLAP_CELL) + 1):
+                        grid.setdefault((cx, cy, cz), []).append(len(planes) - 1)
+    found = {}
+    for name, tris in parts.items():
+        if name in base or is_decal(name) and not tris:
+            continue
+        for tri in tris:
+            n = cross(*tri)
+            length = math.sqrt(sum(c * c for c in n))
+            if length < 1e-9:
+                continue
+            n = tuple(c / length for c in n)
+            c = [sum(p[i] for p in tri) / 3.0 for i in range(3)]
+            # Centre: how far above the part below (flush); corners: how far below it (sunk).
+            for point, what in [(c, "centre")] + [(p, "corner") for p in tri]:
+                cell = tuple(math.floor(point[i] / OVERLAP_CELL) for i in range(3))
+                for j in grid.get(cell, ()):
+                    other, otri, on = planes[j]
+                    if sum(n[i] * on[i] for i in range(3)) < LAYER_PARALLEL:
+                        continue
+                    d = sum((point[i] - otri[0][i]) * on[i] for i in range(3))
+                    if abs(d) > LAYER_TOL:
+                        continue
+                    foot = [point[i] - d * on[i] for i in range(3)]
+                    if not inside(foot, otri, on):
+                        continue
+                    r = found.setdefault((name, other), {"min": LAYER_TOL, "sunk": 0})
+                    if what == "centre":
+                        r["min"] = min(r["min"], abs(d))
+                    elif d < -SUNK:
+                        r["sunk"] += 1
+                    break
+    return [{"parts": [a, b], "min_mm": round(r["min"] * 1000, 2), "sunk": r["sunk"]}
+            for (a, b), r in sorted(found.items()) if r["min"] < FLUSH or r["sunk"] >= SUNK_MIN]
 
 
 def style_check(parts):
@@ -316,14 +419,16 @@ def check_styles(path, gl, accessor):
     out = []
     for st in styles:
         hidden = set(st["hide"])
-        dup, overlap, back, open_len = style_check({k: v for k, v in parts.items() if k not in hidden})
+        shown = {k: v for k, v in parts.items() if k not in hidden}
+        dup, overlap, back, open_len = style_check(shown)
         pairs = overlap
         bad = {p: c for p, c in pairs.items() if not layered(*p) and c >= OVERLAP_MIN}
         out.append({"style": st["style"], "name": st["name"], "open_edges_m": round(open_len, 2),
                     "duplicates": sum(dup.values()), "overlaps": sum(overlap.values()),
                     "back_to_back": sum(back.values()),
                     "part_overlaps": [{"parts": list(p), "triangles": c} for p, c in sorted(bad.items(), key=lambda e: -e[1])],
-                    "layered_overlaps": sum(c for p, c in pairs.items() if p not in bad)})
+                    "layered_overlaps": sum(c for p, c in pairs.items() if p not in bad),
+                    "layers": layer_check(shown)})
     return out
 
 

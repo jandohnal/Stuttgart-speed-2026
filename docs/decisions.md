@@ -102,6 +102,7 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
 - **Rozhodnutí:** Každý převedený model se kontroluje nástrojem `tools/mesh_check.py` (jen čísla, bez snímků): nejvýš 0,5 % trojúhelníků s pořadím proti normálám, žádný zahozený trojúhelník, u tratí nejvýš 0,5 % ploch silnice a terénu mířících dolů a žádné prázdno pod silnicí hlavní trasy. Spáry, okraj šířky SimD, konce úseků a vedlejší úseky jsou varování. Převodník otáčí trojúhelníky podle uložených normál, terén bez normál nahoru (`docs/formats/crp.md`).
 - **Důvod:** Přání uživatele (18. 10. 2026): auta bez obrácených normál a děr, tratě bez děr a se správně orientovanými polygony. Originál kreslí oboustranně a jeho pořadí vrcholů není spolehlivé (2,9 % trojúhelníků aut, 28 % terénu farmlandu). Kontrola z čísel stojí méně tokenů než prohlížení snímků.
 - **Důsledky:** Modely jsou připravené na kreslení jen předních stran (back-face culling), materiály glTF ale zatím zůstávají oboustranné. Výsledky jsou v `docs/model-check.md` a při každém novém převodu se spouští kontrola.
+- **Změna 29. 10. 2026:** Kontrola měří i pořadí vrcholů sousedních trojúhelníků u dílů, které hra kreslí jen z lícové strany (vnitřní panely víek, interiér, sklo), a vrstvené díly (světla, obtisky, kliky, stíny kol) bez odsazení od podkladu (pod 0,2 mm) nebo zapuštěné do něj (aspoň 3 rohy víc než 0,5 mm). Obojí je WARN. Podnět: kontrola 356 A v Blenderu, kde měl vnitřní panel kapoty v ohybu 32 hran s opačným pořadím, tedy díry po utržení kapoty.
 
 ## D-017 Asistenti, zvuk a diagnostika se nastavují v menu
 - **Stav:** accepted
@@ -188,3 +189,13 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
 - **Rozhodnutí:** Poměr přilnavosti zadní a přední nápravy je `rear_grip` = (1 − 0x0F0) / 0x0F0 místo pevných 1,12 (motor vpředu 1,0). Bere se hodnota po dílech a pneumatikách. Těžiště zůstává posunuté podle polohy motoru (skutečné rozložení hmotnosti). Stará heuristika jde zapnout přes `balance_from_data`.
 - **Důvod:** Uživatel pokračoval v řešení nedotáčivosti (29. 10. 2026). Z exe plyne, že originál stáčí auto kolem středu rozvoru (stejné rameno 0x1B8 pro obě nápravy), takže vyvážení v ustálené zatáčce dává jen 0x0F0 / (1 − 0x0F0). V našem modelu, kde přilnavost i potřebná síla rostou se zatížením, má stejný účinek právě tento `rear_grip`.
 - **Důsledky:** 356 A 1,12 → 1,06 (záď blíž k vrcholu, při brzdění v zatáčce víc ujíždí), 993 a Boxster 1,17, 996 1,20, auta s motorem vpředu 1,0 → 1,27 (944 Turbo se při plném rejdu už neroztočí). Měření v [driving-model.md](driving-model.md#vyvážení-náprav-z-0x0f0-29-10-2026). Pocitově ověřit jízdou, hlavně smyk 356 A při brzdění.
+
+## D-026 Soupeři jezdí stejnou fyzikou jako hráč po stopě z originálu
+- **Stav:** accepted
+- **Rozhodnutí:** Soupeři jsou auta `Car` se stejnou fyzikou, poškozením a převodovkou jako hráč; místo klávesnice je řídí skript řidiče (plyn, brzda, volant).
+  - **Stopa:** v prototypu ideální stopy originálu (`racer/work/*.lsp`, [lsp.md](formats/lsp.md)), pro vlastní tratě se bude generovat z řezů silnice.
+  - **Tempo:** rychlostní profil z křivosti stopy a dat auta (přilnavost, brzdy), ne z tabulek `.ais`.
+  - **Obtížnost:** síla AI ve stupních podle originálu (0,8 / 0,975 / 1,03) a vlastnosti osobností 0–3 z `prsonal`; gumička z `glue` jen jako volitelná položka, ve výchozím stavu vypnutá.
+  - **Výkon:** zjednodušený pohyb po stopě (jako originál podle `TRAFCFG`) jen jako LOD pro vzdálená auta, pokud měření FPS ukáže, že je nutný.
+- **Důvod:** Originál řídil AI regulátory polohy bez simulace pneumatik a držel ji u hráče gumičkou a kolonou ([opponents.md](opponents.md)). Dnešní závodní hry dávají AI stejnou fyziku jako hráči a sílu AI nastavitelnou otevřeně; skrytá gumička je kritizovaná. Náš jízdní model už je hotový pro libovolný počet aut.
+- **Důsledky:** Výkon fyziky v GDScriptu pro 4–8 aut se musí změřit dřív než racecraft a osobnosti. Soupeři na původní trati s původním autem spadají pod výjimku D-009 a data zůstávají jen lokálně.

@@ -75,6 +75,8 @@ Originál má nastavení AI v čitelných CSV (viz [data-inventory.md](data-inve
 
 Mechaniky se dají převzít jako nápad, čísla jako výchozí hodnoty pro ladění.
 
+Podrobný rozbor (ideální stopy `.lsp`, profily `.ais`, řízení `TRAFCFG`), srovnání s dnešními hrami a plán: [opponents.md](opponents.md).
+
 ## 7. Komunitní projekty
 
 | Projekt | Využití |

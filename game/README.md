@@ -83,6 +83,12 @@ Trať určuje nastavení projektu `stuttgart/track` (výchozí `farmland`), z p�
 | F11 | celá obrazovka / okno |
 | Esc | zpět do hlavního menu (v menu: ukončit hru) |
 
+**Řidič AI** (D-026, `scripts/ai_driver.gd`, krok B soupeřů): argument `-- --ai=0` nebo `--ai=1` předá auto hráče řidiči AI, který jede po ideální stopě originálu 0 nebo 1 (`<trať>_ai.json` z `tools/ai_lines.py`) se stejnou fyzikou jako hráč. Ovládá jen plyn, brzdu a volant (`Car.auto_drive`, bez klávesových ramp), ABS a kontrolu trakce má zapnuté. Řízení: pure pursuit na bod stopy 0,7 s před autem (10–35 m) a zpětná vazba podle skutečné úhlové rychlosti (na limitu přilnavosti auto nedotáčí a samotný geometrický úhel kol nestačí). Rychlost: profil po celé stopě spočítaný předem – v zatáčce √(0,8 μ g R) z poloměru stopy (nejmenší z měření přes 2, 3 a 4 řezy), před zatáčkou brzdění s 80 % možného zpomalení, v zatáčce jen s tou částí, kterou boční síla nechá volnou (kruh přilnavosti). Pedály sledují profil 0,4 s před autem: brzda podle potřebného zpomalení plus P člen na rychlost, plyn podle chyby rychlosti. Plyn i brzdu omezuje využití přilnavosti v zatáčce (změřené z rychlosti stáčení) a ve smyku nad 4° se povolí (plyn zavřený při 10°, brzda na 30 %); jinak 356 v zatáčce na plný plyn nebo plnou brzdu přetáčí a otočí se. Uvízne-li (4 s pod 1 m/s), vyjede ze silnice (3 s) nebo leží na střeše (2 s), vrátí se na stopu. Stopa se bere bez omezení na šířku řezů: v Monte Carlu vede až 26 m od řezů SimD, protože varianta trati jede vedlejší ulicí a řezy tam končí v zátarasech. Za cílem auto zastaví jako u hráče. Hlavní scéna projektu je menu a jeho výběr (uložený v `user://settings.cfg`) má přednost před `--car` a `--track`; pro jízdu s argumenty se spouští přímo `res://scenes/main.tscn`. V Monte Carlu použijte stopu 1: stopa 0 vede u řezů 74–87 ulicí, kterou monaco1 uzavírá zátarasy. Například 935 v Monaku:
+
+```bash
+~/Downloads/Godot.app/Contents/MacOS/Godot --path game res://scenes/main.tscn -- --windowed=1 --car=935race --track=monaco1 --ai=1
+```
+
 Samostatně spuštěná hra běží přes celou obrazovku (ne v náhledu editoru, ne v testech bez okna). Okno si vynutí argument `-- --windowed=1`. HUD se škáluje se zvětšením okna (základ 1152 × 648).
 
 **Klávesnice** funguje jako v tehdejších arkádových hrách: klávesa je zapnuto/vypnuto, ale pedály a volant se pohybují postupně, dokud ji držíš. Plyn naběhne při rozjezdu na jedničku za 0,4 s, se stoupající rychlostí a stupněm rychleji (od 100 km/h nebo na nejvyšší stupeň 0,15 s), puštění 0,1 s, brzda za 0,6 s (0,15 s), takže ťuknutí jen lehce přibrzdí. Volant jde ze středu na doraz za 0,25 s v klidu až 0,8 s ve 150 km/h, zpět do středu za 0,2 s. Analogový vstup (`Car.digital_input = false`, testy fyziky, později gamepad) jde přímo.
@@ -112,6 +118,8 @@ Samostatně spuštěná hra běží přes celou obrazovku (ne v náhledu editoru
 | `scripts/main.gd` | načtení trati (kolize z mesh skupin `road`, `terrain`, `objects`), auta, start na řezu silnice, ovládání, záznam telemetrie |
 | `scripts/car.gd` | auto: raycast podvozek nad `RigidBody3D` (D-003), motor a automatická převodovka z `cars.json`, model pneumatik (skluz, rotace kol, setrvačnost motoru), spojka při rozjezdu, turbo, samosvor, kontrola trakce a ABS |
 | `scripts/follow_camera.gd`, `scripts/hud.gd` | kamera za autem (úvodní oblet, nevjíždí do trati, náklon `roll_degrees`), údaje o jízdě, stopky a odpočet |
+| `scripts/road.gd` | `Road`: řezy silnice SimD z `_road.json` (polohy a báze řezů, napojení úseků, `ahead`, nejbližší řez, poloha auta na řezu); sdílí `main.gd` a `AIDriver` |
+| `scripts/ai_driver.gd` | `AIDriver`: řidič soupeře (D-026) – ideální stopa originálu, pure pursuit se zpětnou vazbou úhlové rychlosti, rychlostní profil z přilnavosti a brzd (kruh přilnavosti), plyn ubíraný v zatáčce a ve smyku, návrat na stopu |
 | `scripts/race_timer.gd` | `RaceTimer`: závod od startu do cíle (D-025) – odpočet, stopky, kontrolní body, průjezd cílovou čárou, nejlepší časy |
 | `scripts/race_lines.gd` | startovní a cílová čára jako decaly: cíl z dlaždic originálu (skupina `gates`), start vlastní bílý pruh |
 | `scripts/car_damage.gd` | poškození: impulsy kontaktů karoserie sečtené za prvních 0,1 s nárazu, nad prahem promáčknou zóny u bodu nárazu (blend shapes `dz0`–`dz9` z `<auto>_damage.json`); díly odpadají nebo visí na pantech (`HingeJoint3D`); následky čte `car.gd` |
@@ -219,10 +227,31 @@ Náraz do objektu (bez okna): auto se rozjede na první dopravní značku na far
 ~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/prop_test.tscn
 ```
 
-Závod (bez okna): na farmlandu ověří, že odpočet drží auto na místě (29. 10. 2026: posun 4 cm usazením na svahu, motor do 5 800 ot/min), GO po 3 s, že zkratka do cíle bez kontrolních bodů a průjezd cílem pozpátku neplatí, po průjezdu všech 30 kontrolních bodů a cílem ve 30 m/s se stopky zastaví na okamžiku průjezdu (odchylka 8 ms) , za cílem auto s drženým plným plynem a volantem samo zastaví na silnici (ze 30 m/s za 6,1 s, 1,5 m od středu silnice) a stopky se nezmění, a Backspace začne nový odpočet za startovní čarou.
+Závod (bez okna): na farmlandu ověří, že odpočet drží auto na místě (29. 10. 2026: posun 4 cm usazením na svahu, motor do 5 800 ot/min), GO po 3 s, že zkratka do cíle bez kontrolních bodů a průjezd cílem pozpátku neplatí, po průjezdu všech 30 kontrolních bodů a cílem ve 30 m/s se stopky zastaví na okamžiku průjezdu (odchylka 8 ms), za cílem auto s drženým plným plynem a volantem samo zastaví na silnici (29. 10. 2026: ze 30 m/s za 6,4 s, 2,8 m od středu silnice; brzda a volant za cílem jdou bez klávesových ramp, dřív 6,1 s a 1,5 m) a stopky se nezmění, a Backspace začne nový odpočet za startovní čarou.
 
 ```bash
 ~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/race_test.tscn
+```
+
+Řidič AI (bez okna, `--fixed-fps 120` = simulace tak rychle, jak stačí procesor): auto řízené `AIDriver` musí bez návratu na stopu dojet závod do cíle přes všechny kontrolní body (farmland, výchozí), na okruhu bez startu a cíle ujet jedno kolo (`lap` v `_road.json`, `--laps=n` více kol). Nesmí se karoserií dotknout zdi, svodidel ani objektu (doteky s normálou do strany, `Car.side_contacts`; odření je pod prahem poškození, proto se počítá zvlášť) a smyk (úhel mezi směrem auta a pohybu nad 10 m/s) nesmí přesáhnout 12°. Vypíše čas, průměrnou a nejvyšší rychlost, nejvyšší překročení cílové rychlosti, poškození, doteky (s názvem objektu) a největší smyk; `--trace=od:do` vypisuje stav řidiče každých 0,25 s.
+
+Výsledky 29. 10. 2026 (po úpravě brzdění a plynu a omezení brzdy v zatáčce; 356 B se Sport a slicky předtím v Monte Carlu při plné brzdě v zatáčce sklouzla o 25°; předchozí verze se 356 na farmlandu otočila o 91° a 935 se v Monte Carlu dotkla zdi, testy to tehdy neměřily):
+
+| Auto, trať | Stopa | Čas | Průměr | Nejvýš | Doteky | Největší smyk |
+| --- | --- | --- | --- | --- | --- | --- |
+| 356 A, farmland (závod 9,2 km) | 0 | 5:56,72 | 93 km/h | 128 km/h | 0 | 6,0° |
+| 935, Monte Carlo, 2 kola | 1 | 3:47,69 | 117 km/h | 198 km/h | 0 | 3,3° |
+| 935, Monte Carlo, 2 kola | 0 | 3:44,97 | 119 km/h | 214 km/h | 1 (zátaras, řez 81) | 3,2° |
+| 356 A, Monte Carlo, 2 kola | 1 | 5:12,40 | 86 km/h | 133 km/h | 0 | 7,8° |
+| 356 A, Monte Carlo, 2 kola | 0 | 5:10,44 | 86 km/h | 138 km/h | 3 (zátaras, řez 81) | 4,8° |
+| 356 B Carrera 2, Sport, slicky, farmland | 0 | 4:58,99 | 111 km/h | 152 km/h | 0 | 6,8° |
+| 356 B Carrera 2, Sport, slicky, Monte Carlo, 2 kola | 1 | 4:21,70 | 102 km/h | 163 km/h | 0 | 9,8° |
+
+Stopa 0 v Monte Carlu proto test nesplní, dokud se nevyjasní, ke které variantě trati patří (D-023).
+
+```bash
+~/Downloads/Godot.app/Contents/MacOS/Godot --headless --fixed-fps 120 --path game res://tests/ai_drive_test.tscn
+~/Downloads/Godot.app/Contents/MacOS/Godot --headless --fixed-fps 120 --path game res://tests/ai_drive_test.tscn -- --track=monaco1 --car=935race --line=1 --laps=2
 ```
 
 Počitadlo kilometrů: bez okna ověří polohy válečků a přenos (např. 999,95 → tři válečky v půlce přenosu). S oknem (bez `--headless`) pak 6 s ukazuje rychloměry všech tří ér s přetočením 99 999,5 → 100 000,5 km, ve druhé polovině s chvěním válečků. Jízdní test navíc porovnává počitadlo s ujetou dráhou (17. 10. 2026: +0,9 %, rozdíl dělá prokluz kol).
