@@ -1,6 +1,6 @@
 ---
 type: decisions
-updated: 2026-10-19
+updated: 2026-10-29
 format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), kontext a důsledky."
 ---
 
@@ -10,6 +10,7 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
 - **Stav:** accepted
 - **Rozhodnutí:** Hra bude mít vlastní název (Stuttgart Speed). Zachovává hratelnost a atmosféru originálu, nekopíruje jeho obsah.
 - **Důsledky:** Nepoužívají se loga, názvy ani tvary vozů Porsche. Mechaniky (kariéra napříč érami, mise testovacího jezdce) se přebírají jako nápad.
+- **Změna 29. 10. 2026:** Platí jen pro případné veřejné vydání. Osobní verze, která se nešíří, používá obsah originálu (D-009).
 
 ## D-002 Engine Godot 4.7
 - **Stav:** proposed (potvrdit po prototypu jízdy, fáze 2)
@@ -22,15 +23,17 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
 - **Rozhodnutí:** Raycast kola nad tuhým tělesem v Jolt, ne `VehicleBody3D`.
 - **Důvod:** Charakter jednotlivých aut a „sim-cade“ pocit jde vyladit jen s plnou kontrolou nad modelem pneumatik a přenosem hmotnosti.
 
-## D-004 Fiktivní auta
+## D-004 Fiktivní auta jen pro případné veřejné vydání
 - **Stav:** accepted
-- **Rozhodnutí:** Cílová auta hry jsou fiktivní designy inspirované érami (zadní motor 50. let, klínové tvary 70. let...).
-- **Důsledky:** Fyzikální parametry originálu slouží jako reference pro realistické hodnoty dané éry. Výjimka pro první krok: viz D-009.
+- **Rozhodnutí:** Hlavní obsah hry jsou původní auta originálu, opravená a doplněná (D-009). Fiktivní auta inspirovaná érami (zadní motor 50. let, klínové tvary 70. let...) vzniknou, jen pokud se někdy rozhodne o veřejném vydání.
+- **Důsledky:** Fyzikální parametry originálu se používají přímo, ne jen jako reference. Nástroje a pravidla oprav (převodník, kontrola modelů) se píšou obecně, aby platily i pro případná fiktivní auta.
+- **Změna 29. 10. 2026:** Původně byla fiktivní auta cílem hry a původní auto jen výjimkou pro prototyp. Přání uživatele: hru v této podobě nešířit, ale pomocí AI ji vylepšovat pro sebe, a to i s původními auty.
 
 ## D-005 Vlastní tratě ve stylu originálu
 - **Stav:** accepted
 - **Rozhodnutí:** Tratě se nekopírují. Zachovává se styl: evropská krajina, světlo, otevřené silnice, alternativní cesty. Silnice budou užší než v originálu.
 - **Důsledky:** Cílové tratě jsou vlastní. Výjimka pro první krok: viz D-009, kvůli které je exportér alespoň jedné původní trati potřeba.
+- **Změna 29. 10. 2026:** Hlavní obsah jsou původní tratě originálu, opravené a doplněné (D-009). Vlastní tratě (i z reálných map) jsou doplněk a podmínka případného veřejného vydání.
 
 ## D-006 Bez hudby
 - **Stav:** accepted
@@ -46,16 +49,17 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
 - **Rozhodnutí:** Repozitář je privátní. Veškeré assety z originální hry (a licencované modely) leží v `sources/`, vše rozbalené a převedené v `decomposed/`. Obě složky jsou v `.gitignore` a existují jen lokálně.
 - **Důsledky:** Do gitu jde jen kód, nástroje, dokumentace a vlastní obsah. Nástroje čtou ze `sources/` a zapisují do `decomposed/` se stejnou strukturou podsložek.
 
-## D-009 První krok s původním autem na původní trati
+## D-009 Původní auta, tratě a zvuky jako obsah osobní verze
 - **Stav:** accepted
-- **Rozhodnutí:** Prototyp (fáze 2) se staví s jedním původním autem a na jedné původní trati z originální hry, převedenými do glTF ze `sources/` do `decomposed/`.
-- **Cíl:** Ověřit, že migrovaná hra funguje a je hratelná. Teprve po splnění tohoto cíle se začne s vlastními tratěmi a vlastními auty.
-- **Důvod:** Přímé srovnání s originálem. Stejné auto se stejnými parametry `.sim` na stejné trati umožní objektivně ladit jízdní model, kolize a poškození proti originálu spuštěnému přes Wine. Odpadá také tvorba vlastních assetů před ověřením hratelnosti.
+- **Rozhodnutí:** Hra používá obsah originální hry: všechna auta, tratě a zvuky, převedené ze `sources/` do `decomposed/`. Obsah se opravuje (topologie, překryvy ploch, díry, normály, chyby v datech) a doplňuje (detail, chybějící díly, materiály, vylepšené textury a zvuky, i pomocí AI). Hra v této podobě je jen pro osobní použití a nešíří se. Prototyp (fáze 2) začal s jedním autem a jednou tratí (356 A coupe 1.6, skidpad a farmland).
+- **Cíl:** Fáze 2 ověří, že migrovaná hra funguje a je hratelná. Potom se rozšiřuje na všechna auta a tratě originálu a obsah se vylepšuje.
+- **Důvod:** Přímé srovnání s originálem: stejné auto se stejnými parametry `.sim` na stejné trati umožní objektivně ladit jízdní model, kolize a poškození proti originálu spuštěnému přes Wine. Přání uživatele (29. 10. 2026): hru nešířit, ale pomocí AI ji vylepšovat pro sebe, s původními auty, tratěmi i zvuky.
 - **Důsledky:**
-  - Assety zůstávají jen lokálně v `decomposed/` (D-008). Godot projekt je načítá odtud a nic z nich necommituje.
-  - Exportér auta (CRP → glTF) a exportér vybrané trati mají vysokou prioritu.
-  - Fiktivní auta (D-004) a vlastní tratě (D-005) zůstávají cílem, ale práce na nich začne až po splnění milníku fáze 2 (hratelný prototyp s původním obsahem).
-  - Volba konkrétního auta a trati: viz otevřená otázka v `docs/plan.md`.
+  - Assety zůstávají jen lokálně v `sources/` a `decomposed/` (D-008), i opravené a doplněné. Godot projekt je načítá za běhu a nic z nich necommituje.
+  - Opravy se zapisují jako pravidla do nástrojů (převodníky v `tools/`, kontrola `tools/mesh_check.py` z D-016, `materials.gd`), ne ručními úpravami souborů v `decomposed/`, které by další převod přepsal. Úpravy, které se pravidlem popsat nedají (doplněné díly, nové textury, upravené zvuky), mají vlastní složku v `decomposed/` a převodník nebo hra je skládá s původními daty. Skripty a popisy úprav se commitují, jejich výstupy ne.
+  - D-001, D-004, D-005, D-007 a D-011 (vlastní obsah, bez názvů a tvarů Porsche) platí jen pro případné veřejné vydání. O něm se zatím nerozhodlo, viz [IDEA o distribuci](../ideas/distribution-bring-your-own-data.md).
+  - Postup vylepšování: [IDEA-003](../ideas/asset-enhancement-ai-blender.md).
+- **Změna 29. 10. 2026:** Původně jen první krok: jedno původní auto na jedné původní trati v prototypu, potom fiktivní auta a vlastní tratě.
 
 ## D-010 Poškození s následky a odpadajícími díly
 - **Stav:** accepted
@@ -68,6 +72,7 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
 - **Rozhodnutí:** Prototyp (fáze 2) používá zvuky originálu (motor 356 A ze sady `sd1a`, nárazy a pneumatiky ze `SND_coll.bnk`), převedené do `decomposed/` a načítané za běhu. Přehrávač pracuje s popisem sady (`engine.json`: smyčky a otáčky), takže se sada vymění za vlastní samply bez změny kódu.
 - **Důvod:** Přímé srovnání s originálem a slyšitelná zpětná vazba (řazení, plyn, smyk) hned, bez čekání na vlastní nahrávky (obdoba D-009).
 - **Důsledky:** Zvuky originálu se nikdy necommitují (D-008). Pro vydání platí D-007 a zdroje z [IDEA-004](../ideas/sound-engines-ambience.md); evidence licencí (`assets/audio/LICENSES.md`) vznikne s prvním vlastním zvukem.
+- **Změna 29. 10. 2026:** Zvuky originálu zůstávají i po prototypu a dál se opravují a doplňují (D-009). Vlastní zvuky (D-007) jsou potřeba jen pro případné veřejné vydání.
 
 ## D-012 Žádné placené doplňky
 - **Stav:** accepted
@@ -177,3 +182,9 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
 - **Rozhodnutí:** Úhel předních kol je omezený podle rychlosti na rozvor × μ·g / v² + `steer_lock_margin` (1,0) × vrchol směrového úhlu pneumatik, nejvýš `max_steer_deg` (30°). Ke straně smyku smí kola až do směru pohybu přední nápravy plus stejná rezerva (kontrování). Platí pro všechny vstupy a není to asistent (D-017), ale vlastnost modelu jako v originálu. Vypnout jde přes `speed_sensitive_steering`.
 - **Důvod:** Uživatel řešil nedotáčivost (29. 10. 2026) a zvolil začít rejdem. Pevný rejd 30° přetáhne přední pneumatiky z klávesnice na 3–6násobek vrcholu směrového úhlu. Originál zmenšuje rozsah řízení s rychlostí (0x0FC, jednotka zatím neurčená).
 - **Důsledky:** Na skidpadu při plném rejdu z klávesnice: boční zrychlení +40–60 % (356 A 0,55 → 0,76 g při 60 km/h), auto už nevyjede z kruhu ([driving-model.md](driving-model.md#rejd-řízení-podle-rychlosti-29-10-2026)). Jízda robota v `drive_test` se nemění. Zbývá vyvážení náprav z 0x0F0 místo `rear_grip` 1,12 a nové měření brzdění v zatáčce.
+
+## D-027 Vyvážení náprav z 0x0F0
+- **Stav:** accepted
+- **Rozhodnutí:** Poměr přilnavosti zadní a přední nápravy je `rear_grip` = (1 − 0x0F0) / 0x0F0 místo pevných 1,12 (motor vpředu 1,0). Bere se hodnota po dílech a pneumatikách. Těžiště zůstává posunuté podle polohy motoru (skutečné rozložení hmotnosti). Stará heuristika jde zapnout přes `balance_from_data`.
+- **Důvod:** Uživatel pokračoval v řešení nedotáčivosti (29. 10. 2026). Z exe plyne, že originál stáčí auto kolem středu rozvoru (stejné rameno 0x1B8 pro obě nápravy), takže vyvážení v ustálené zatáčce dává jen 0x0F0 / (1 − 0x0F0). V našem modelu, kde přilnavost i potřebná síla rostou se zatížením, má stejný účinek právě tento `rear_grip`.
+- **Důsledky:** 356 A 1,12 → 1,06 (záď blíž k vrcholu, při brzdění v zatáčce víc ujíždí), 993 a Boxster 1,17, 996 1,20, auta s motorem vpředu 1,0 → 1,27 (944 Turbo se při plném rejdu už neroztočí). Měření v [driving-model.md](driving-model.md#vyvážení-náprav-z-0x0f0-29-10-2026). Pocitově ověřit jízdou, hlavně smyk 356 A při brzdění.

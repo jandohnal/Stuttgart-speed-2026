@@ -45,7 +45,7 @@ Význam polí je od 19. 10. 2026 ověřený rozborem `Porsche.exe` (viz [Analýz
 | 0x0F0 | f32 | **podíl přilnavosti (zatížení) přední nápravy**; pneumatiky a tlak v nich ho mění, 959 má pevně 0,4675 | % | ×0,01 | jisté | 48.5 / 46 | front_grip_bias (25) |
 | 0x0F4 | f32 | **součinitel přilnavosti** (síla kola = hmotnost × 9,8 × hodnota); mění ho pneumatiky, pružiny, stabilizátory, světlá výška a tlak | | | jisté | 1.15 / 2.0 | lateral_acceleration_grip_multiplier (30) |
 | 0x0F8 | f32 | **přenos zatížení** mezi nápravami při zrychlení/brzdění i v zatáčce (děleno tuhostí 0x11C) | % | ×0,01 | vysoká | 27.5 / 25 | g_transfer_factor (33) |
-| 0x0FC | f32 | **řízení**: rozsah natočení kol; při nízké rychlosti se rozsah zvětšuje (strop 20) | | | střední | 12 / 17 | minimum_steering_acceleration (27)? |
+| 0x0FC | f32 | **plný rejd** v 1/256 otáčky (12 → 16,9°); pod 108 km/h ×(1,75 − 0,025 v), strop 20 (28°), nad 288 km/h ÷ v/80 | 1/256 ot. | ×1,406 → ° | vysoká | 12 / 17 | minimum_steering_acceleration (27)? |
 | 0x100 | f32 | sbíhavost (toe); v souboru 0, plní ji nastavení STEERING – TOE IN | | | vysoká | 0 | – |
 | 0x104 | f32 | **maximální brzdné zpomalení**; díl brzd a poškození brzd ho mění | m/s² | | jisté | 6.5 / 10 | maximum_braking_deceleration (18) |
 | 0x108 | f32 | **podíl brzdné síly vpředu**; nastavení BRAKE BALANCE posouvá o ±0,25 | % | ×0,01 | jisté | 60 / 65 | front_bias_brake_ratio (19) |
@@ -209,7 +209,9 @@ Principy (popis, ne kód):
 - **Přítlak:** nad 5 m/s se k zatížení předních kol přičítá 0x10C × rychlost × (1 − poškození × 0,005), k zadním 0x110 × totéž. Nastavení DOWNFORCE násobí oba koeficienty a zároveň snižuje maximální rychlost.
 - **Brzdy:** brzdná síla = pedál × 0x104 × (1 − poškození brzd × 0,005), omezená úměrně rychlosti. Přední náprava dostane podíl 0x108, zadní zbytek.
 - **Pohon:** podíl 0x05C jde na přední kola a dělí se podle zatížení kol, zbytek na zadní.
-- **Řízení:** úhel kol = vstup (±127) ± sbíhavost 0x100, násobený faktorem z 0x0FC. Do určité rychlosti se rozsah zvětšuje a nad 80 se zmenšuje s rychlostí. Přesnou jednotku 0x0FC se nepodařilo určit.
+- **Řízení:** úhel kol = vstup (±127) ± sbíhavost 0x100, násobený faktorem z 0x0FC. Úhly počítá hra v 1/256 otáčky (1,41°), rychlost v m/s (práh 44,64 = 100 mph). Plný rejd je **0x0FC / 256 otáčky** (356 A 12 → 16,9°, 993 Turbo 17 → 23,9°). Pod 30 m/s (108 km/h) se násobí 1,75 − 0,025 × rychlost, nejvýš 20 jednotek (28°), nad 80 m/s (288 km/h) se dělí rychlostí / 80. Při 100 km/h tedy 356 A 17,8°, 993 Turbo 25° (`0x49F160`, `0x4A20D0`, ověřeno 29. 10. 2026).
+- **Boční síla kola** (`0x4A20D0`): směrový úhel v 1/256 otáčky, síla = úhel omezený na 1–2 × polovina kapacity kola, nejvýš kapacita. Plnou sílu má kolo od 2/256 otáčky (2,8°) a dál **bez poklesu**, přetočená kola tedy přilnavost neztrácejí.
+- **Stáčení** (`0x49F160`): moment = (boční síly předních kol − boční síly zadních) × 0x1B8 + rozdíl podélných sil levých a pravých kol × 0x1B8. Rameno je pro obě nápravy stejné, **těžiště leží uprostřed rozvoru**. Každá náprava tak v ustálené zatáčce nese polovinu boční síly a vyvážení dává jen 0x0F0: pod 50 % auto nedotáčí (356 A 48,5 % mírně, motor vpředu 44 % nejvíc). Rychlost kola ze stáčení se počítá s ramenem 0x1B4.
 - **Karoserie:** naklopení = 0x128 × podélné zrychlení, náklon = 0x12C × boční zrychlení. Obojí je omezené mezemi 0x134/0x138 a tlumené 0x114/0x118: v každém kroku zůstává podíl předchozí výchylky.
 
 Řetězce v exe: nastavení `.FRONTDOWNFORCE`, `.REARDOWNFORCE`, `.BRAKEBIAS`, `.SUSPENSIONSTIFFNESS`, `.SUSPENSIONTRAVEL`, `.STEERINGTOE`, `.FRONTTIREPRESSURE`, `.REARTIREPRESSURE`, díly `Engine`, `Turbo`, `Supercharged`, `Gear Box`. Výjimky podle jména auta: GT1, GT2, GT3 a 935 mají závodní pneumatiky; 959 má pevné 0x0F0.

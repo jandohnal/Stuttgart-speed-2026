@@ -4,7 +4,7 @@ id: IDEA-001
 title: "Tratě podle reálných map (Alpy, Normandie)"
 status: idea            # idea | accepted | rejected | done
 created: 2026-10-15
-related: [D-005, "docs/plan.md#fáze-3--první-vlastní-trať"]
+related: [D-005, "docs/plan.md#fáze-6--případné-veřejné-vydání"]
 tags: [tracks, terrain, procedural, openstreetmap, dem]
 ---
 

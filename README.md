@@ -9,8 +9,8 @@ Cílem není kopie originálu, ale zachování toho, co ho dělalo výjimečným
 - **Engine:** Godot 4.7, fyzika Jolt, renderer Metal (Apple Silicon).
 - **Jízdní model:** vlastní raycast podvozek, model pneumatik, přenos hmotnosti, nastavitelné asistenty.
 - **Poškození:** zóny, deformace meshe, odpadávající díly a dopad na mechaniku.
-- **Obsah:** fiktivní auta inspirovaná érami, vlastní tratě ve stylu originálu (užší silnice), vlastní nasamplované zvuky, bez hudby.
-- **Data originálu** slouží jen jako lokální reference (fyzikální parametry, nastavení soupeřů). Leží ve složkách `sources/` (původní assety) a `decomposed/` (rozbalené), které se nikdy necommitují.
+- **Obsah:** jen pro osobní použití, nešíří se. Původní auta, tratě a zvuky originálu, opravené a doplněné (i pomocí AI), bez hudby. Fiktivní auta a vlastní tratě jen pro případné veřejné vydání (D-004, D-005, D-009).
+- **Data originálu** existují jen lokálně. Leží ve složkách `sources/` (původní assety) a `decomposed/` (rozbalené), které se nikdy necommitují.
 
 ## Stav
 

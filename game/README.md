@@ -152,7 +152,7 @@ Automatický jízdní test (bez okna): auto plným plynem jede po skidpadu (nebo
 ~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/drive_test.tscn
 ```
 
-Brzdění v zatáčce (bez okna): na skidpadu auto jede po kruhu do 100 km/h (`--entry=`), pak 3 s drží řízení do zatáčky a brzdu; vypíše rychlost stáčení a úhel smyku karoserie (beta). Měření končí prvním nárazem do čehokoli kromě silnice. Brzda a řízení se drží jako klávesy (s náběhem), `--keyboard=0` je dá přímo. Volby `--car=`, `--brake=0..1`, `--steer=0..1`, `--abs=0`, `--set=vlastnost:hodnota` (ladění parametrů `Car`). Se `--brake=0` měří nedotáčivost při plném rejdu (D-026).
+Brzdění v zatáčce (bez okna): na skidpadu auto jede po kruhu do 100 km/h (`--entry=`), pak 3 s drží řízení do zatáčky a brzdu; vypíše rychlost stáčení a úhel smyku karoserie (beta). Měření končí prvním nárazem do čehokoli kromě silnice. Brzda a řízení se drží jako klávesy (s náběhem), `--keyboard=0` je dá přímo. Volby `--car=`, `--turn=left|right` (jinak podle rozjezdu), `--brake=0..1`, `--steer=0..1`, `--abs=0`, `--set=vlastnost:hodnota` (ladění parametrů `Car`, nastaví se až po sestavení auta, takže přepínače čtené při sestavení jako `balance_from_data` nepůsobí). Se `--brake=0` měří nedotáčivost při plném rejdu (D-026).
 
 ```bash
 ~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/brake_turn_test.tscn -- --brake=1 --steer=1

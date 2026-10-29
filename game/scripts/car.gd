@@ -43,7 +43,12 @@ const AIR_DENSITY := 1.225
 @export var grip_base := 0.444  ## mu = grip_base + grip_per_sim * 0x0F4 (356 A 1.15 -> 0.85, 2.0 -> 1.15)
 @export var grip_per_sim := 0.353
 @export var peak_slip_ratio := 0.12  ## longitudinal slip with the most force
-@export var rear_grip := 1.12  ## rear tyre grip vs front (axle geometry, tyre pressures): mild understeer, lost under braking
+@export var rear_grip := 1.12  ## rear tyre grip vs front; from .sim 0x0F0 when balance_from_data
+## Axle balance from the front grip share (.sim 0x0F0): the original turns the car about the middle
+## of the wheelbase, so each axle needs half the side force and gets 0x0F0 or 1 - 0x0F0 of the grip.
+## With grip and demand both following the load here, the same balance is rear_grip = (1 - f) / f
+## (356 A 48.5 % -> 1.06, 993 46 % -> 1.17, front engine 44 % -> 1.27). Off: 1.12, 1.0 front engine.
+@export var balance_from_data := true
 @export var slide_grip := 0.75  ## share of the peak force left when fully sliding
 @export var load_sensitivity := 0.1  ## mu drops by this share per +100 % load over the static load
 @export var rolling_resistance := 0.015  ## times the wheel load
@@ -260,7 +265,11 @@ func _derive_from_data(unknown: Dictionary) -> void:
 	var tyre: Dictionary = params["tyre"]
 	wheel_inertia = 1.2 * pow(wheel_radius / 0.292, 2.0) * float(tyre["width_mm"]) / 145.0
 	unsprung_mass = 25.0 + 0.1 * maxf(float(tyre["width_mm"]) - 145.0, 0.0)  # 356: 25 kg, 993 Turbo: 39 kg
-	rear_grip = 1.0 if str(params.get("engine_position", "rear")) == "front" else 1.12
+	if balance_from_data:
+		var front_share := clampf(float(unknown.get("0x0F0", 50.0)) / 100.0, 0.4, 0.6)
+		rear_grip = (1.0 - front_share) / front_share
+	else:
+		rear_grip = 1.0 if str(params.get("engine_position", "rear")) == "front" else 1.12
 	lsd_lock = 0.6 if float(unknown.get("0x10C", 1.0)) >= 1.3 else 0.0
 	# Turbo lag by era: KKK single turbos of the 1970s (930, 935) lag badly, 1980s water cooled
 	# and sequential units less, 1990s twin turbos little. Race engines run more boost (lower base).

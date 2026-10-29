@@ -1,7 +1,7 @@
 extends Node
 ## Headless test for braking in a corner (comparison with the original, where the rear-engined
 ## car steps out):
-##   godot --headless --path game res://tests/brake_turn_test.tscn [-- --car=993Tcoupe36 --entry=100 --brake=1.0 --steer=1.0 --abs=0 --keyboard=0 --set=rear_grip:1.1]
+##   godot --headless --path game res://tests/brake_turn_test.tscn [-- --car=993Tcoupe36 --entry=100 --turn=left --brake=1.0 --steer=1.0 --abs=0 --keyboard=0 --set=rear_grip:1.1]
 ## The brake and steering are held like keys (ramped by the car's keyboard input) unless --keyboard=0.
 ## On the skidpad: follows the circle up to ENTRY_KMH (--entry=), then holds full steering into the corner
 ## and the brake for HOLD_TIME. Reports the yaw response and the body slip angle (beta) up to the
@@ -21,6 +21,7 @@ var abs_on := true
 var steer_input := 1.0  ## share of full steering held into the corner
 var overrides := {}  ## car property -> value, from --set=name:value (tuning)
 var turn_sign := 1.0  # +1 corner to the left
+var forced_turn := 0.0  ## --turn=left / right; 0 = the way the run-up was steering
 var heading_start := 0.0
 var max_beta := 0.0
 var max_yaw := 0.0
@@ -30,6 +31,8 @@ func _ready() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--brake="):
 			brake = arg.trim_prefix("--brake=").to_float()
+		elif arg.begins_with("--turn="):
+			forced_turn = 1.0 if arg.trim_prefix("--turn=") == "left" else -1.0
 		elif arg.begins_with("--entry="):
 			entry_kmh = arg.trim_prefix("--entry=").to_float()
 		elif arg.begins_with("--set="):
@@ -61,6 +64,8 @@ func _physics_process(delta: float) -> void:
 			Input.action_press("accelerate")
 			if speed >= entry_kmh:
 				turn_sign = signf(car.steer) if car.steer != 0.0 else 1.0
+				if forced_turn != 0.0:
+					turn_sign = forced_turn
 				car.digital_input = bool(overrides.get("digital_input", 1.0))
 				Input.action_release("steer_left")
 				Input.action_release("steer_right")

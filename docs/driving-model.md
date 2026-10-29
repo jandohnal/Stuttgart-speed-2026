@@ -13,7 +13,7 @@ Stav k 19. 10. 2026. Náš model: `game/scripts/car.gd` (D-003, D-015, D-017). O
 | Oblast | Originál (z exe) | Náš prototyp | Rozdíl / co s tím |
 | --- | --- | --- | --- |
 | Zatížení kol | statický podíl přední nápravy 0x0F0 + přenos = zrychlení / 9,8 × 0x0F8 × 0,2 / 0x11C (podélně i bočně, boční dělený mezi nápravy podle 0x130) + přítlak | z pružin a tlumičů (`ride_frequency` 1,7 Hz, `damping_ratio`), stabilizátory 1,0 / 0,3, těžiště posunuté podle polohy motoru | Náš přenos vzniká dynamicky a může kmitat. Statické rozložení odhadujeme z polohy motoru, originál ho má v datech (0x0F0). |
-| Přilnavost | kapacita kola = zatížení × 0x0F4 × koeficient povrchu (tabulka 16 povrchů × 3 typy pneumatik: silniční, do deště, závodní; zvlášť sucho a mokro). Asfalt se silničními pneumatikami = 1,0, takže celkem ≈ 0x0F4 × g | μ = 0,444 + 0,353 × 0x0F4 (356 A 0,85, GT1 1,42), `rear_grip` 1,12 (motor vpředu 1,0), citlivost na zatížení, vrchol a pokles do smyku | Originál má rozsah 1,1–2,75 lineárně. My ho stlačujeme a vyvážení přední/zadní odhadujeme. Je potřeba změřit skutečné boční g originálu (Wine) a podle toho nastavit převod 0x0F4 → μ a 0x0F0 → `rear_grip`. |
+| Přilnavost | kapacita kola = zatížení × 0x0F4 × koeficient povrchu (tabulka 16 povrchů × 3 typy pneumatik: silniční, do deště, závodní; zvlášť sucho a mokro). Asfalt se silničními pneumatikami = 1,0, takže celkem ≈ 0x0F4 × g | μ = 0,444 + 0,353 × 0x0F4 (356 A 0,85, GT1 1,42), `rear_grip` = (1 − 0x0F0) / 0x0F0 od 29. 10. 2026 (dřív 1,12, motor vpředu 1,0), citlivost na zatížení, vrchol a pokles do smyku | Originál má rozsah 1,1–2,75 lineárně. My ho stlačujeme a vyvážení přední/zadní odhadujeme. Je potřeba změřit skutečné boční g originálu (Wine) a podle toho nastavit převod 0x0F4 → μ a 0x0F0 → `rear_grip`. |
 | Pneumatika (tvar síly) | síla kola omezená kapacitou. Model skluzu jako NFS4 (boční síla z rychlosti kola, mez přilnavosti, pokles při ztrátě) | poměr skluzu a směrový úhel spojené do jednoho normovaného skluzu, vrchol `peak_slip_ratio` 0,12, úhel podle profilu pneumatiky, pokles na `slide_grip` 0,75 | Náš model je bohatší, to je výhoda. Data originálu pro tvar křivky nejsou, zůstává naše ladění. |
 | Motor a převodovka | otáčky se mění pevnými kroky za tik (+250, −100, ±50), síla = moment × poměr rychlost/otáčky × účinnost 0x058 / hmotnost. Brzdění motorem = −moment × 0x098. Zpoždění řazení 0x054 (tiky) | otáčky svázané s koly, setrvačnost motoru = 0x058 / 1000 (**chybně**), účinnost pevně 0,85, brzdění motorem 0,12 × max. moment, doba řazení 0,35 s × 0x054 / 8, automat, spojka při rozjezdu, turbodíra | Opraveno 19. 10. 2026: 0x058 → účinnost převodu, 0x098 → brzdění motorem. Setrvačnost motoru je pevně 0,09 kg·m² (v datech není). |
 | Brzdy | síla = pedál × 0x104 (m/s²) × (1 − poškození × 0,005), omezená úměrně rychlosti (kola se nikdy nezablokují), vpředu podíl 0x108 | `brake_decel_g` = 0,8 g × 0x104 / 6,5, `brake_front_bias` pevně 0,58, ABS jako asistent | Opraveno 19. 10. 2026: 0x104 přímo v m/s² (356 A 6,5 = 0,66 g), 0x108 → `brake_front_bias`. Originál kola nezamyká z principu, takže naše ABS (výchozí zapnuté) odpovídá originálu. |
@@ -173,8 +173,37 @@ Závěry:
 - **Brzdění v zatáčce** (`--brake=1 --steer=1`) zatím porovnat nejde. Ze 100 km/h obě varianty po 2,1–2,6 s vyjedou z kruhu a narazí. Tabulka ze 17. 10. v `game/README.md` už neplatí (od té doby přibyla kola s hmotou a další změny) a je potřeba ji změřit znovu, nejlépe na delší rovné ploše.
 - Při ustálené rychlosti a pevném natočení kmitá stáčení (např. 4–40 °/s s periodou asi 1 s). Podezřelá je hrbolatost skidpadu nebo pérování, zatím neřešeno.
 
+## Vyvážení náprav z 0x0F0 (29. 10. 2026)
+
+**Co dělá originál** (`0x4A1900`, `0x49F160`, [formats/sim.md](formats/sim.md#analýza-porscheexe-ghidra)): přední kola mají kapacitu 0x0F0 × m·g·0x0F4, zadní zbytek. Moment stáčení je (boční síla vpředu − vzadu) × 0x1B8, tedy se stejným ramenem pro obě nápravy: těžiště leží uprostřed rozvoru. V ustálené zatáčce proto každá náprava nese polovinu boční síly a vyvážení je 0x0F0 / (1 − 0x0F0). Pod 50 % auto nedotáčí. Všechna auta originálu tedy nedotáčejí: 356 A (48,5 %) nejméně, auta s motorem vpředu (44 %) nejvíc.
+
+**Převod:** u nás přilnavost i potřebná boční síla nápravy rostou se zatížením, takže stejné vyvážení dává **`rear_grip` = (1 − 0x0F0) / 0x0F0**. Bere se 0x0F0 po dílech a pneumatikách (`car_parts.gd`), přepínač `balance_from_data` vrátí starou heuristiku (1,12, motor vpředu 1,0).
+
+| Auto | 0x0F0 | `rear_grip` dřív | nyní |
+| --- | --- | --- | --- |
+| 356 A 1.6 | 48,5 % | 1,12 | 1,06 |
+| 993 Turbo, Boxster | 46 % | 1,12 | 1,17 |
+| 996 | 45,5 % | 1,12 | 1,20 |
+| motor vpředu (944, 928) | 44 % | 1,0 | 1,27 |
+
+`brake_turn_test` na skidpadu z 60 km/h, plný rejd z klávesnice, oba směry zatáčky (`--turn=`), průměr 0,5–3 s nebo do nárazu:
+
+| Auto, jízda | `rear_grip` | Směrový úhel vpředu / vzadu (max vzadu) | Úhel smyku | Boční zrychlení |
+| --- | --- | --- | --- | --- |
+| 356 A, bez brzdy | 1,12 → 1,06 | 14–15° / 5,1–5,3° (7–8°) → 15–16° / 5,8–5,9° (8–9,5°) | 3,1–3,3° → 3,8–3,9° | 0,62–0,82 g, beze změny |
+| 356 A, plná brzda | 1,12 → 1,06 | 15–17° / 4,4–4,7° (8,5–9,3°) → 17–19° / 5,8–6° (11,7–11,9°) | 4,8–4,9° → 6,0° | 0,35–0,49 g, beze změny |
+| 944 Turbo, bez brzdy | 1,0 → 1,27 | 24–25° / 15–16° (27–31°) → 11–12° / 3,7–3,9° | 12,4–12,7° → 1,0–1,2° | 0,93–1,06 → 0,83–1,01 g |
+| 944 Turbo, plná brzda | 1,0 → 1,27 | 30–38° / 21–30° → 16–16,5° / 4,2–4,6° | 16,5–25,5° (roztočí se) → 1,2–3,3° | 0,74–1,08 → 0,46–0,71 g |
+
+Závěry:
+- **356 A je o něco hravější.** Boční zrychlení drží přední náprava (rejd), zadní pneumatiky se ale dostanou blíž k vrcholu (8,6°), při brzdění za něj. Smyk zádí při brzdění v zatáčce, který uživatel ladil proti originálu, je tedy o něco výraznější.
+- **944 Turbo se už neroztočí.** S `rear_grip` 1,0 se při plném rejdu z 60 km/h dostala záď do smyku (úhel smyku 12–25°). Teď jede stabilně s mírnou nedotáčivostí, jak to má originál. Proč náš model při stejné přilnavosti náprav přetáčí, zatím není jasné (kandidáti: zadní kola bez řízení dostávají směrový úhel ze stáčení, rozložení přenosu zatížení).
+- 993 Turbo a Boxster se změnily jen málo (1,12 → 1,17).
+- **Rejd originálu (0x0FC)** je při 100 km/h 17,8° (356 A) a 25° (993 Turbo), tedy víc než náš (asi 10°). Originál ale nemá pokles síly za vrcholem, plnou sílu má kolo od 2,8° dál. Přetočená kola proto v originálu nic nestojí, u nás ano. Náš rejd podle rychlosti (D-026) tak dává stejný výsledek („plný rejd = plná přilnavost“) a zůstává.
+- Stáčení dál kmitá s periodou asi 1 s. Skidpad navíc auto po 1,5–2,5 s vyvede k překážce, pro přesnější srovnání by byla lepší velká rovná plocha.
+
 ## Otevřené otázky
 
-- Jednotka 0x0FC (rozsah řízení) a náběh kláves v NFS5: dohledat vstup hráče v exe.
-- Tvar křivky pneumatiky v originálu (funkce sil kola 0x4A20D0): zda jde o lineární omezení jako v NFS4, nebo o vrchol a pokles.
+- Náběh kláves v NFS5: dohledat vstup hráče v exe (jednotka 0x0FC je od 29. 10. 2026 známá).
+- ~~Tvar křivky pneumatiky v originálu~~: lineární omezení bez poklesu, plná síla od 2,8° (29. 10. 2026).
 - Skutečné maximální boční zrychlení originálu: změřit přes Wine, protože z exe plyne jen kapacita ≈ 0x0F4 × g na suchém asfaltu.
