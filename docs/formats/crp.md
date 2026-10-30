@@ -226,7 +226,7 @@ Podpoložka `ef` článku (stejně jako `Base`, `tr` …) popisuje světla a efe
 | druh 2: 0x14 | f32[3] | směr? Skoro vždy (0, 0, 1) |
 | druh 2: 0x24 | char[4] | **ID záře pozpátku** (`anrw` = `wrna`), klíč do `GameData/Render/flare.dat` ([flare.md](flare.md)) |
 | druh 2: 0x28 | u32 | náhodné hodnoty, nejspíš nevyplněno |
-| druh 3: 0x14 | f32 + f32[3×3]? | 1,0 a báze (fontány jsou natočené po 90°) |
+| druh 3: 0x14 | f32 + f32[3] × 2 | 1,0 a dva řádky báze: 0x18 `direction` (v rovině plochy, ze které částice vznikají), 0x24 `up` (směr, kterým částice letí: rychlost `emit.y` systému; vodopády ven a dolů, mlha `WF08` vodorovně, fontány nahoru). Třetí řádek není, na 0x30 už je značka. Obě zapisuje `tools/emitters.py` ([water.md](../water.md#ve-hře-d-033)) |
 | druh 3: 0x30 | char[4] | značka zdroje částic **v normálním pořadí**: `HYDR`, `HYDB`, `HYDM` (hydrant), `CSF1`/`CSF2` (fontána u kasina), `BEXP`, `BEXO`, `BPST`, `TRSH` (úlomky) – nejspíš `GameData/Render/particle.ini` |
 
 Ověřeno: světové záře leží u vrcholů svého článku (medián 0,3–0,7 m na monaco1, monaco3, autobahn), záře na `tr` objektech jsou lokální (kozy `SAWH` ±0,44 m vlevo/vpravo, 1,12 m nahoře). Tunelová světla monaco3 jsou ve dvou řadách 6 m nad silnicí, 6,7 m od středu. Někdy záři nese jiný článek, než je lampa (silnice `RD… PRIMARY`, tunel), proto až 20 m od jeho vrcholů.

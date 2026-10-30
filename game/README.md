@@ -132,6 +132,7 @@ Hra se spouští rovnou přes celou obrazovku (`display/window/size/mode` = full
 | `scripts/race_lines.gd` | startovní a cílová čára jako decaly: cíl z dlaždic originálu (skupina `gates`), start vlastní bílý pruh |
 | `scripts/car_damage.gd` | poškození: impulsy kontaktů karoserie sečtené za prvních 0,1 s nárazu, nad prahem promáčknou zóny u bodu nárazu (blend shapes `dz0`–`dz9` z `<auto>_damage.json`); díly odpadají nebo visí na pantech (`HingeJoint3D`); následky čte `car.gd` |
 | `scripts/car_audio.gd` | zvuk auta: smyčky motoru podle otáček (výška, prolínání dvou nejbližších) a plynu (load / coast), pískání pneumatik podle skluzu, vítr, drhnutí, nárazy a díly ze signálů `CarDamage`; sběrnice `Engine` a `Sfx` |
+| `scripts/track_water.gd` | voda trati (D-033): vodní částice originálu na polohách zdrojů (`<trať>_emitters.json`), tekoucí textury vodopádů a fontán, mokré auto v tříšti, rozvíření mlhy projíždějícími auty; `--water=0` ji vypne |
 | `scripts/falling_leaves.gd` | listí padající z podzimních korun nad a kolem silnice před autem hráče (D-028): dopadne na zem, chvíli leží a projíždějící auta (hráč i soupeři) ho rozvíří; `--leaves=0` ho vypne |
 | `scripts/car_effects.gd` | efekty auta (D-028): stopy pneumatik na silnici při skluzu za vrcholem, prach a hroudy hlíny za koly na terénu v barvě textury pod kolem (textury Kenney Particle Pack, CC0, `assets/particles/kenney/`), stébla trávy na zeleném terénu a suché listí na texturách s listím (CC0, `assets/particles/foliage/`, `leaves/`), jiskry při nárazu a drhnutí karoserie (barvy ze `Sparks` v `particles.json`); `--effects=0` je vypne (srovnání FPS) |
 | `scripts/track_props.gd` | fyzika objektů kolem trati (skupina `props`, `<trať>_objects.json`): sražitelné jako `RigidBody3D` s původní hmotností, zmrazené, dokud se nepřiblíží pohyblivé těleso (1 m), ostatní statické; kolize z konvexního obalu, ploché jako kvádr 10 cm |
@@ -415,6 +416,14 @@ Efekty (D-028): z roštu farmlandu plný plyn po silnici, plný rejd s brzdou (s
 ```
 
 30. 10. 2026: farmland 214 čtyřúhelníků stop, prach na všech 4 kolech, jiskry 0,3–0,6 s, barva pod kolem silnice `#979187`, pole `#8c7b47`; skidpad asfalt `#525153`, štěrk `#5c5d4c`. Tráva a listí: farmland končí na `rdca` (tráva i listí na 4 kolech), pole `fm04` jen tráva, forest končí na štěrkové krajnici `rda2` (jen prach). Listí z korun: farmland až 173 padajících a 146 ležících listů, auto jich rozvířilo 41, forest a pole 0. FPS s listím a bez něj stejné (33–35).
+
+Voda (D-033): z řezu 1606 na forest jízda po silnici krytým mostem u vodopádu (řezy 1630–1634) a dál. Vypíše každou sekundu řez, mokrost auta a počet zdrojů. Projde, když trať má zdroje i tekoucí materiály a auto zmokne nad 0,5 a pak schne. `--track=<trať> --emitter=<n>` postaví auto před n-tý vodní zdroj, `--at=<řez>` na řez (forest 1616: vodopád v záběru), `--wet` drží auto mokré (srovnání vzhledu), v okně `--shot=<složka>` uloží snímky:
+
+```bash
+~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/water_test.tscn
+```
+
+31. 10. 2026: forest 10 zdrojů (6 v dosahu), 4 tekoucí materiály, auto nejvíc mokré 0,65 v mostě, pod 0,1 za 6 s jízdy. Stojící auto u mostu (`--at=1628`) 31 FPS s vodou i bez ní. Canyon, castle (vodopád, fontána) a monaco1 projdou se `--emitter`.
 
 ## Stav a známá omezení
 

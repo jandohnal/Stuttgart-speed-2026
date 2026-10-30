@@ -101,7 +101,8 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Efekty (D-028): stopy pneumatik na silnici při smyku, prach a kousky země za koly mimo silnici v barvě terénu, jiskry při nárazu a drhnutí (`effects_test`)
 - [x] Efekty: tráva na zeleném terénu a listí na texturách se spadaným listím, listí padající z podzimních korun na zem, rozvířené projíždějícími auty (D-028)
 - [x] Rozbor vodních prvků originálu po tratích ([water.md](water.md))
-- [ ] Voda: hladiny, vodopády a fontány podle [water.md](water.md)
+- [x] Voda: vodopády, peřeje a fontány podle zdrojů originálu, mokré auto, rozvíření mlhy (D-033)
+- [ ] Voda: hladiny (moře, řeky, jezera) s vlastním shaderem, hydranty po nárazu
 - [ ] Efekty: povrch z `df` článků CRP, jiskry jen od kovových a kamenných překážek
 - [x] Keře podél trati jsou průjezdné (D-031): poznají se podle značky BUSH (`drivethrough` v `animdefs.txt`), skupina glTF `drivethrough` bez kolize, `bush_test`
 - [x] Okruhy s počítáním kol: Monte Carlo s vlastní čarou startu a cíle (D-025), `lap_test`

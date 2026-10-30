@@ -58,6 +58,34 @@ Vodu tedy nepoznáme podle názvu: stejný název má na různých tratích růz
 
 Polohy a směry zdrojů jsou v `<trať>_lights.json` (`emitters`, s článkem). Zdroje `HYDR`, `HYDB` a `HYDM` v převedených tratích nejsou. Nejspíš patří k předloze hydrantu, kterou rozmisťují úlohy (`.scn`).
 
+## Ve hře (D-033)
+
+- **Zapojené zdroje:** `TrackWater` kreslí vodní částice na všech zdrojích výše:
+  - forest 10 (vodopád u mostu, peřeje),
+  - canyon 8,
+  - castle 14 (vodopád, fontána na nádvoří),
+  - monaco1–4 po 8 (fontána u kasina).
+- **Tekoucí textury:**
+  - forest: `wfw2`, `wfw4`, `rvr2`,
+  - castle: `wfw1`, `wfw2`, `wfw4`,
+  - canyon: `wfw2`, `wfw4`,
+  - monaco1–4: `fnt1`–`fnt3`.
+- **Báze zdroje:** zdroj má v `ef` dva řádky báze. První (`direction`) leží v rovině plochy, ze které částice vznikají. Druhý (`up`) je směr, kterým částice letí: u vodopádů ven přes hranu a dolů, u mlhy `WF08` vodorovně, u fontán nahoru. `tools/emitters.py` je zapisuje do `<trať>_emitters.json`.
+- **Prohlídka míst:** `--slice=` spustí hru bez závodu. Auto stojí asi 30 m před zdrojem.
+
+| Trať | Místo | `--slice=` |
+| --- | --- | --- |
+| forest | peřeje u mostu přes potok | 189 |
+| forest | vodopád u krytého mostu | 1616 (vodopád v záběru), 1624 |
+| canyon | vodopády | 996 |
+| castle | vodopád | 3018 |
+| castle | fontána na nádvoří | 3293 |
+| monaco1 / 2 / 3 / 4 | fontána u kasina | 595 / 10 / 11 / 273 |
+
+```
+~/Downloads/Godot.app/Contents/MacOS/Godot --path game res://scenes/main.tscn -- --track=forest --slice=1616
+```
+
 ## Možnosti Godotu (D-012: jen vestavěné prostředky)
 
 - **Hladina:** rovina nebo původní mesh s vlastním shaderem: posouvané normálové mapy, Fresnel, barva a průhlednost podle hloubky (`DEPTH_TEXTURE`), pěna u břehu, lom (`SCREEN_TEXTURE`). Odrazy dává SSR, `ReflectionProbe` nebo obloha. Planární zrcadlo by potřebovalo druhou kameru (`SubViewport`), skoro dvojnásobek vykreslování.

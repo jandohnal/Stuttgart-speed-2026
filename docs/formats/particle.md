@@ -26,12 +26,12 @@ Textový popis 62 částicových systémů: kouř komínů, pára, vodopády a p
 | `inUse` | 1 u všech | |
 | `numparticles` | počet částic (11–50) | pravděpodobné |
 | `blendmode` | 0 / 1 / 2; jiskry `SPRK` 0, `SMOK` 1, textury na černém pozadí (SMX1, SPRK) → nejspíš sčítání | odhad |
-| `emit.x/y/z` | počáteční rychlost (jiskry 0,06–0,1 nahoru, vodopády desítky) | odhad, jednotka neznámá |
-| `randemit.x/y/z` | náhodný rozptyl rychlosti | odhad |
+| `emit.x/y/z` | `y`: rychlost za tik podél druhého řádku báze zdroje `ef` (fontána `CSF1` 0,043, vodopád `WF07` 0,125); `x`, `z`: rozměr plochy, ze které částice vznikají, v metrech (mlha `WF02` 6 × 6,5, kapky `CTD3` čára 3,6 m) | pravděpodobné, ověřeno snímky vody ([water.md](../water.md#ve-hře-d-033)) |
+| `randemit.x/y/z` | náhodná část rychlosti za tik | pravděpodobné |
 | `startsize`, `endsize` | velikost na začátku a konci života | pravděpodobné |
 | `overallsize`, `overallspeed` | 0 / 1, příznaky? | neznámé |
-| `lifetime`, `randlifetime` | životnost (4–650), nejspíš tiky | odhad |
-| `weight`, `randweight` | gravitace (záporná u kouře a páry stoupá) | pravděpodobné |
+| `lifetime`, `randlifetime` | životnost v ticích; tik je nejspíš 1/30 s (tříšť vodopádů propadne svých 90 m za `lifetime`, fontána stoupá asi 1 m) | pravděpodobné |
+| `weight`, `randweight` | násobek gravitace (záporná u kouře a páry stoupá); hra bere `weight` × 9,81 m/s² | pravděpodobné |
 | `startrotation`, `endrotation`, `randrotation` | rotace | pravděpodobné |
 | `numstates`, `color.0`–`color.3` | barvy v průběhu života, ARGB se znaménkem (`-1` = bílá neprůhledná, `16750848` = `#00ff9900` průhledná oranžová) | jisté |
 | `numframes`, `framespeed` | animace textury (1 snímek u všech) | |

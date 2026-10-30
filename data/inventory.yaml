@@ -153,7 +153,7 @@ items:
     output: decomposed/GameData/Render/particles.json
     status: partial_decoded
     notes: "62 částicových systémů v textovém INI (kouř, pára, vodopády, fontány, jiskry, výbuch bedny). tag = ID čtyři znaky little-endian (klíč zdrojů ef druhu 3 v tratích), matid = textura v particle.fsh big-endian. Jednotky rychlosti, životnosti a váhy odhadnuté. particle.dat (binární, nejspíš totéž) nerozluštěný"
-    use: "Jiskry auta (D-028), předloha pro zdroje částic tratí"
+    use: "Jiskry auta (D-028), voda trati (D-033): vodopády, peřeje, fontány na polohách zdrojů z tools/emitters.py (<trať>_emitters.json)"
 
   - id: track_binary_data
     category: to_write

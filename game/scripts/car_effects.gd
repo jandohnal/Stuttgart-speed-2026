@@ -6,7 +6,9 @@ extends Node3D
 ##   colour of the ground texture under the wheel, so grass throws green, a dirt path brown;
 ##   green ground also throws blades and tufts of grass, ground strewn with fallen leaves
 ##   (LEAF_GROUND) dry leaves;
-## - sparks where the body hits something or scrapes along it.
+## - sparks where the body hits something or scrapes along it;
+## - a wet body after spray (TrackWater calls wet()): paint, chrome and glass darker and glossier,
+##   drying off over WET_DRY s, faster at speed.
 ## The ground under a wheel comes from its ray: the collider's track group (road, terrain) and the
 ## triangle's material (needs physics/jolt_physics_3d/queries/enable_ray_cast_face_index).
 ## Dust and dirt use textures of the Kenney Particle Pack, grass Kenney's Foliage Sprites and leaves
@@ -75,6 +77,13 @@ const SPARK_SCRAPE_FROM := 100.0  ## N*s per tick of body contact (CarDamage.scr
 const SPARK_SCRAPE_FULL := 400.0
 const SPARK_MIN_SPEED := 4.0  ## m/s for scrape sparks
 
+const WET_RISE := 0.6  ## s to soak through in spray
+const WET_DRY := 25.0  ## s to dry standing; driving dries faster
+const WET_DRY_SPEED := 15.0  ## m/s that doubles the drying rate
+const WET_ROUGHNESS := 0.6  ## share of roughness a fully wet surface loses
+const WET_DARKEN := 0.25  ## share of paint brightness it loses
+const WET_KINDS := ["paint", "decal", "inner", "chrome", "glass"]
+
 static var _ground_cache := {}  ## collider instance id -> {group, mesh, ends, colors}
 static var _textures := {}
 
@@ -97,6 +106,10 @@ var _colors := PackedColorArray()
 var _uvs := PackedVector2Array()
 var _dirty := false
 var _mark_material: StandardMaterial3D
+var _wetness := 0.0
+var _wet_target := 0.0
+var _wet_shown := -1.0
+var _wet_materials := []  ## {material, kind, roughness, color, clearcoat_roughness}
 
 
 func setup(car: Car) -> void:
@@ -120,6 +133,7 @@ func setup(car: Car) -> void:
 	add_child(_sparks)
 	if car.damage != null:
 		car.damage.impacted.connect(_on_impact)
+	_collect_wet_materials()
 
 
 ## Dust emitters currently throwing (tests).
@@ -148,6 +162,16 @@ func sparks_active() -> bool:
 	return _sparks != null and _sparks.emitting
 
 
+## How wet the body is, 0..1 (tests).
+func wetness() -> float:
+	return _wetness
+
+
+## Spray on the car this frame: soaks it towards `amount` (0..1).
+func wet(amount: float) -> void:
+	_wet_target = maxf(_wet_target, clampf(amount, 0.0, 1.0))
+
+
 func _process(delta: float) -> void:
 	if _car == null:
 		return
@@ -166,6 +190,7 @@ func _process(delta: float) -> void:
 	if _dirty:
 		_rebuild_open()
 	_update_sparks(speed)
+	_update_wet(delta, speed)
 
 
 # --- ground ----------------------------------------------------------------------------------
@@ -462,6 +487,46 @@ func _make_leaves() -> GPUParticles3D:
 	return _emitter(p, m, LEAF_SIZE, LEAF_AMOUNT, LEAF_LIFETIME)
 
 
+# --- wet body --------------------------------------------------------------------------------
+
+## The car's own materials (Materials.setup_car makes them per car) that look different wet.
+func _collect_wet_materials() -> void:
+	var seen := {}
+	for node in _car.find_children("*", "MeshInstance3D", true, false):
+		if is_ancestor_of(node):
+			continue  # tyre marks
+		var mesh := (node as MeshInstance3D).mesh
+		if mesh == null:
+			continue
+		for s in mesh.get_surface_count():
+			var m := mesh.surface_get_material(s) as StandardMaterial3D
+			if m == null or seen.has(m):
+				continue
+			seen[m] = true
+			var kind := Materials._car_kind(m.resource_name, String(node.name))
+			if kind in WET_KINDS:
+				_wet_materials.append({"material": m, "kind": kind, "roughness": m.roughness,
+					"color": m.albedo_color, "clearcoat_roughness": m.clearcoat_roughness})
+
+
+func _update_wet(delta: float, speed: float) -> void:
+	if _wet_target > _wetness:
+		_wetness = minf(_wetness + delta / WET_RISE, _wet_target)
+	else:
+		_wetness = maxf(_wetness - delta * (1.0 + speed / WET_DRY_SPEED) / WET_DRY, 0.0)
+	_wet_target = 0.0
+	if absf(_wetness - _wet_shown) < 0.01:
+		return
+	_wet_shown = _wetness
+	for e: Dictionary in _wet_materials:
+		var m: StandardMaterial3D = e["material"]
+		m.roughness = float(e["roughness"]) * (1.0 - WET_ROUGHNESS * _wetness)
+		m.clearcoat_roughness = float(e["clearcoat_roughness"]) * (1.0 - WET_ROUGHNESS * _wetness)
+		if e["kind"] in ["paint", "decal", "inner"]:
+			var c: Color = e["color"]
+			m.albedo_color = Color(c.darkened(WET_DARKEN * _wetness), c.a)
+
+
 # --- sparks ----------------------------------------------------------------------------------
 
 func _on_impact(_kmh: float, point: Vector3, impulse: float) -> void:
@@ -558,6 +623,7 @@ static func _argb(hex: String) -> Color:
 ## World-space emitter: particles stay where they were thrown while the car drives on.
 func _emitter(p: ParticleProcessMaterial, m: StandardMaterial3D, size: float, amount: int, lifetime: float) -> GPUParticles3D:
 	var e := GPUParticles3D.new()
+	p.attractor_interaction_enabled = false  # cars stir TrackWater's mist, not their own dust
 	e.process_material = p
 	var quad := QuadMesh.new()
 	quad.size = Vector2(size, size)

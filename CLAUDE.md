@@ -36,7 +36,8 @@ Duchovní nástupce NFS: Porsche 2000. Kontext: `README.md`, rozhodnutí: `docs/
 - `python3 tools/sim_dump.py sources/GameData/Simulation/CarData > decomposed/GameData/Simulation/cars.json` – fyzika aut do JSON.
 - `python3 tools/car_colors.py sources/FEData/Data/nfs5.car decomposed/FEData/Data/car_colors.json` – palety barev laku aut do JSON (volba barvy v menu).
 - `python3 tools/parts.py sources/FEData decomposed/FEData/Data/parts.json [--report]` – díly aut (katalog `nfs5.prt`, seznamy v `nfs5.car`, konstanty z `Porsche.exe`) a sady Stock / Sport do JSON; potřebuje `cars.json`.
-- `python3 tools/particles.py sources/GameData/Render/particle.ini decomposed/GameData/Render/particles.json` – částicové systémy originálu do JSON (jiskry auta).
+- `python3 tools/particles.py sources/GameData/Render/particle.ini decomposed/GameData/Render/particles.json` – částicové systémy originálu do JSON (jiskry auta, voda).
+- `python3 tools/emitters.py sources/GameData/Track decomposed/GameData/Track` – zdroje částic tratí s celou bází do `<trať>_emitters.json` (vodopády, fontány); potřebuje převedené tratě.
 - `python3 tools/snd2wav.py sources/GameData/Sounds decomposed/GameData/Sounds` – zvukové banky do WAV (+ `index.json`) a sady motorů pro hru (`engine.json`).
 - `python3 tools/credits_stats.py game/ui/credits_stats.json` – statistiky vývoje pro okno credits (git + logy Claude Code); spustit před commitem, ať jsou čísla aktuální.
 

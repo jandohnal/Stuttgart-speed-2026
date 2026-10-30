@@ -258,3 +258,24 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
 - **Odchylky od návrhu:** Seznamy jsou skutečná data hry, ne ukázková: Car model = auta z `CARS`, Car profile = díly Stock / Sport (D-024), Car color = paleta originálu (D-020), Tires = sériové / slick / do deště, Track = `TRACKS`. Denní doba je zaškrtávátko NIGHT RACE. Logo a texty říkají „Stuttgart Speed“ (jméno projektu), ne „Stuttgart Racing“. Výběr se dál ukládá přes `GameSettings` do `user://settings.cfg` (ne `race_setup.cfg`). Scéna zůstává `scenes/menu.tscn`. Enter kdekoli dál spouští hru (mezerník / A otevře seznam nebo přepne zaškrtávátko). Zaškrtávátko nemá při najetí myší světlejší výplň (CheckBox na to nemá položku tématu). Credits otevře okno ve stylu menu (jako dialog exit): pocta originálu pro pamětníky, že hru vibecoduje Honza Dohnal s Claude Opus 5.5 v Claude Code, a statistiky vývoje (dny, commity, sezení a odpovědi Claude Code, aktivní čas, tokeny) z `game/ui/credits_stats.json`, který zapisuje `tools/credits_stats.py` z historie gitu a logů Claude Code (`~/.claude/projects/…`). Statistiky se aktualizují ručně spuštěním nástroje; bez souboru okno sekci s čísly skryje.
 - **Důvod:** Přání uživatele, návrh dodaný jako specifikace pro Godot.
 - **Důsledky:** Písmo Saira Condensed (SIL OFL 1.1, z repozitáře google/fonts, 30. 10. 2026) je v gitu v `game/ui/fonts/` (`SairaCondensed-SemiBold/Bold/ExtraBold.ttf` a `OFL.txt`); kdyby chybělo, použije se systémové Avenir Next Condensed. Fotka do průzoru: `game/ui/photos/porthole_*.jpg|png`, jen s jasnou licencí (public domain nebo CC s uvedením v credits); bez ní je tam šedý kruhový přechod. Model auta v průzoru je z `decomposed/` (D-009, jen osobní použití), jinak menu nepoužívá jména, loga ani grafiku Porsche a Need for Speed. Model se kreslí do vlastního `SubViewport` s průhledným pozadím v nativním rozlišení obrazovky, bez upscalingu MetalFX z nastavení projektu (ten zahazuje průhlednost).
+
+
+## D-033 Voda: vodopády, tříšť a fontány podle zdrojů originálu, mokré auto
+- **Stav:** accepted
+- **Rozhodnutí:** Uzel `TrackWater` (`game/scripts/track_water.gd`, jeden na trať) přidá vodu podle dat originálu ([water.md](water.md)):
+  - **Zdroje částic:** vodní systémy z `particle.ini` (`WF01`–`WF08`, `RPD1`–`RPD4`, `CTM1`, `CTD1`–`CTD3`, `CSF1`, `CSF2`) na polohách zdrojů `ef` druhu 3. Zdroje s celou bází zapisuje nový nástroj `tools/emitters.py` do `<trať>_emitters.json`. `track2gltf.py` ukládá jen první řádek báze a smysl celé báze se ukázal až u vody.
+  - **Výklad systému** (hypotéza ověřená snímky): `emit.y` je rychlost podél druhého řádku báze za tik 1/30 s, `emit.x` a `emit.z` rozměr plochy, ze které částice vznikají, `weight` násobek gravitace, `lifetime` v ticích, velikost začátek → konec v metrech.
+  - Tik 1/30 s sedí na výšku: tříšť vodopádů propadne svých asi 90 m za dobu života, fontána na castle stoupá asi 1 m. S tikem 1/60 s stoupala fontána jako sloup kouře do 6 m.
+  - Mlha `WF08` u krytého mostu na forest (řezy 1630–1634) tak fouká vodorovně mostem přes silnici.
+  - **Textury:** mlha (`sstk`) má obláčky Kenney, tříšť a kapky (`WFAL`, `FOUN`, `FOU2`, `DRIP`) textury originálu z `particle.fsh`.
+  - **Tekoucí voda:** materiály vodopádů (`wfw*` na forest, castle a canyon), peřejí (`rvr2`) a fontány v Monaku (`fnt1`–`fnt3`) posouvají texturu. Pravidlo je podle dvojice trať a textura, směr podle orientace UV meshe, aby voda vždy tekla dolů.
+  - **Mokré auto:** auto v zóně tříště (podél dráhy zdroje, široké jako jeho částice) zmokne, `CarEffects.wet()`. Lak, chrom a sklo jsou až o 60 % méně drsné, lak a obtisky o 25 % tmavší. Auto schne asi 25 s, v jízdě rychleji.
+  - **Rozvíření:** každé auto (hráč i soupeři) do 80 m od vody veze `GPUParticlesAttractorSphere3D`, který částice odfoukne. Prach, jiskry a listí od kol ho ignorují.
+  - `--water=0` vodu vypne.
+- **Důvod:** Přání uživatele (30. 10. 2026): v originále auta projíždějí tříští vodopádu u mostu na forest; k tomu zmoknutí auta, rozvíření mlhy a stejné prvky na ostatních tratích.
+- **Důsledky:**
+  - **Výkon:** mlha se kreslí neosvětlená, s jasem 0,8 ve dne a 0,15 v noci. Osvětlené velké obláčky přes sebe braly u mostu 11 z 31 FPS, neosvětlené žádné (31 s vodou i bez ní). Obláčky mlhy jsou 0,6× velikosti originálu a je jich 1,5× víc.
+  - **Hydranty** (`HYDR`, `HYDB`, `HYDM` na castle) se zatím nezapojují, nejspíš stříkají až po nárazu.
+  - **Rozvíření mlhy** je zapnuté, ale na snímcích jsem ho zvlášť neověřoval.
+  - **Mokrý lak** je na bílém autě vidět málo.
+  - **Mimochodem opravené:** reset auta hledá zem od 3,5 m nad řezem (dřív 2 m). Podlaha nádvoří na castle je 2,5 m nad řezem a auto tam propadalo.

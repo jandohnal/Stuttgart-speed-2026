@@ -27,6 +27,7 @@ const TrackProps := preload("res://scripts/track_props.gd")
 const CarAudio := preload("res://scripts/car_audio.gd")
 const CarEffects := preload("res://scripts/car_effects.gd")
 const FallingLeaves := preload("res://scripts/falling_leaves.gd")
+const TrackWater := preload("res://scripts/track_water.gd")
 const Materials := preload("res://scripts/materials.gd")
 const SkyLighting := preload("res://scripts/sky_lighting.gd")
 const CarLights := preload("res://scripts/car_lights.gd")
@@ -49,7 +50,7 @@ const GRID_BEHIND := 3.0  ## m from the start line back to the car's centre (sta
 const GRID_STEP := 5.0  ## m between grid slots along the road (left and right column alternate)
 const GRID_SIDE := 2.0  ## m from the road centre to a grid column
 const MAX_OPPONENTS := 7
-const GROUND_PROBE_UP := 2.0  ## m above a reset point the ground search starts (road above the slice)
+const GROUND_PROBE_UP := 3.5  ## m above a reset point the ground search starts (road above the slice: castle courtyard 2.5 m)
 const GROUND_PROBE_DOWN := 3.0  ## m below it the search ends
 const RESET_HEIGHT := 0.4  ## m of the car's origin above the road after a reset (as Road.transform_at)
 const DEFAULT_LAPS := 3  ## laps of a circuit (Monte Carlo) in the game; the tests drive one
@@ -347,6 +348,13 @@ func _ready() -> void:
 		var field: Array[Car] = [car]
 		field.append_array(opponents)
 		leaves.setup(road, track, car, field)
+	if track != null and _user_arg("effects") != "0" and _user_arg("water") != "0":  # --water=0: no waterfalls, fountains, spray
+		var water := TrackWater.new()
+		water.name = "TrackWater"
+		add_child(water)
+		var wet_cars: Array[Car] = [car]
+		wet_cars.append_array(opponents)
+		water.setup(track_name, track, wet_cars)
 	if track != null:
 		RaceLines.gate_decals(track)
 		if road_data is Dictionary and road_data.has("start"):
