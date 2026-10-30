@@ -37,6 +37,9 @@ Textový popis 62 částicových systémů: kouř komínů, pára, vodopády a p
 | `numframes`, `framespeed` | animace textury (1 snímek u všech) | |
 | `flags`, `airFriction`, `zbias`, `periodOn`, `periodOff`, `primeTicks`, `volumeScalePct` | | neznámé |
 
+
+Vodní systémy (vodopády, peřeje, fontány, hydrant) a tratě, kde se používají: [water.md](../water.md#vodní-částice-originálu).
+
 ## Jiskry
 
 | # | tag | Částic | Velikost | Váha | Barvy |

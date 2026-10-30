@@ -1,9 +1,10 @@
 extends Node
 ## Headless test of the main menu:
 ##   godot --headless --path game res://tests/menu_test.tscn
-## Checks that the dropdowns list main.gd CARS, TRACKS and TIMES (day / night after the track), that entries with data in decomposed/
-## are enabled and preselected, that the option toggles sit on one row between the track and Play
-## showing GameSettings.options, and that missing data disables an entry instead of failing.
+## Checks that the dropdowns list main.gd CARS and TRACKS, that entries with data in decomposed/
+## are enabled and preselected, that the option checkboxes (night race + GameSettings.options) sit
+## in the grid between the track and PLAY, that the focus chain wraps from exit to the first
+## dropdown, and that missing data disables an entry instead of failing.
 
 const Main := preload("res://scripts/main.gd")
 
@@ -22,18 +23,19 @@ func _ready() -> void:
 	for i in menu.track_option.item_count:
 		print("  track %-14s %-28s %s" % [menu.track_names[i], menu.track_option.get_item_text(i),
 			"disabled" if menu.track_option.is_item_disabled(i) else "ok"])
-	_expect(menu.time_option.item_count == Main.TIMES.size() and menu.time_option.selected >= 0, "time of day choice")
-	var time_row: int = menu.time_option.get_index()
-	_expect(time_row > menu.track_option.get_index() and time_row < menu.options_row.get_index(), "time of day after the track")
+	_expect(menu.option_toggles.has(menu.NIGHT), "night race checkbox")
 	_expect(menu.car_option.selected >= 0 and not menu.car_option.is_item_disabled(menu.car_option.selected), "car preselected")
 	_expect(menu.track_option.selected >= 0 and not menu.track_option.is_item_disabled(menu.track_option.selected), "track preselected")
 	_expect(not menu.play_button.disabled, "Play enabled")
-	_expect(menu.option_toggles.size() == GameSettings.DEFAULT_OPTIONS.size(), "option toggles %d" % menu.option_toggles.size())
-	for key: String in menu.option_toggles:
-		var toggle: CheckButton = menu.option_toggles[key]
-		_expect(toggle.get_parent() == menu.options_row and toggle.button_pressed == GameSettings.options[key], "toggle %s" % key)
-	var row: int = menu.options_row.get_index()
-	_expect(row > menu.track_option.get_index() and row < menu.play_button.get_index(), "toggles between track and Play")
+	_expect(menu.option_toggles.size() == GameSettings.DEFAULT_OPTIONS.size() + 1, "option toggles %d" % menu.option_toggles.size())
+	for key: String in GameSettings.DEFAULT_OPTIONS:
+		var toggle: CheckBox = menu.option_toggles[key]
+		_expect(toggle.get_parent() == menu.options_grid and toggle.button_pressed == GameSettings.options[key], "toggle %s" % key)
+	var row: int = menu.options_grid.get_index()
+	_expect(row > _row(menu.track_option) and row < _row(menu.play_button), "toggles between track and PLAY")
+	var exit: Control = menu.get_node("%ExitButton")
+	_expect(exit.get_node(exit.focus_neighbor_bottom) == menu.car_option, "focus wraps from exit to the car")
+	_expect(menu.get_config().size() == 6 + GameSettings.DEFAULT_OPTIONS.size(), "config keys")
 	_check_colors(menu)
 	_expect(not Main.track_available("no_such_track"), "missing track detected")
 	_expect(not Main.car_available("no_such_car", {}), "missing car detected")
@@ -46,7 +48,7 @@ func _ready() -> void:
 ## Colour dropdown beside the car: "original" first, then the car's palette with the factory colour
 ## marked; switching cars refills it and keeps a colour both cars have.
 func _check_colors(menu: Control) -> void:
-	_expect(menu.color_option.get_parent() == menu.car_option.get_parent(), "colour beside car")
+	_expect(_row(menu.color_option) == _row(menu.car_option) + 2, "colour two rows below the car")
 	_expect(menu.color_option.get_item_text(0) == menu.ORIGINAL_COLOR, "first colour is original")
 	if menu.car_colors == null:
 		print("  colours: no car_colors.json, only original")
@@ -70,6 +72,13 @@ func _check_colors(menu: Control) -> void:
 		menu._on_car_selected(i550)
 		_expect(menu.color_option.item_count == 2 and menu.color_option.selected == 0, "550 one colour, red not kept")
 	print("  colours ok")
+
+
+## Index of the panel row (child of Rows) that holds the control.
+func _row(control: Control) -> int:
+	while control.get_parent().name != "Rows":
+		control = control.get_parent()
+	return control.get_index()
 
 
 func _expect(ok: bool, what: String) -> void:

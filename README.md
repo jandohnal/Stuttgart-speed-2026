@@ -25,6 +25,7 @@ Fáze 1: analýza dat originálu a příprava nástrojů. Podrobnosti najdeš v 
 | `docs/plan.md` | Fáze, milníky, rizika, úkoly |
 | `docs/legal.md` | Právní mantinely: co smí a nesmí do repozitáře |
 | `docs/data-inventory.md` | Inventura dat originální hry |
+| `docs/water.md` | Voda v datech originálu po tratích (hladiny, vodopády, fontány, vodní částice) |
 | `docs/formats/` | Popis rozluštěných formátů souborů |
 | `ideas/` | Nápady k případnému budoucímu využití (zatím nepřijaté) |
 | `data/inventory.yaml` | Strojově čitelná inventura dat |

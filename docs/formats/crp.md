@@ -180,6 +180,10 @@ Stejný kontejner (`"karT"`), stejné články `Arti` s `Name`, `Base`, `vt`, `u
 
 Podle jména: `RD…` silnice, `CNK…` krajina po úsecích (v závorce obsah, např. `GRDRAILNPOST_LOD0`, `TREE11_LOD0`), `MESH`, `FARMMID`, `HILL` terén, `tree`, `OAK`, `SHRUB(S)`, `TREEWALL` vegetace, ostatní objekty.
 
+Jméno ale o kolizi nerozhoduje. **Keře** poznáme podle značky v `Base` 0x44: `BUSH` má v `animdefs.txt` `drivethrough=1` a je to jediná průjezdná značka. Jména keřů jsou různá: `SHRUBBYO12`, `SHRABB`, `OBJECT01`, `MESH416`, `CNK0128L (1 BUSH02_LOD0)`, `OBJ0743L (1 BUSHSMALL_RIGID2)`. Podle jména by tak velká část keřů spadla do terénu nebo objektů (canyon 495 `MESH#` v terénu, castle a foothills `CNK… (BUSH…)`). Všechny články `BUSH` mají příznaky 0x0601, zemní terén 0x0611.
+
+Některé kopie téhož modelu knihovny značku nemají (farmland 3 ze 4 `BUSHSMALL_RIGID2`, castle 36 `BUSHMED_RIGID`, foothills 7). Model je jméno v závorce bez čísla kopie a `_LOD#`. Pokud mají všechny označené kopie modelu stejnou značku a příznaky `Base` a neoznačená kopie stejné příznaky, převezme značku od nich (`tag_from_model`). Generická jména bez závorky (`MESH01`, `OBJECT01`) se nedědí, protože se pod nimi míchají keře s terénem. Keře beze značky i bez označeného souseda zůstávají pevné: coastal `Bush`, canyon `CUTELITTLEBUSH`, castle `BUSHY#`. Jestli originál neoznačené kopie srážel, neověřeno (Wine). Hlavička `animdefs.txt` říká, že popisuje jen označené objekty.
+
 Články s `tr` jsou **objekty** s vlastní maticí; vrcholy mají v lokálních souřadnicích. Odpovídají jim cesty v misc `Desc` (`I:\NFS5Tracks\ModelLibrary\Objects\Smackable\…`). Jsou dvojího druhu:
 
 - **Rozmístěné**: `tr` nese skutečnou polohu na trati (vodorovně dál než 50 m od počátku). Farmland 72: 66 dopravních značek (`OBJ0048R (1 curveleft_Rigid1_SGN)` …, značka SIGN), 4 ležící sloupy (`COLUMN_HORIZONTAL`, CLMH) a 2 animované „sweepery“ (SWEE, `Anim`/`Anqt`).
@@ -274,6 +278,8 @@ Textové soubory s bloky `TRIGGER_ELEMENT` (a `GEOM_ELEMENT`, např. startovní 
 
 Farmland dopředu: start u řezu 56, cíl u řezu 1601, závod tedy vede po hlavní trase ve směru řezů (~9,3 km). Skidpad soubor `fstart` nemá.
 
+Směr báze neodpovídá vždy směru jízdy (ověřeno 30. 10. 2026 proti směru řezu u triggeru): cíl coastal a castle míří dozadu (proti jízdě), start autobahn je otočený o 90° a jeho čára (3 m) vede podél silnice. Starty coastal a castle mají čáru jen 3 m, ostatní 19–52 m přes silnici. `track2gltf.py` proto vezme směr řezu (vodorovně), když se směr triggeru liší o víc než 45°, a čáru, která nevede přes silnici, sestaví ze šířek řezu; nahrazené položky jsou v `_road.json` v `fixed`. Hra sčítá průjezd cílem jen ve směru `forward`, takže na coastal a castle se cíl dřív nezapočítal.
+
 ### Převod do glTF
 
 ```
@@ -281,13 +287,13 @@ python3 tools/track2gltf.py sources/GameData/Track/skidpad.crp decomposed/GameDa
 ```
 
 - Výstup: `.gltf` + `.bin` + `<trať>_road.json` (všechny řezy `SimD`, `segments` = úseky `{first, last, length_m, closed}`, `start`/`finish` z `_fstart.scn` s nejbližším řezem); textury jsou PNG z `fsh2png` ve stejné složce (chybí-li `index.json`, převedou se).
-- Uzly ve skupinách `road`, `terrain`, `vegetation`, `objects`, `props` (rozmístěné objekty s maticí `tr`, jméno uzlu začíná pořadím `000 …`), `gates` (předlohy, které rozmisťuje `_fstart.scn`: dlaždice cílové čáry `FNSH 0`, `FNSH 1` …, [scn.md](scn.md#umístění-předlohy)), `simd` (červený poloprůhledný pás podle `SimD` pro kontrolu), s `--library` i `library` (předlohy v řadě na z = −60 m).
-- `<trať>_objects.json`: pro každý uzel `props` jméno, značka, typ kolize (`smackable`, `box`, `cylinder`, `none`, `static`), hmotnost a průjezdnost z `animdefs.txt`, poloha.
+- Uzly ve skupinách `road`, `terrain`, `vegetation`, `objects`, `drivethrough` (keře: články se značkou, která má v `animdefs.txt` `drivethrough=1`, ať jsou pojmenované jakkoli; mají přednost před skupinou podle jména), `props` (rozmístěné objekty s maticí `tr`, jméno uzlu začíná pořadím `000 …`), `gates` (předlohy, které rozmisťuje `_fstart.scn`: dlaždice cílové čáry `FNSH 0`, `FNSH 1` …, [scn.md](scn.md#umístění-předlohy)), `simd` (červený poloprůhledný pás podle `SimD` pro kontrolu), s `--library` i `library` (předlohy v řadě na z = −60 m).
+- `<trať>_objects.json`: pro každý uzel `props` jméno, značka, typ kolize (`smackable`, `box`, `cylinder`, `none`, `static`), hmotnost a průjezdnost z `animdefs.txt`, poloha. V `drivethrough` seznam dílů ve skupině `drivethrough` (jméno, značka, `tag_from_model` u převzaté značky). Průjezdných dílů je na farmlandu 222 (3 se značkou převzatou), alps 195, canyon 550, castle 245 (36), foothills 402 (7), forest 146, coastal 0.
 - Matice `tr` se zrcadlí stejně jako vrcholy: S·M·S se S = diag(−1, 1, 1, 1), tedy změna znaménka u prvků 1, 2, 3, 4, 8, 12. Těch 16 floatů čtených po sloupcích je přímo matice glTF.
 - `--level` 0–3 (skidpad: 7 314 / 2 636 trojúhelníků pro úroveň 0 / 2).
 - Metry, osa Y nahoru, osa X zrcadlená z levotočivých dat (viz výše, týká se i vektorů `SimD`). `Opaque` → neprůhledné, ostatní render metody → alpha MASK.
 - Zkontrolováno renderem v Blenderu (pohled shora a zblízka): trať, pneumatikové zdi, pole, stromy, budovy i textury sedí.
-- Farmland (Normandie, „French Farmland“): silnice 239, terén 367, vegetace 216, objekty 175, rozmístěné objekty 72, předlohy 70; 66 538 trojúhelníků, 244/245 textur, 1 995 řezů v 10 úsecích. Ve hře (Godot) ověřeno jízdou, snímky a nárazem do dopravní značky.
+- Farmland (Normandie, „French Farmland“): silnice 239, terén 367, vegetace 216 (dnes `drivethrough` 222 včetně 6 keřů z objektů), objekty 175, rozmístěné objekty 72, předlohy 70; 66 538 trojúhelníků, 244/245 textur, 1 995 řezů v 10 úsecích. Ve hře (Godot) ověřeno jízdou, snímky a nárazem do dopravní značky.
 - Trojúhelníky otočené dolů (18 % vodorovných v terénu) jsou koruny stromů nad silnicí a střechy (materiály `cbb`, `shrb`, 3 m a víc nad silnicí), jsou tedy správně. Materiály jsou oboustranné.
 - Navazující úseky: úsek pokračuje do úseku, jehož začátek je do 20 m od jeho konce se stejným směrem (`next` v `segments`). Okruh z úseku 0 je v `lap` (segments, length_m). Monte Carlo má trasy uložené mimo pořadí: `monaco1` = úseky 0 → 2 → 1 → 3 → 0, 3 713 m. Monaco nemá `_fstart.scn` (start a cíl). `track2gltf.py` mu proto zapíše vlastní `start` = `finish` s `"source": "lap"` (pravidlo v D-025: rovinka nejblíž řezu 0, kde obě stopy `.lsp` vedou do 3 m od středu řezů).
 - Ověřené tratě: skidpad, farmland, monaco1 (také monaco2–5 se převedou, okruhy 3,6–5,0 km).

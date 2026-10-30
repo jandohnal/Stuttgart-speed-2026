@@ -1,9 +1,15 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene format=3]
 
 [ext_resource type="Script" path="res://scripts/menu.gd" id="1_menu"]
+[ext_resource type="Shader" path="res://ui/shaders/background.gdshader" id="2_bg"]
+[ext_resource type="Shader" path="res://ui/shaders/porthole_photo.gdshader" id="3_photo"]
+[ext_resource type="Script" path="res://scripts/car_showcase.gd" id="4_showcase"]
 
-[sub_resource type="StyleBoxFlat" id="background"]
-bg_color = Color(0.09, 0.1, 0.12, 1)
+[sub_resource type="ShaderMaterial" id="bg_material"]
+shader = ExtResource("2_bg")
+
+[sub_resource type="ShaderMaterial" id="photo_material"]
+shader = ExtResource("3_photo")
 
 [node name="Menu" type="Control"]
 layout_mode = 3
@@ -14,139 +20,464 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_menu")
 
-[node name="Background" type="Panel" parent="."]
+[node name="Background" type="ColorRect" parent="."]
+unique_name_in_owner = true
+material = SubResource("bg_material")
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_styles/panel = SubResource("background")
+mouse_filter = 2
 
-[node name="Center" type="CenterContainer" parent="."]
+[node name="TopShade" type="TextureRect" parent="."]
+unique_name_in_owner = true
 layout_mode = 1
-anchors_preset = 15
+anchors_preset = 10
 anchor_right = 1.0
-anchor_bottom = 1.0
+offset_bottom = 300.0
 grow_horizontal = 2
-grow_vertical = 2
+mouse_filter = 2
+expand_mode = 1
 
-[node name="Box" type="VBoxContainer" parent="Center"]
-custom_minimum_size = Vector2(460, 0)
-layout_mode = 2
-theme_override_constants/separation = 14
+[node name="Porthole" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 0
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -412.0
+offset_top = -792.0
+offset_right = 712.0
+offset_bottom = 332.0
+mouse_filter = 2
 
-[node name="Title" type="Label" parent="Center/Box"]
+[node name="Bezel" type="PanelContainer" parent="Porthole"]
+layout_mode = 0
+offset_right = 1124.0
+offset_bottom = 1124.0
+mouse_filter = 2
+theme_type_variation = &"Bezel"
+
+[node name="Photo" type="ColorRect" parent="Porthole"]
+unique_name_in_owner = true
+material = SubResource("photo_material")
+layout_mode = 0
+offset_left = 18.0
+offset_top = 18.0
+offset_right = 1106.0
+offset_bottom = 1106.0
+mouse_filter = 2
+
+[node name="SideText" type="Label" parent="Porthole"]
+layout_mode = 0
+offset_left = 154.0
+offset_top = 228.0
+offset_right = 454.0
+offset_bottom = 258.0
+rotation = 1.5708
+theme_type_variation = &"SideText"
+text = "STUTTGART SPEED"
+
+[node name="CarView" type="TextureRect" parent="Porthole"]
+unique_name_in_owner = true
+layout_mode = 0
+offset_left = 182.0
+offset_top = 272.0
+offset_right = 942.0
+offset_bottom = 612.0
+mouse_filter = 2
+script = ExtResource("4_showcase")
+
+[node name="Caption" type="PanelContainer" parent="Porthole"]
+layout_mode = 0
+offset_left = 212.0
+offset_top = 618.0
+offset_right = 912.0
+offset_bottom = 668.0
+mouse_filter = 2
+theme_type_variation = &"CaptionPanel"
+
+[node name="CaptionLabel" type="Label" parent="Porthole/Caption"]
+unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 56
-text = "Stuttgart Speed"
+theme_type_variation = &"CaptionLabel"
 horizontal_alignment = 1
+text_overrun_behavior = 3
 
-[node name="Spacer" type="Control" parent="Center/Box"]
-custom_minimum_size = Vector2(0, 20)
+[node name="Logo" type="VBoxContainer" parent="."]
+layout_mode = 0
+offset_left = 44.0
+offset_top = 22.0
+offset_right = 284.0
+offset_bottom = 120.0
+theme_override_constants/separation = -6
+
+[node name="LogoTop" type="Label" parent="Logo"]
 layout_mode = 2
+theme_type_variation = &"LogoTop"
+text = "STUTTGART"
 
-[node name="CarLabel" type="Label" parent="Center/Box"]
+[node name="LogoBottom" type="Label" parent="Logo"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 22
-text = "Auto, díly a barva"
+theme_type_variation = &"LogoBottom"
+text = "SPEED"
 
-[node name="CarRow" type="HBoxContainer" parent="Center/Box"]
-layout_mode = 2
-theme_override_constants/separation = 12
+[node name="Title" type="Label" parent="."]
+layout_mode = 0
+offset_left = 330.0
+offset_top = 8.0
+offset_right = 830.0
+offset_bottom = 98.0
+theme_type_variation = &"ScreenTitle"
+text = "main menu"
 
-[node name="CarOption" type="OptionButton" parent="Center/Box/CarRow"]
+[node name="TrackName" type="Label" parent="."]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 48)
-layout_mode = 2
-size_flags_horizontal = 3
-focus_neighbor_top = NodePath("../../PlayButton")
-focus_neighbor_right = NodePath("../TuneOption")
-theme_override_font_sizes/font_size = 26
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -640.0
+offset_top = 22.0
+offset_right = -44.0
+offset_bottom = 52.0
+grow_horizontal = 0
+theme_type_variation = &"LogoTop"
+horizontal_alignment = 2
+text_overrun_behavior = 3
 
-[node name="TuneOption" type="OptionButton" parent="Center/Box/CarRow"]
+[node name="TrackMap" type="TextureRect" parent="."]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(130, 48)
-layout_mode = 2
-tooltip_text = "Díly: původní (Stock) nebo nejlepší dostupné (Sport)"
-focus_neighbor_top = NodePath("../../PlayButton")
-focus_neighbor_left = NodePath("../CarOption")
-focus_neighbor_right = NodePath("../ColorOption")
-theme_override_font_sizes/font_size = 22
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -660.0
+offset_top = -1000.0
+offset_right = -44.0
+offset_bottom = -740.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
 
-[node name="ColorOption" type="OptionButton" parent="Center/Box/CarRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(190, 48)
-layout_mode = 2
-tooltip_text = "Barva laku"
-focus_neighbor_top = NodePath("../../PlayButton")
-focus_neighbor_left = NodePath("../TuneOption")
-theme_override_font_sizes/font_size = 22
-
-[node name="TrackLabel" type="Label" parent="Center/Box"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 22
-text = "Trať"
-
-[node name="TrackOption" type="OptionButton" parent="Center/Box"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 48)
-layout_mode = 2
-theme_override_font_sizes/font_size = 26
-
-[node name="TyreLabel" type="Label" parent="Center/Box"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 22
-text = "Pneumatiky"
-
-[node name="TyreOption" type="OptionButton" parent="Center/Box"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 48)
-layout_mode = 2
-theme_override_font_sizes/font_size = 26
-
-[node name="TimeLabel" type="Label" parent="Center/Box"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 22
-text = "Denní doba"
-
-[node name="TimeOption" type="OptionButton" parent="Center/Box"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 48)
-layout_mode = 2
-theme_override_font_sizes/font_size = 26
-
-[node name="Options" type="HBoxContainer" parent="Center/Box"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 48)
-layout_mode = 2
-theme_override_constants/separation = 20
+[node name="SetupArea" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 9
+anchor_bottom = 1.0
+offset_left = 40.0
+offset_right = 493.0
+offset_bottom = -70.0
+grow_vertical = 2
+mouse_filter = 2
 alignment = 1
 
-[node name="Spacer2" type="Control" parent="Center/Box"]
-custom_minimum_size = Vector2(0, 12)
+[node name="RaceSetup" type="PanelContainer" parent="SetupArea"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"SetupPanel"
+
+[node name="VBox" type="VBoxContainer" parent="SetupArea/RaceSetup"]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="Header" type="PanelContainer" parent="SetupArea/RaceSetup/VBox"]
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+theme_type_variation = &"HeaderStrip"
+
+[node name="HeaderLabel" type="Label" parent="SetupArea/RaceSetup/VBox/Header"]
+layout_mode = 2
+theme_type_variation = &"PanelHeader"
+text = "RACE SETUP"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Body" type="MarginContainer" parent="SetupArea/RaceSetup/VBox"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="Rows" type="VBoxContainer" parent="SetupArea/RaceSetup/VBox/Body"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="RowCarModel" type="HBoxContainer" parent="SetupArea/RaceSetup/VBox/Body/Rows"]
 layout_mode = 2
 
-[node name="PlayButton" type="Button" parent="Center/Box"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 60)
+[node name="Label" type="Label" parent="SetupArea/RaceSetup/VBox/Body/Rows/RowCarModel"]
 layout_mode = 2
-focus_neighbor_bottom = NodePath("../CarRow/CarOption")
-theme_override_font_sizes/font_size = 30
-text = "Play"
+size_flags_horizontal = 3
+theme_type_variation = &"SetupLabel"
+text = "CAR MODEL"
+vertical_alignment = 1
 
-[node name="Note" type="Label" parent="Center/Box"]
+[node name="CarOption" type="OptionButton" parent="SetupArea/RaceSetup/VBox/Body/Rows/RowCarModel"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(460, 0)
+custom_minimum_size = Vector2(270, 42)
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.6, 0.45, 1)
+size_flags_horizontal = 8
+theme_type_variation = &"SetupDropdown"
+clip_text = true
+text_overrun_behavior = 3
+fit_to_longest_item = false
+
+[node name="RowCarProfile" type="HBoxContainer" parent="SetupArea/RaceSetup/VBox/Body/Rows"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="SetupArea/RaceSetup/VBox/Body/Rows/RowCarProfile"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"SetupLabel"
+text = "CAR PROFILE"
+vertical_alignment = 1
+
+[node name="TuneOption" type="OptionButton" parent="SetupArea/RaceSetup/VBox/Body/Rows/RowCarProfile"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(270, 42)
+layout_mode = 2
+size_flags_horizontal = 8
+tooltip_text = "Parts: factory (Stock) or the best the car can get (Sport)"
+theme_type_variation = &"SetupDropdown"
+clip_text = true
+text_overrun_behavior = 3
+fit_to_longest_item = false
+
+[node name="RowCarColor" type="HBoxContainer" parent="SetupArea/RaceSetup/VBox/Body/Rows"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="SetupArea/RaceSetup/VBox/Body/Rows/RowCarColor"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"SetupLabel"
+text = "CAR COLOR"
+vertical_alignment = 1
+
+[node name="ColorOption" type="OptionButton" parent="SetupArea/RaceSetup/VBox/Body/Rows/RowCarColor"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(270, 42)
+layout_mode = 2
+size_flags_horizontal = 8
+theme_type_variation = &"SetupDropdown"
+clip_text = true
+text_overrun_behavior = 3
+fit_to_longest_item = false
+
+[node name="RowTires" type="HBoxContainer" parent="SetupArea/RaceSetup/VBox/Body/Rows"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="SetupArea/RaceSetup/VBox/Body/Rows/RowTires"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"SetupLabel"
+text = "TIRES"
+vertical_alignment = 1
+
+[node name="TyreOption" type="OptionButton" parent="SetupArea/RaceSetup/VBox/Body/Rows/RowTires"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(270, 42)
+layout_mode = 2
+size_flags_horizontal = 8
+theme_type_variation = &"SetupDropdown"
+clip_text = true
+text_overrun_behavior = 3
+fit_to_longest_item = false
+
+[node name="RowTrack" type="HBoxContainer" parent="SetupArea/RaceSetup/VBox/Body/Rows"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="SetupArea/RaceSetup/VBox/Body/Rows/RowTrack"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"SetupLabel"
+text = "TRACK"
+vertical_alignment = 1
+
+[node name="TrackOption" type="OptionButton" parent="SetupArea/RaceSetup/VBox/Body/Rows/RowTrack"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(270, 42)
+layout_mode = 2
+size_flags_horizontal = 8
+theme_type_variation = &"SetupDropdown"
+clip_text = true
+text_overrun_behavior = 3
+fit_to_longest_item = false
+
+[node name="Divider" type="MarginContainer" parent="SetupArea/RaceSetup/VBox/Body/Rows"]
+layout_mode = 2
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_bottom = 6
+
+[node name="Line" type="ColorRect" parent="SetupArea/RaceSetup/VBox/Body/Rows/Divider"]
+custom_minimum_size = Vector2(0, 2)
+layout_mode = 2
+color = Color(0.749, 0.71, 0.58, 1)
+
+[node name="Options" type="GridContainer" parent="SetupArea/RaceSetup/VBox/Body/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 16
+theme_override_constants/v_separation = 6
+columns = 2
+
+[node name="PlayMargin" type="MarginContainer" parent="SetupArea/RaceSetup/VBox/Body/Rows"]
+layout_mode = 2
+theme_override_constants/margin_top = 8
+
+[node name="PlayButton" type="Button" parent="SetupArea/RaceSetup/VBox/Body/Rows/PlayMargin"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 64)
+layout_mode = 2
+theme_type_variation = &"RedButton"
+
+[node name="PlayContent" type="HBoxContainer" parent="SetupArea/RaceSetup/VBox/Body/Rows/PlayMargin/PlayButton"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 14
+alignment = 1
+
+[node name="PlayIcon" type="TextureRect" parent="SetupArea/RaceSetup/VBox/Body/Rows/PlayMargin/PlayButton/PlayContent"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(26, 26)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+stretch_mode = 5
+
+[node name="PlayLabel" type="Label" parent="SetupArea/RaceSetup/VBox/Body/Rows/PlayMargin/PlayButton/PlayContent"]
+layout_mode = 2
+theme_type_variation = &"PlayLabel"
+text = "PLAY"
+vertical_alignment = 1
+
+[node name="Note" type="Label" parent="SetupArea/RaceSetup/VBox/Body/Rows"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(421, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.784, 0.063, 0.102, 1)
 theme_override_font_sizes/font_size = 18
 horizontal_alignment = 1
 autowrap_mode = 3
 
-[node name="Hint" type="Label" parent="Center/Box"]
+[node name="Footer" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -70.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_type_variation = &"FooterPanel"
+
+[node name="HBox" type="HBoxContainer" parent="Footer"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.6, 0.62, 0.66, 1)
-theme_override_font_sizes/font_size = 16
-text = "Enter = jet · Esc = konec · Esc při jízdě = zpět do menu"
-horizontal_alignment = 1
+
+[node name="FooterTitle" type="Label" parent="Footer/HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"FooterTitle"
+text = "MAIN MENU"
+vertical_alignment = 1
+
+[node name="Buttons" type="HBoxContainer" parent="Footer/HBox"]
+layout_mode = 2
+theme_override_constants/separation = 48
+
+[node name="CreditsButton" type="Button" parent="Footer/HBox/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+theme_type_variation = &"FooterButton"
+text = "credits..."
+
+[node name="ExitButton" type="Button" parent="Footer/HBox/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+theme_type_variation = &"FooterButton"
+text = "exit"
+
+[node name="ExitDialog" type="ConfirmationDialog" parent="."]
+unique_name_in_owner = true
+title = "EXIT"
+size = Vector2i(420, 160)
+ok_button_text = "exit"
+dialog_text = "Quit Stuttgart Speed?"
+cancel_button_text = "back"
+
+[node name="CreditsDialog" type="AcceptDialog" parent="."]
+unique_name_in_owner = true
+title = "CREDITS"
+size = Vector2i(860, 400)
+ok_button_text = "close"
+
+[node name="Content" type="VBoxContainer" parent="CreditsDialog"]
+custom_minimum_size = Vector2(820, 0)
+offset_left = 20.0
+offset_top = 16.0
+offset_right = 840.0
+offset_bottom = 340.0
+theme_override_constants/separation = 10
+
+[node name="TributeHeader" type="Label" parent="CreditsDialog/Content"]
+layout_mode = 2
+theme_type_variation = &"PanelHeader"
+text = "A TRIBUTE"
+
+[node name="Tribute" type="Label" parent="CreditsDialog/Content"]
+custom_minimum_size = Vector2(820, 0)
+layout_mode = 2
+theme_type_variation = &"CreditsText"
+text = "Stuttgart Speed is a love letter to Need for Speed: Porsche 2000 (Porsche Unleashed), the racer EA Canada released in 2000 that took you through fifty years of one Stuttgart car maker, from the first 356 to the 911 Turbo.
+
+It is made for those who remember it: to drive the original cars, tracks and sounds again on today's machines, in Full HD with modern light and physics and a few new ideas of its own. Not a remake, rather the same story told a little differently."
+autowrap_mode = 3
+
+[node name="MadeHeader" type="Label" parent="CreditsDialog/Content"]
+layout_mode = 2
+theme_type_variation = &"PanelHeader"
+text = "VIBE-CODED"
+
+[node name="Made" type="Label" parent="CreditsDialog/Content"]
+custom_minimum_size = Vector2(820, 0)
+layout_mode = 2
+theme_type_variation = &"CreditsText"
+text = "Made by Honza Dohnal together with Claude Opus 5.5 (Anthropic) in Claude Code: decoding the original data formats, the conversion tools, the driving physics, the opponents and this menu."
+autowrap_mode = 3
+
+[node name="StatsHeader" type="Label" parent="CreditsDialog/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"PanelHeader"
+text = "BY THE NUMBERS"
+
+[node name="Stats" type="GridContainer" parent="CreditsDialog/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 24
+theme_override_constants/v_separation = 2
+columns = 4
+
+[node name="Note" type="Label" parent="CreditsDialog/Content"]
+custom_minimum_size = Vector2(820, 0)
+layout_mode = 2
+theme_type_variation = &"CreditsNote"
+text = "Built with Godot 4.7 and Jolt Physics, font Saira Condensed (SIL Open Font License). For personal use only, not for distribution. Need for Speed and Porsche are trademarks of their owners; this project is not affiliated with them."
+autowrap_mode = 3

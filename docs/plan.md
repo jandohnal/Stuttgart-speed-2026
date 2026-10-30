@@ -95,11 +95,15 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Druhé auto a trať: 935 Moby Dick v Monte Carlu, nastavení odvozená z dat místo ladění na 356 (test na rovině `straight_test`)
 - [x] Hlavní menu prototypu: výběr auta a trati, Play, Esc zpět do menu, poslední výběr uložený
 - [x] Barva laku z palety originálu vedle výběru auta (D-020)
+- [x] Nový vzhled hlavního menu podle návrhu (D-032, [ui-main-menu-spec.md](ui-main-menu-spec.md)); písmo Saira Condensed (OFL) v `game/ui/fonts`; okno credits (pocta originálu, vibecoding s Claude Opus 5.5, statistiky z `tools/credits_stats.py`); chybí fotka do průzoru
 - [x] Noční světla tratí z originálu: záře `ef` a `flare.dat`, blikající výstražná světla, tunelová a pouliční světla (D-021, [formats/flare.md](formats/flare.md))
 - [x] Závod od startu do cíle (D-025): odpočet 3-2-1, stopky, kontrolní body, průjezd cílovou čárou, nejlepší čas; kamera při startu obletí auto
 - [x] Efekty (D-028): stopy pneumatik na silnici při smyku, prach a kousky země za koly mimo silnici v barvě terénu, jiskry při nárazu a drhnutí (`effects_test`)
 - [x] Efekty: tráva na zeleném terénu a listí na texturách se spadaným listím, listí padající z podzimních korun na zem, rozvířené projíždějícími auty (D-028)
+- [x] Rozbor vodních prvků originálu po tratích ([water.md](water.md))
+- [ ] Voda: hladiny, vodopády a fontány podle [water.md](water.md)
 - [ ] Efekty: povrch z `df` článků CRP, jiskry jen od kovových a kamenných překážek
+- [x] Keře podél trati jsou průjezdné (D-031): poznají se podle značky BUSH (`drivethrough` v `animdefs.txt`), skupina glTF `drivethrough` bez kolize, `bush_test`
 - [x] Okruhy s počítáním kol: Monte Carlo s vlastní čarou startu a cíle (D-025), `lap_test`
 - [ ] Mezičasy, zvuk odpočtu; ověřit ve Wine, kde originál v Monaku startuje
 - [ ] Rozhodnout definitivně o enginu (D-002)

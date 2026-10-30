@@ -5,7 +5,7 @@ Writes next to <out>.gltf: <out>.bin, <stem>_road.json (SimD road slices split i
 start/finish from <track>_fstart.scn, on a circuit without it an own line on a straight),
 <stem>_objects.json (placed objects with their collision
 type and mass from animdefs.txt; their nodes are in the group "props"; and the drive-through
-parts, bushes, in the group "drivethrough"), <stem>_lights.json (ef
+parts, bushes, in the group "drivethrough"; shadow decals in the group "shadows"), <stem>_lights.json (ef
 flares and emitters: world ones, ones on placed objects, ones on library prototypes) and uses the
 track textures converted by tools/fsh2png.py (converted on the fly if missing).
 
@@ -33,9 +33,11 @@ GROUPS = [
     ("terrain", r"^(CNK|MESH|FARM|HILL|TOPOF|SECONDARY|CLIF)|.*SECONDARY"),  # WOBJ (1 FHILL..._SECONDARY), DIRTROAD01_SECONDARY
 ]
 PLACED_MIN_DISTANCE = 50.0  # m
+BASE_SHADOW = 0x0040  # Base flag of the shadow decals (Shadow#, Ltreeshade#: texture sh80, method S_*); no collision
 SIMD_SIZE = 80
 SEGMENT_LINK = 20.0  # m; a segment continues into the one that starts this close to its end (same direction)
 SEGMENT_GAP = 30.0  # m; slices are ~6 m apart, a bigger jump starts the next road segment (alternative routes)
+TRIGGER_TURN_LIMIT_DEG = 45.0  # a start/finish trigger facing further off the road gets the road's direction
 LAP_GRID_SLICES = 10  # slices (~60 m) behind a circuit's own start/finish line that must be straight (grid)
 LAP_AHEAD_SLICES = 6  # slices (~36 m) after it that must be straight
 LAP_STRAIGHT_DEG = 3.0  # largest heading change over that stretch
@@ -167,16 +169,43 @@ def road_lap(segments):
 
 
 def race_gates(src, slices):
-    """Start and finish lines (scn.start_finish) in glTF space, each with the nearest road slice."""
+    """Start and finish lines (scn.start_finish) in glTF space, each with the nearest road slice.
+    Some triggers do not face the way the road runs (coastal and castle finish backwards, autobahn
+    start turned 90 degrees with its line along the road): when the trigger's forward is more than
+    TRIGGER_TURN_LIMIT_DEG off the slice's, the slice's (level) forward is used, and a line that does
+    not cross the road is rebuilt from the slice's widths ("fixed" lists what was replaced)."""
     gates = {}
     for kind, trigger in scn.start_finish(src).items():
         pos = to_gltf(trigger["position"])
         ends = trigger["line"]
         nearest = min(range(len(slices)), key=lambda k: math.dist(slices[k]["position"], pos), default=-1)
+        forward = to_gltf(trigger["basis"][0:3])
+        line = [to_gltf(ends[k:k + 3]) for k in (0, 3)]
+        fixed = []
+        if nearest >= 0:
+            s = slices[nearest]
+            cos_limit = math.cos(math.radians(TRIGGER_TURN_LIMIT_DEG))
+            if _level_dot(forward, s["forward"]) < cos_limit:
+                flat = math.hypot(s["forward"][0], s["forward"][2])
+                forward = [s["forward"][0] / flat, 0.0, s["forward"][2] / flat]
+                fixed.append("forward")
+            if abs(_level_dot([b - a for a, b in zip(*line)], s["right"])) < cos_limit:
+                left_w, right_w = s["widths"][0:2]
+                line = [[pos[k] - s["right"][k] * left_w for k in range(3)],
+                        [pos[k] + s["right"][k] * right_w for k in range(3)]]
+                fixed.append("line")
         gates[kind] = {"slice": nearest, "position": [round(x, 4) for x in pos],
-                       "forward": [round(x, 4) for x in to_gltf(trigger["basis"][0:3])],
-                       "line": [[round(x, 4) for x in to_gltf(ends[k:k + 3])] for k in (0, 3)]}
+                       "forward": [round(x, 4) for x in forward],
+                       "line": [[round(x, 4) for x in end] for end in line]}
+        if fixed:
+            gates[kind]["fixed"] = fixed
     return gates
+
+
+def _level_dot(a, b):
+    """Cosine of the angle between a and b in the horizontal plane (0 for a vertical vector)."""
+    la, lb = math.hypot(a[0], a[2]), math.hypot(b[0], b[2])
+    return (a[0] * b[0] + a[2] * b[2]) / (la * lb) if la > 0 and lb > 0 else 0.0
 
 
 def lap_gates(src, slices, segments, lap):
@@ -323,6 +352,10 @@ def convert(src, out_path, level=0, library=False):
             if tag in drive_tags:
                 group = "drivethrough"
                 drivethrough.append({"name": name, "tag": tag, **({"tag_from_model": True} if from_model else {})})
+            elif struct.unpack_from("<H", d, find(art.sub, "Base").data)[0] & BASE_SHADOW:
+                # Shadow decals float up to a few metres over the ground (canyon Ltreeshade by the
+                # wall): as solid objects they were invisible walls.
+                group = "shadows"
         ground = not placed and group in ("road", "terrain")
         mesh = article_mesh(d, art, lev, lev, materials, up=ground)
         if not mesh or not mesh[1]:

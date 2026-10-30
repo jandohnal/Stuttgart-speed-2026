@@ -9,7 +9,7 @@ Python 3, jen standardní knihovna. Čtou ze `sources/`, zapisují do `decompose
 | `archives.py` | `refpack <in> <out>`: rozbalí EA RefPack (`.crp` …); `bigf <in.viv> <složka>`: rozbalí archiv BIGF | [crp.md](../docs/formats/crp.md), [bnk.md](../docs/formats/bnk.md) |
 | `fsh2png.py` | textury FSH (SHPI) → PNG + `index.json`; jeden soubor nebo celý strom | [fsh.md](../docs/formats/fsh.md) |
 | `crp2gltf.py` | model auta `.crp` → glTF (+ atlasy textur, morph targety poškození `dz0`–`dz9`, oddělené levé a pravé díly) + `<auto>_damage.json` (zóny, odpojitelné díly) + `<auto>_styles.json` (styly z `.tpg`: díly k odebrání a atlasy každé varianty, D-022); vynechá zdvojené díly nižší úrovně detailu, vnitřní panely víek otočí od vnějších, vrstvené díly (světla, obtisky …) zvedne 1 mm nad podklad | [crp.md](../docs/formats/crp.md#styly-varianty-modelu) |
-| `track2gltf.py` | trať `.crp` → glTF (skupiny road, terrain, vegetation, objects, props) + `<trať>_road.json` (řezy SimD, úseky, start a cíl; okruh bez `_fstart.scn` vlastní čáru podle stop `.lsp`) + `<trať>_objects.json` (rozmístěné objekty, kolize a hmotnost) + `<trať>_lights.json` (záře `ef`: ve světě, na objektech, na předlohách; zdroje částic) | [crp.md](../docs/formats/crp.md), [scn.md](../docs/formats/scn.md) |
+| `track2gltf.py` | trať `.crp` → glTF (skupiny road, terrain, vegetation, objects, drivethrough = keře podle značky BUSH, props) + `<trať>_road.json` (řezy SimD, úseky, start a cíl; okruh bez `_fstart.scn` vlastní čáru podle stop `.lsp`) + `<trať>_objects.json` (rozmístěné objekty, kolize a hmotnost; seznam průjezdných keřů) + `<trať>_lights.json` (záře `ef`: ve světě, na objektech, na předlohách; zdroje částic) | [crp.md](../docs/formats/crp.md), [scn.md](../docs/formats/scn.md) |
 | `snd2wav.py` | zvukové banky `.viv` / `.bnk` → WAV + `index.json`; u sad motoru `sd*.viv` i `engine.json` (smyčky pod plynem a bez plynu, otáčky) | [bnk.md](../docs/formats/bnk.md) |
 | `car_colors.py` | databáze aut menu `FEData/Data/nfs5.car` → `car_colors.json` (palety barev laku a interiéru podle modelu, tovární barva a styl modelu podle varianty) | [car.md](../docs/formats/car.md) |
 | `parts.py` | katalog dílů `FEData/Data/nfs5.prt` + seznamy dílů aut z `nfs5.car` + konstanty vzorců a tabulka pneumatik z `Porsche.exe` → `parts.json` (díly, sady Stock / Sport, pneumatiky pro každou variantu z `cars.json`); `--report` vypíše tabulku Sport | [prt.md](../docs/formats/prt.md) |
@@ -20,6 +20,12 @@ Python 3, jen standardní knihovna. Čtou ze `sources/`, zapisují do `decompose
 | `ai_csv2json.py` | nastavení AI `.csv` → JSON, ověřené proti `.bin` | [ai-csv.md](../docs/formats/ai-csv.md) |
 | `ai_lines.py` | ideální stopy soupeřů `racer/work/*.lsp` a klíče `*_forward/_backwards.key` → `<trať>_ai.json` (boční odchylka stopy pro každý řez); potřebuje `_road.json` z `track2gltf` | [lsp.md](../docs/formats/lsp.md) |
 | `ais2json.py` | profily aut soupeřů `AICarData/*.ais` → `ais.json`, řízení AI `AI/TRAFCFG.DAT` → `trafcfg.json` | [ais.md](../docs/formats/ais.md) |
+
+## Ostatní nástroje
+
+| Nástroj | Vstup → výstup |
+| --- | --- |
+| `credits_stats.py` | historie gitu + logy sezení Claude Code tohoto projektu (`~/.claude/projects/<projekt>/`, i podagenti) → `game/ui/credits_stats.json` pro okno credits v menu: dny vývoje, commity, sezení, odpovědi, aktivní čas (mezery pod 30 min), tokeny (vstup, cache, výstup) a modely. Data originálu nečte. |
 
 ## Sdílené moduly (importují se)
 

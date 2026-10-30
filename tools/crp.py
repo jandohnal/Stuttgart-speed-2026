@@ -135,7 +135,8 @@ EFFECT_FLARE, EFFECT_EMITTER, EFFECT_SHADOW = 2, 3, 4  # ef u32 at 0x00
 
 def article_effects(d, art):
     """The article's ef entries (docs/formats/crp.md, "Efekty"): flares (light glows, look in
-    GameData/Render/flare.dat), particle emitters and shadows. Positions are local to the tr matrix
+    GameData/Render/flare.dat), particle emitters (with "up", the basis row the system's emit.y
+    speed runs along) and shadows. Positions are local to the tr matrix
     when the article has one, else world; both mirrored like to_gltf. IDs are stored byte-reversed."""
     out = []
     for e in art.sub:
@@ -148,10 +149,14 @@ def article_effects(d, art):
             fid = d[e.data + 0x24:e.data + 0x28][::-1]
         elif kind == EFFECT_EMITTER and e.length >= 0x38:
             vec = to_gltf(struct.unpack_from("<3f", d, e.data + 0x18))  # first of the basis rows
+            up = to_gltf(struct.unpack_from("<3f", d, e.data + 0x24))  # second row: the emit axis
             fid = d[e.data + 0x30:e.data + 0x34]
         else:
             continue
-        out.append({"kind": kind, "id": fid.decode("latin1"), "position": pos, "direction": vec})
+        entry = {"kind": kind, "id": fid.decode("latin1"), "position": pos, "direction": vec}
+        if kind == EFFECT_EMITTER:
+            entry["up"] = up
+        out.append(entry)
     return out
 
 

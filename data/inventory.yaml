@@ -90,7 +90,7 @@ items:
     format: ini/text
     status: readable
     doc: docs/formats/scn.md
-    notes: "Tónování, zvukové prvky, kamery, startovní pozice, vlastnosti objektů (hmotnost, průjezdnost). .scn: GEOM_ELEMENT (značka objektu jako 4CC, vrcholy předlohy se umístí bez jejího tr; FNSH = dlaždice cílové čáry), TRIGGER_ELEMENT (start/cíl); animdefs.txt: collideType, mass podle značky"
+    notes: "Tónování, zvukové prvky, kamery, startovní pozice, vlastnosti objektů (hmotnost, průjezdnost). .scn: GEOM_ELEMENT (značka objektu jako 4CC, vrcholy předlohy se umístí bez jejího tr; FNSH = dlaždice cílové čáry), TRIGGER_ELEMENT (start/cíl); animdefs.txt: collideType, mass, drivethrough podle značky (BUSH = keře průjezdné, i mimo rozmístěné objekty, D-031)"
     use: "Předloha atmosféry a interakce s objekty"
 
   - id: crp_container
@@ -126,7 +126,7 @@ items:
     output: "decomposed/GameData/Track/<trať>/<trať>.gltf + <trať>_road.json + <trať>_objects.json + <trať>_lights.json"
     status: partial
     checked: "všech 15 převedeno, normály v pořádku, na hlavní trase bez děr; varování: spáry u okraje silnice, vedlejší úseky SimD mimo geometrii (docs/model-check.md)"
-    notes: "Převedeno všech 15 tratí. SimD = řezy silnice (pozice, vektory, šířky) v úsecích, start/cíl z *_fstart.scn, rozmístěné objekty z matice tr se značkou v Base 0x44 (*_objects.json), světelné záře a zdroje částic z podpoložek ef (*_lights.json, 0–700 září na trať)"
+    notes: "Převedeno všech 15 tratí. SimD = řezy silnice (pozice, vektory, šířky) v úsecích, start/cíl z *_fstart.scn, rozmístěné objekty z matice tr se značkou v Base 0x44 (*_objects.json), keře podle značky BUSH (drivethrough v animdefs.txt, neoznačené kopie modelu ji převezmou) ve skupině drivethrough bez kolize, světelné záře a zdroje částic z podpoložek ef (*_lights.json, 0–700 září na trať)"
     use: "Jen náhled pro inspiraci stylem (D-005)"
 
   - id: flares
@@ -198,7 +198,7 @@ items:
     output: "decomposed/FEData/TrackArt/<archiv>/*.png + index.json"
     status: decoded
     notes: "Schémata tratí pro menu: <trať>.fsh velký žlutý obrys + jmenovka + vlaječky, <trať>Sp.fsh 5 obrazovek 256×192 (mapa na silniční síti a snímky prostředí s mapou) + ikonky S/F, <trať>SpSm.fsh malá bílá mapka + S/F. Monaco1–5 jsou okruhy Factory Driveru, MCLASS/MGOLD/MMOD náhledy 192×144 pro Prize Race. Názvy archivů ke trati uvádí nfs5.trk (nerozluštěný)"
-    use: "Minimapa v HUD, výběr trati v menu"
+    use: "Obrys zvolené trati v hlavním menu (D-032), minimapa v HUD"
 
   - id: sounds
     category: unpack

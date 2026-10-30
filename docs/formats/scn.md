@@ -7,7 +7,7 @@ count: "78 .scn, 1 animdefs.txt"
 encoding: "text, latin1, CRLF"
 status: partial
 tool: "tools/track2gltf.py (start/cíl z _fstart.scn, vlastnosti objektů z animdefs.txt)"
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 # Scény tratí (`.scn`) a vlastnosti objektů (`animdefs.txt`)
@@ -60,4 +60,5 @@ Příklady: SIGN sražitelná 80 kg, CONE 20 kg, CLMH 3 500 kg, auta provozu 1 5
 
 - `tools/track2gltf.py` čte start/cíl z `_fstart.scn` (triggery do `_road.json`, `GEOM_ELEMENT` jako uzly skupiny `gates`) a pro rozmístěné objekty typ kolize, hmotnost a průjezdnost z `animdefs.txt` (`<trať>_objects.json`).
 - Hra (`game/scripts/track_props.gd`): sražitelné objekty jsou dynamická tělesa s původní hmotností, zmrazená, dokud se nepřiblíží pohyblivé těleso; ostatní statické.
+- Průjezdnost (`drivethrough=1`, jen značka `BUSH`) platí pro všechny články se značkou, nejen pro rozmístěné. `track2gltf.py` je dá do skupiny glTF `drivethrough`, které hra nedává kolizi (D-031, [crp.md](crp.md#články)). V originálu načítá trať funkce 0x004876e0, ta hned po `.crp` čte `animdefs.txt` (0x0047eba0). Jednu položku rozebírá 0x0047dcf0: `collideType` uloží jako typ kolize (`kSmackable` = 3, `kCylinder` = 1 …), `drivethru` i `drivethrough` jako stejný příznak definice značky (+0x14). Jak tento příznak používá kolize, zatím nerozluštěno.
 - Zbývá: rozmístění předloh z `_stNN.scn` (úlohy), triggery úloh, kamery, zvuky, úlomky a animace (`SECTION:PIECE`).

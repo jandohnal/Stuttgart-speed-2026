@@ -45,4 +45,4 @@ Orientace a měřítko obrysů se mezi sadami liší (např. alps je v `alps.fsh
 
 ## Využití
 
-Obrysy z `<trať>.fsh` a `<trať>SpSm.fsh` se hodí jako minimapa v HUD. Polohu auta na nich je ale nutné zarovnat ručně (otočení a měřítko), nebo minimapu kreslit přímo z `_road.json`.
+Hlavní menu ukazuje vpravo nahoře obrys zvolené trati z `<trať>.fsh` (`000_*.png`, D-032), jmenovku kreslí vlastním písmem. Obrysy z `<trať>.fsh` a `<trať>SpSm.fsh` se hodí i jako minimapa v HUD. Polohu auta na nich je ale nutné zarovnat ručně (otočení a měřítko), nebo minimapu kreslit přímo z `_road.json`.
