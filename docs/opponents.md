@@ -93,3 +93,74 @@ Reakce ze `SCRIPTS`, provoz (TRAFCFG, `.edg`, `.jnc`), policie (`Cops/*.cop`, `h
 | AI se stejnou fyzikou se vytáčí a padá z trati | hratelnost | Rezerva v profilu, kontrola trakce a ABS zapnuté pro AI, zotavení resetem |
 | Stopy `.lsp` daleko od řezů (Monte Carlo až 26 m) | AI vyjede nebo se zastaví o zátaras | Ověřeno: stopa vede po skutečné trase varianty, proto se bere bez omezení; kontrola „mimo silnici“ se měří od stopy |
 | Vlastní tratě nemají `.lsp` | fáze 3 | Generovat stopu z řezů; `.lsp` slouží jako reference, jak má vypadat |
+
+## 7. Kde se AI soupeřů nastavuje
+
+Odkazy jsou na jména konstant a funkcí, ne na řádky (ty se mění). Cesty jsou od `game/`.
+
+### Profily soupeřů – `scripts/opponent_profiles.gd` (D-029)
+Tady se mění povaha a vzhled soupeřů.
+
+| Co | Kde |
+| --- | --- |
+| Tři profily: `name`, `style` (popis), `color`, `grip_use`, `brake_use`, `follow_time`, `pass_slow` | `PROFILES` |
+| Pořadí profilů na roštu, opakování s číslem při více soupeřích | `profile()` |
+| Předání stylu řidiči (před `AIDriver.setup`, které staví rychlostní profil) | `apply()` |
+| Nejbližší barva z palety modelu (bez barvy hráče a už rozdaných) | `nearest_color()` |
+
+### Řidič – `scripts/ai_driver.gd` (D-026)
+Nastavitelné u každého řidiče (`@export var`). První čtyři přepisuje profil.
+
+| Hodnota | Výchozí | Význam |
+| --- | --- | --- |
+| `grip_use` | 0,8 | podíl přilnavosti plánovaný v zatáčkách (rychlost v zatáčce) |
+| `brake_use` | 0,8 | podíl brzdného zpomalení (jak pozdě brzdí) |
+| `follow_time` | 0,5 s | odstup za autem před sebou navíc k `FOLLOW_GAP` |
+| `pass_slow` | 0,7 | pod jaký podíl rychlosti profilu musí auto před ním zpomalit, aby ho objel |
+| `speed_gain`, `brake_gain` | 0,5 / 0,35 | jak ostře reaguje plynem a brzdou |
+| `steer_gain`, `yaw_gain`, `yaw_integral_gain` | 1 / 2 / 1,5 | řízení: pure pursuit a dorovnání stáčení |
+
+Konstanty společné všem řidičům:
+- výhled řízení: `LOOK_TIME`, `MIN_LOOK`, `MAX_LOOK`;
+- reakce pedálů: `REACTION`, `MIN_REACTION`, `MIN_BRAKE_SHARE`;
+- smyk: `SLIDE_LIFT_DEG`, `SLIDE_OFF_DEG`;
+- kolona: `FOLLOW_GAP`, `FOLLOW_GAIN`, `FOLLOW_RANGE`, `FOLLOW_WIDTH`, `FOLLOW_SPREAD`;
+- objíždění: `PASS_MARGIN`, `PASS_RANGE`, `PASS_TIME`, `PASS_DIFF`, `PASS_RATE`, `PASS_CRAWL`, `EDGE_MARGIN`;
+- vytlačení pod prahem poškození: `PUSH_SPEED`;
+- reset: `STUCK_SPEED`, `STUCK_TIME`, `OFF_ROAD`, `OFF_ROAD_TIME`, `UPSIDE_TIME`.
+
+Logika:
+
+| Co | Kde |
+| --- | --- |
+| Zapnutí ABS a kontroly trakce pro AI | `setup()` |
+| Stopa a rychlostní profil | `_build_line()` |
+| Volant | `_steer()` |
+| Plyn a brzda | `_pedals()` |
+| Odstup za autem | `_follow_limit()` |
+| Objíždění a vytlačení | `_plan_pass()`, `_pass_side()`, `_edges()` |
+
+### Počet, rošt a cíl – `scripts/main.gd`
+
+| Co | Kde |
+| --- | --- |
+| Nejvýš 7 soupeřů, ve hře výchozí 3 | `MAX_OPPONENTS`, `DEFAULT_OPPONENTS` |
+| Počet: `--opponents=n`, jinak ve hře přepínač Soupeři v menu a nastavení projektu `stuttgart/opponents`, v testech 0 | `_add_opponents()` |
+| Vytvoření soupeře: profil, barva, auto, řidič a jeho stopa (index 0 v `driver.setup`) | `_add_opponents()` |
+| Místo na roštu (střídavě ±2 m od středu, po 5 m) | `_grid_slot()`, `_place_on_grid()` |
+| Za cílem: 50 m dál, pak brzda a zastavení u kraje | `OPPONENT_STOP_AFTER`, `STOP_ASIDE`, `STOP_BRAKE`, `_on_opponent_crossed()`, `_start_stopping()`, `_drive_to_stop()` |
+
+### Pořadí a cíl – `scripts/race_standings.gd`
+
+| Co | Kde |
+| --- | --- |
+| Kolik řezů trasy může soupeři chybět, aby mu průjezd čárou platil | `FINISH_MARGIN` |
+| Odhadnutý čas soupeřů za hráčem, když hráč dojede | `_on_player_finished()` |
+
+### Menu
+- `scripts/game_settings.gd`: výchozí hodnota přepínače, `"opponents": true` v `DEFAULT_OPTIONS`.
+- `scripts/menu.gd`: popisek „Soupeři“ v `OPTION_LABELS`.
+
+### Data
+- Stopy: `decomposed/GameData/Track/<trať>/<trať>_ai.json`. Vyrábí je `tools/ai_lines.py` z `.lsp` originálu.
+- Tabulky originálu (`.ais`, `TRAFCFG`, `prsonal`, `glue`, `tuning`) jsou převedené do JSON (`tools/ais2json.py`, `tools/ai_csv2json.py`), hra je zatím nečte.

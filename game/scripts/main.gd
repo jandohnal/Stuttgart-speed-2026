@@ -229,6 +229,8 @@ const TRACKS := {
 	"skidpad": "Test Track (skidpad)",
 }
 const MENU_SCENE := "res://scenes/menu.tscn"
+## Track glTF groups that get trimesh collision. Not "drivethrough" (bushes, animdefs.txt
+## drivethrough=1: cars pass through them), "vegetation" (trees by name) and the helpers.
 const SOLID_GROUPS := ["road", "terrain", "objects"]
 const ACTIONS := {
 	"accelerate": [KEY_W, KEY_UP],
@@ -489,11 +491,13 @@ func _grid_slot(start: Dictionary, k: int) -> Transform3D:
 ## Every car back on its grid slot, repaired, held while the countdown runs.
 func _place_on_grid() -> void:
 	car.reset_to(_grid)
+	_set_damage_enabled(car, true)
 	_stopping_opponents.clear()
 	_crossed.clear()
 	for k in opponents.size():
 		var opponent := opponents[k]
 		opponent.repair()
+		_set_damage_enabled(opponent, true)
 		opponent.reset_to(_opponent_grid[k])
 		opponent.held = race.state == RaceTimer.State.COUNTDOWN and race.countdown > 0.0
 		var driver := opponent.get_node("AIDriver") as AIDriver
@@ -527,8 +531,10 @@ func _on_ground(xf: Transform3D) -> Transform3D:
 
 
 ## Past the finish line the player's keys stop working: the car brakes firmly along the road
-## until it stands, then it is held. The clock has stopped (RaceTimer).
+## until it stands, then it is held. The clock has stopped (RaceTimer). Like in the original, a
+## car past the finish line takes no more damage.
 func _on_race_finished(_time: float) -> void:
+	_set_damage_enabled(car, false)
 	if ai_driver != null:
 		ai_driver.enabled = false
 	_stopping = true
@@ -552,7 +558,13 @@ func drive_by_ai(line_index := 0) -> AIDriver:
 ## An opponent over the finish line races on for OPPONENT_STOP_AFTER m (out of the way of the
 ## cars still coming), then its driver lets go and it stops at the side of the road.
 func _on_opponent_crossed(crossed_car: Car) -> void:
+	_set_damage_enabled(crossed_car, false)
 	_crossed[crossed_car] = crossed_car.global_position
+
+
+func _set_damage_enabled(c: Car, on: bool) -> void:
+	if c.damage != null:
+		c.damage.enabled = on
 
 
 func _start_stopping(c: Car) -> void:

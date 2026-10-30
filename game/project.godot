@@ -21,6 +21,7 @@ GameSettings="*res://scripts/game_settings.gd"
 
 [display]
 
+window/size/mode=3
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
@@ -43,4 +44,5 @@ scaling_3d/scale.macos=0.75
 [stuttgart]
 
 data_root="../decomposed"
+render_height=1080
 track="farmland"

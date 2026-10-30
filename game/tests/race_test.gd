@@ -172,7 +172,11 @@ func _report() -> void:
 	_expect(stop_from_road < 6.0, "car stops on the road")
 	_expect(clock_after_stop == finish_time, "clock stays at the finish time")
 	_expect(RaceTimer.format_time(372.35) == "6:12.35", "time format m:ss.cc (%s)" % RaceTimer.format_time(372.35))
+	if car.damage != null:
+		_expect(not car.damage.enabled, "no damage past the finish line")
 	main._restart_race()
+	if car.damage != null:
+		_expect(car.damage.enabled, "restart: damage on again")
 	_expect(race.state == RaceTimer.State.COUNTDOWN and car.held and race.elapsed == 0.0
 		and not car.auto_drive and car.global_position.distance_to(start_pos) < 1.0, "restart: countdown again behind the start line")
 	get_tree().quit(1 if not failures.is_empty() else 0)

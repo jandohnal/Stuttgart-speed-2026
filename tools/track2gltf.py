@@ -4,7 +4,8 @@ Format: docs/formats/crp.md (chapter "Tratě"). Verified on skidpad and farmland
 Writes next to <out>.gltf: <out>.bin, <stem>_road.json (SimD road slices split into segments,
 start/finish from <track>_fstart.scn, on a circuit without it an own line on a straight),
 <stem>_objects.json (placed objects with their collision
-type and mass from animdefs.txt; their nodes are in the group "props"), <stem>_lights.json (ef
+type and mass from animdefs.txt; their nodes are in the group "props"; and the drive-through
+parts, bushes, in the group "drivethrough"), <stem>_lights.json (ef
 flares and emitters: world ones, ones on placed objects, ones on library prototypes) and uses the
 track textures converted by tools/fsh2png.py (converted on the fly if missing).
 
@@ -60,6 +61,40 @@ def group_of(name):
         if re.match(pattern, name, re.I):
             return group
     return "objects"
+
+
+def library_model(name):
+    """The library model an article was made from, as named in brackets after the chunk or object
+    (CNK0128R (27 BUSHMED_RIGID221), OBJ0743L (1 BUSHSMALL_RIGID2)), without the copy number and
+    LOD suffix; None for names without one (MESH01, OBJECT01 are generic and mix bushes with terrain)."""
+    m = re.search(r"\(\s*\d+\s+([^)]+)\)", name)
+    if m is None:
+        return None
+    return re.sub(r"\d+$", "", re.sub(r"_LOD\d+$", "", m.group(1).strip(), flags=re.I)).upper()
+
+
+def model_tags(d, arts):
+    """{library model: (tag, Base flags)} for models whose tagged copies all share one tag and flags.
+    Some copies of a model lost their tag (farmland BUSHSMALL_RIGID2: 1 of 4 tagged), they take it from here."""
+    seen = {}
+    for art in arts:
+        name_e, base = find(art.sub, "Name"), find(art.sub, "Base")
+        tag = base_info(d, art)["tag"] if base is not None else ""
+        model = library_model(entry_text(d, name_e)) if name_e is not None else None
+        if tag and model:
+            seen.setdefault(model, set()).add((tag, struct.unpack_from("<H", d, base.data)[0]))
+    return {m: next(iter(v)) for m, v in seen.items() if len(v) == 1}
+
+
+def article_tag(d, art, name, inherited):
+    """(tag, inherited): the Base 0x44 tag, or for an untagged copy the tag of its library model."""
+    tag = base_info(d, art)["tag"]
+    if tag:
+        return tag, False
+    known = inherited.get(library_model(name))
+    if known and known[1] == struct.unpack_from("<H", d, find(art.sub, "Base").data)[0]:
+        return known[0], True
+    return "", False
 
 
 def texture_files(src, d, misc, out_dir):
@@ -219,6 +254,11 @@ def convert(src, out_path, level=0, library=False):
     d, arts, misc = parse_crp(open(src, "rb").read())
     STATS.clear()
     animdefs = scn.read_animdefs(os.path.dirname(src))
+    # Bushes: animdefs.txt marks their tag drivethrough (BUSH). They are named anything (SHRUBBYO,
+    # OBJECT01, MESH416, CNK0128L (1 BUSH02_LOD0)), so the tag decides, not the name.
+    drive_tags = {tag for tag, info in animdefs.items() if info["drivethrough"]}
+    inherited = model_tags(d, arts)
+    drivethrough = []
     out_dir = os.path.dirname(os.path.abspath(out_path))
     os.makedirs(out_dir, exist_ok=True)
     stem = os.path.splitext(os.path.basename(out_path))[0]
@@ -277,7 +317,13 @@ def convert(src, out_path, level=0, library=False):
                                   "prims": gate_mesh[1], "group": "gates"})
             if not library:
                 continue
-        ground = not placed and not is_library and group_of(name) in ("road", "terrain")
+        group = "library" if is_library else group_of(name)
+        if not placed and not is_library:
+            tag, from_model = article_tag(d, art, name, inherited)
+            if tag in drive_tags:
+                group = "drivethrough"
+                drivethrough.append({"name": name, "tag": tag, **({"tag_from_model": True} if from_model else {})})
+        ground = not placed and group in ("road", "terrain")
         mesh = article_mesh(d, art, lev, lev, materials, up=ground)
         if not mesh or not mesh[1]:
             continue
@@ -287,9 +333,9 @@ def convert(src, out_path, level=0, library=False):
             flares = [light_entry(e) for e in effects if e["kind"] == EFFECT_FLARE]
             if flares:
                 lights["props"][node] = flares
-            tag = base_info(d, art)["tag"]
+            tag, from_model = article_tag(d, art, name, inherited)
             info = animdefs.get(tag, {"collide": "static" if not tag else "cylinder", "mass": 0.0, "drivethrough": False})
-            props.append({"node": node, "name": name, "tag": tag, **info,
+            props.append({"node": node, "name": name, "tag": tag, **({"tag_from_model": True} if from_model else {}), **info,
                           "position": [round(x, 3) for x in matrix[12:15]]})
             nodes.append({"name": node, "offset": (0.0, 0.0, 0.0), "matrix": matrix, "prims": prims, "group": "props"})
             continue
@@ -301,8 +347,7 @@ def convert(src, out_path, level=0, library=False):
             width = max(xs) - min(xs) if xs else 1.0
             offset = (lib_x - min(xs, default=0.0), 0.0, -60.0)
             lib_x += width + 2.0
-        nodes.append({"name": name, "offset": offset, "prims": prims,
-                      "group": "library" if is_library else group_of(name)})
+        nodes.append({"name": name, "offset": offset, "prims": prims, "group": group})
 
     slices = road_slices(d, misc)
     segments = road_segments(slices)
@@ -336,9 +381,11 @@ def convert(src, out_path, level=0, library=False):
 
     with open(os.path.join(out_dir, stem + "_objects.json"), "w") as fh:
         json.dump({"source": os.path.basename(src),
-                   "fields": "node = glTF node in group props; tag from Base 0x44; collide (smackable | box | "
-                             "cylinder | none | static), mass kg and drivethrough from animdefs.txt",
-                   "objects": props}, fh, indent=1)
+                   "fields": "node = glTF node in group props; tag from Base 0x44 (tag_from_model: an untagged "
+                             "copy takes the tag of its library model); collide (smackable | box | cylinder | none "
+                             "| static), mass kg and drivethrough from animdefs.txt; drivethrough = parts in the "
+                             "glTF group drivethrough (bushes), no collision",
+                   "objects": props, "drivethrough": drivethrough}, fh, indent=1)
 
     with open(os.path.join(out_dir, stem + "_lights.json"), "w") as fh:
         json.dump({"source": os.path.basename(src),

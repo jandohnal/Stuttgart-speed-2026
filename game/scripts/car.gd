@@ -12,12 +12,20 @@ const CarDamage := preload("res://scripts/car_damage.gd")
 const IDLE_RPM := 900.0
 const GRAVITY := 9.81
 const AIR_DENSITY := 1.225
+const DAMAGE_REFERENCE_MPH := 100.0  ## 356 A 1.6, the car CarDamage's part speeds were set for
 
 @export_group("Damage consequences")
 ## Per zone damage 0..1 (CarDamage) at full damage gives:
 @export var damage_toe_deg := 3.0  ## wheel on a damaged corner toes out (the car pulls to that side)
-@export var damage_grip_loss := 0.15  ## that wheel's grip (bent suspension)
-@export var damage_power_loss := 0.35  ## engine torque, from the zones around the engine
+@export var damage_grip_loss := 0.5  ## that wheel's tyre grip (the original's tyres, there for all wheels)
+@export var damage_brake_loss := 0.5  ## that wheel's brake torque (the original's brakes, there for all wheels)
+## Engine and gearbox damage come from the zones around the engine (engine_damage()):
+@export var damage_power_loss := 0.33  ## engine torque (the original's engine)
+@export var damage_misfire := 0.33  ## share of the time the engine misfires (no torque, the revs do not rise)
+@export var misfire_time := 0.1  ## s, one misfire
+@export var damage_drive_loss := 0.5  ## torque the gearbox passes on (the original's transmission)
+@export var damage_engine_brake_gain := 2.0  ## extra engine braking (the original: up to x3)
+@export var damage_downforce_loss := 0.5  ## downforce, front from the front centre zone, rear from the rear one (spoiler)
 @export var damage_drag_gain := 0.15  ## drag area, from the average damage
 @export var damage_steer_loss := 0.2  ## steering lock, from the front centre zone
 @export var damage_wobble_deg := 8.0  ## wheel on a corner damaged past 50 % wobbles, this much at 100 %
@@ -173,6 +181,7 @@ var _launch_slip := false  ## launch clutch slipping: engine held above the whee
 var tc_cut := 0.0  ## share of the drive torque traction control took this tick (HUD, telemetry)
 var _tc_on := false  ## traction control acts this tick: on, and the engine drives (not engine braking)
 var _last_velocity := Vector3.ZERO
+var _misfire := 0.0  ## s left of the current misfire
 
 
 class Wheel:
@@ -199,6 +208,7 @@ class Wheel:
 	var zone := -1  ## damage corner zone (CarDamage.CORNER_ZONES)
 	var toe := 0.0  ## rad, from damage, positive = to the left
 	var grip_factor := 1.0  ## from damage
+	var brake_factor := 1.0  ## from damage
 	var wobble := 0.0  ## rad, eccentric run of a damaged wheel
 	var detached := false  ## came off: no ray, no forces
 	var debris: RigidBody3D  ## the wheel flying off
@@ -295,6 +305,10 @@ func _derive_from_data(unknown: Dictionary) -> void:
 ## Enables damage from <car>_damage.json (tools/crp2gltf.py): zones and detachable parts.
 func setup_damage(info: Dictionary) -> void:
 	damage = CarDamage.new(self, _model, info)
+	# Lids and doors come loose at impact speeds that suit the car: a faster car is built for them.
+	var top := float(params.get("top_speed_mph", 0.0))
+	if top > 0.0:
+		damage.speed_factor = top / DAMAGE_REFERENCE_MPH
 	contact_monitor = true
 	max_contacts_reported = maxi(max_contacts_reported, 8)
 	for w in wheels:
@@ -312,7 +326,7 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 		if impulse > 0.0:
 			var normal := to_car * state.get_contact_local_normal(i)
 			contacts.append({"impulse": impulse, "point": to_local(state.get_contact_local_position(i)),
-				"normal": normal})
+				"normal": normal, "car": state.get_contact_collider_object(i) is Car})
 			if absf(normal.y) < 0.5:
 				side_contacts += 1
 	damage.add_tick(contacts)
@@ -325,6 +339,7 @@ func _update_damage() -> void:
 		var d := damage.zone(w.zone)
 		w.toe = deg_to_rad(damage_toe_deg) * d * (1.0 if w.center.x < 0.0 else -1.0)  # toe out
 		w.grip_factor = 1.0 - damage_grip_loss * d
+		w.brake_factor = 1.0 - damage_brake_loss * d
 		w.wobble = deg_to_rad(damage_wobble_deg) * smoothstep(0.5, 1.0, d)
 		var side := damage.zone(7 if w.center.x < 0.0 else 3)
 		if not w.detached and d >= 1.0 and side >= 1.0:
@@ -378,14 +393,36 @@ func repair() -> void:
 		w.ray.enabled = true
 
 
-## Share of the engine torque left after damage to the zones around the engine.
-func engine_health() -> float:
+## Damage 0..1 of the engine and gearbox, from the zones around the engine.
+func engine_damage() -> float:
 	if damage == null:
-		return 1.0
+		return 0.0
 	var front := str(params.get("engine_position", "rear")) == "front"
 	var centre := damage.zone(1 if front else 5)
 	var sides := maxf(damage.zone(0 if front else 4), damage.zone(2 if front else 6))
-	return 1.0 - damage_power_loss * maxf(centre, 0.5 * sides)
+	return maxf(centre, 0.5 * sides)
+
+
+## Share of the engine torque left after damage.
+func engine_health() -> float:
+	return 1.0 - damage_power_loss * engine_damage()
+
+
+## Share of the drive torque the damaged gearbox passes on.
+func drivetrain_health() -> float:
+	return 1.0 - damage_drive_loss * engine_damage()
+
+
+## A damaged engine now and then misfires for misfire_time: no torque, the revs do not rise.
+func _update_misfire(delta: float) -> void:
+	if _misfire > 0.0:
+		_misfire -= delta
+	elif randf() < damage_misfire * engine_damage() / misfire_time * delta:
+		_misfire = misfire_time
+
+
+func misfiring() -> bool:
+	return _misfire > 0.0
 
 
 func reset_to(xf: Transform3D) -> void:
@@ -528,16 +565,18 @@ func _physics_process(delta: float) -> void:
 	forward_speed = -global_basis.z.dot(linear_velocity)
 	_read_input(delta)
 	_update_damage()
+	_update_misfire(delta)
 	_update_gearbox(delta)
 	var engaged := _shift_timer <= 0.0 and not held
 	_update_boost(delta, engaged)
 	var gearing := _gear_ratio() * final_drive
 	var engine_torque := 0.0
 	if engaged:
-		engine_torque = _engine_torque() * throttle
+		engine_torque = 0.0 if misfiring() else _engine_torque() * throttle
 		if throttle < 0.05:
-			# Engine braking; pulling away the clutch pedal is still down.
-			engine_torque = 0.0 if _launch_slip else -engine_brake * _torque_at(rpm)
+			# Engine braking (a damaged gearbox drags more); pulling away the clutch pedal is still down.
+			engine_torque = 0.0 if _launch_slip else \
+				-engine_brake * (1.0 + damage_engine_brake_gain * engine_damage()) * _torque_at(rpm)
 	engine_torque_nm = engine_torque
 	_tc_on = traction_control and engine_torque > 0.0
 	# Engine inertia seen at the wheels; shared by the driven wheels.
@@ -552,7 +591,7 @@ func _physics_process(delta: float) -> void:
 		_update_contact(w, delta)
 	var drive_torque := {}
 	for w in wheels:
-		drive_torque[w] = engine_torque * gearing * (drivetrain_efficiency if engine_torque > 0.0 else 1.0) * _drive_share(w)
+		drive_torque[w] = engine_torque * gearing * (drivetrain_efficiency * drivetrain_health() if engine_torque > 0.0 else 1.0) * _drive_share(w)
 	if lsd_lock > 0.0:
 		_limited_slip(drive_torque, wheel_inertia + engine_inertia_at_wheel, delta)
 	var drive_sum := 0.0
@@ -571,8 +610,10 @@ func _physics_process(delta: float) -> void:
 		# Downforce on each axle, from the speed along the car (wings work in one direction).
 		var q := 0.5 * AIR_DENSITY * pow(maxf(forward_speed, 0.0), 2.0)
 		var down := -global_basis.y
-		apply_force(down * q * downforce_front, global_basis * Vector3(0.0, 0.0, _axle_z(true)))
-		apply_force(down * q * downforce_rear, global_basis * Vector3(0.0, 0.0, _axle_z(false)))
+		var front_loss := damage_downforce_loss * (damage.zone(1) if damage != null else 0.0)
+		var rear_loss := damage_downforce_loss * (damage.zone(5) if damage != null else 0.0)
+		apply_force(down * q * downforce_front * (1.0 - front_loss), global_basis * Vector3(0.0, 0.0, _axle_z(true)))
+		apply_force(down * q * downforce_rear * (1.0 - rear_loss), global_basis * Vector3(0.0, 0.0, _axle_z(false)))
 	_update_odometer(delta)
 	_update_telemetry(delta)
 
@@ -835,7 +876,7 @@ func _apply_wheel(w: Wheel, delta: float, drive_torque: float, inertia: float) -
 		w.slip_angle = 0.0
 		return 0.0
 	var brake_torque := brake * brake_decel_g * mass * GRAVITY * wheel_radius \
-		* (brake_front_bias if w.front else 1.0 - brake_front_bias) / 2.0
+		* (brake_front_bias if w.front else 1.0 - brake_front_bias) / 2.0 * w.brake_factor
 	var abs_on := brake_assist and (w.front or not handbrake)
 	var abs_limit := (abs_slip if w.front else abs_slip_rear) * peak_slip_ratio
 	if handbrake and not w.front or held:

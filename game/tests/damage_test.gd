@@ -149,8 +149,17 @@ func _report() -> void:
 		return
 	reported = true
 	var d = car.damage
-	print("DAMAGE TEST: %s into a wall at %.0f km/h, impact %.0f N*s (threshold %.0f)" % [
-		"reversing" if rear else "driving", hit_kmh, d.last_impact, d.threshold])
+	print("DAMAGE TEST: %s into a wall at %.0f km/h, speed change %.0f km/h (threshold %.0f, full %.0f)" % [
+		"reversing" if rear else "driving", hit_kmh, d.last_impact_dv, d.threshold_kmh, d.full_kmh])
+	# Zone by impact direction (normal from the obstacle into the car; the car faces -Z).
+	var dirs := {0: Vector3(1, 0, 1), 1: Vector3(0, 0, 1), 2: Vector3(-1, 0, 1), 3: Vector3(-1, 0, 0),
+		4: Vector3(-1, 0, -1), 5: Vector3(0, 0, -1), 6: Vector3(1, 0, -1), 7: Vector3(1, 0, 0),
+		8: Vector3(0, -1, 0.2), 9: Vector3(0, 1, 0.2)}
+	var wrong := PackedStringArray()
+	for z: int in dirs:
+		if d.zone_hit(dirs[z]) != z:
+			wrong.append("%d -> %d" % [z, d.zone_hit(dirs[z])])
+	print("  zone by direction: ", "ok" if wrong.is_empty() else "FAIL " + ", ".join(wrong))
 	var zones := PackedStringArray()
 	for z in d.ZONE_COUNT:
 		zones.append("%s %.2f" % [d.names[z], d.zone_damage[z]])
@@ -164,10 +173,12 @@ func _report() -> void:
 	print("  blend shapes on Body: ", ", ".join(shapes))
 	var wheels := PackedStringArray()
 	for w in car.wheels:
-		wheels.append("%s%s zone %d toe %+.1f° grip %.2f" % ["F" if w.front else "R", "L" if w.center.x < 0.0 else "R",
-			w.zone, rad_to_deg(w.toe), w.grip_factor])
+		wheels.append("%s%s zone %d toe %+.1f° grip %.2f brake %.2f" % ["F" if w.front else "R", "L" if w.center.x < 0.0 else "R",
+			w.zone, rad_to_deg(w.toe), w.grip_factor, w.brake_factor])
 	print("  wheels: ", " | ".join(wheels))
-	print("  engine torque %.0f %%, total damage %.2f" % [car.engine_health() * 100.0, d.total()])
+	print("  engine torque %.0f %%, gearbox %.0f %%, misfire %.0f %% of the time, lid speeds x%.2f, total damage %.2f" % [
+		car.engine_health() * 100.0, car.drivetrain_health() * 100.0,
+		car.damage_misfire * car.engine_damage() * 100.0, d.speed_factor, d.total()])
 	var lost := PackedStringArray()
 	var loose := PackedStringArray()
 	for part in d.parts:

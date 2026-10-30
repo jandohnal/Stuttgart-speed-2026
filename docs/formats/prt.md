@@ -25,11 +25,11 @@ Katalog všech dílů obchodu originálu: 744 záznamů po 0x168 B, jeden na dí
 | 0x26 | u16 | **kategorie** (tabulka níže) | 2 |
 | 0x28 | char[30] | **skupina** (jméno slotu): „Engine“, „Engine (Standard)“, „Turbo“, „Gear Box“, „Shifter“, „Spoiler“… U pneumatik prázdné | „Brakes“ |
 | 0x46 | u16 | rok, od kterého díl obchod v kariéře nabízí | 1956 |
-| 0x48 | u8[8] | příznaky (nerozluštěné, hra je ve výpočtu fyziky nepoužívá) | |
+| 0x48 | u8[10] | **maska zón poškození**: 1 = díl se poškozuje ze zóny 0–9 ([damage-model.md](../damage-model.md)). Motor, převodovka, výfuk podle uložení motoru (vzadu 4–6, vpředu 0–2, uprostřed 3–7), brzdy, pružiny, tlumiče a pneumatiky rohy 0, 2, 4, 6, dveře boky 3, 7, spoiler záď 5 | 0,0,0,0,1,1,1,0,0,0 |
 | 0x54 | f32 | změna hmotnosti, kg (laminát, uhlík záporně) | −65 |
 | 0x58 | f32 | snížení maximální rychlosti, % (aerodynamika, díly) | 1 |
 | 0x5C | u32 | cena | 900 |
-| 0x60 | f32 | nerozluštěno (100, 98, 92, 65…), ve fyzice se nepoužívá | |
+| 0x60 | f32 | **odolnost** dílu při poškození, %: poškození dílu = průměr zón z masky × (1,5 − odolnost / 200); u lehkých dílů karoserie (kategorie 7) jiné hodnoty (−65…75), význam nejasný | 100 |
 | 0xC0 | f32 | **účinek** c0; u převodovky stálý převod | 1,0 = sériový, 2,0 |
 | 0xC4 | f32 | **účinek** c4 (zadní náprava u pneumatik a aerodynamiky, světlá výška u pružin) | |
 | 0xC8 | i32 | typ pneumatik: 0 sériové, 1 do deště, 2 slick | |

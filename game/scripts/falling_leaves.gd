@@ -128,7 +128,7 @@ func _collect_canopy(track: Node3D) -> int:
 			grid[key] = PackedInt32Array()
 		grid[key].append(i)
 	var count := 0
-	for group in ["terrain", "objects"]:
+	for group in ["terrain", "objects", "drivethrough"]:
 		var root := track.find_child(group, true, false)
 		if root == null:
 			continue

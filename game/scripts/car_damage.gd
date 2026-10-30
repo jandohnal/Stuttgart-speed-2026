@@ -1,15 +1,21 @@
 extends RefCounted
 ## Car damage from the original's damage zones (<car>_damage.json from tools/crp2gltf.py).
 ## The body's contact impulses are summed over the first `window` ticks of an impact; the next
-## impact counts once the body has come off the obstacle (no resting or scraping contact adds up);
-## an impact above `threshold` dents the zones near its contact point. Each zone's damage (0..1)
+## impact counts once the body has come off the obstacle (no resting or scraping contact adds up).
+## Like the original, an impact is measured by its speed: the car's speed change (impulse / mass,
+## contacts with another car count `car_factor` times). From `threshold_kmh` up it dents one zone by
+## speed / `full_kmh`, chosen like the original by the impact's direction (zone_hit()); the two ring
+## zones beside it get at least the average of their neighbours. A zone keeps its hardest impact like
+## the original (maximum) and smaller ones still add `accumulate` of their damage. Each zone's damage (0..1)
 ## drives the blend shape "dz<zone>" on every part of the model (the original's offsets for a
 ## fully damaged car). Car reads the zone values for the mechanical consequences.
 ## Detachable parts (from the json) come off as loose bodies once their zone is fully damaged.
 ## Hood, engine lid and doors first come unlatched and swing on their hinges (a rigid body on a
-## HingeJoint3D): the hood when the front is damaged over `unlatch_damage`, the engine lid when the
-## rear is, the doors when either end is or after a hard impact (`tear_speed_kmh` or faster); such
-## a hard impact tears the hood (front) or engine lid (rear) off. repair() puts everything back.
+## HingeJoint3D): the hood when the front is damaged over `unlatch_damage` or hit at
+## `unlatch_speed_kmh`, the engine lid likewise at the rear, the doors when either end is. An impact
+## at `tear_speed_kmh` tears the hood (front) or engine lid (rear) off. Both speeds are for the
+## 356 A and scale with the car's top speed (`speed_factor`). With `enabled` off (past the finish
+## line, like the original) impacts still sound but damage nothing. repair() puts everything back.
 
 const TrackProps := preload("res://scripts/track_props.gd")
 
@@ -17,16 +23,24 @@ signal impacted(kmh: float, point: Vector3, impulse: float)  ## every resolved i
 signal part_changed(kind: String, state: String, point: Vector3)  ## a part came loose ("hinged") or off
 const ZONE_COUNT := 10
 const CORNER_ZONES := [0, 2, 4, 6]  ## front left, front right, rear right, rear left
+const RING := 8  ## zones 0..7 go round the car: FL, front, FR, right, RR, rear, RL, left
+const ROOF := 8
+const BOTTOM := 9
 
-var threshold := 1500.0  ## N*s summed over one impact; below it nothing dents (light signs, scrapes)
-var scale := 15000.0  ## N*s above the threshold for a fully damaged zone
-var spread := 1.5  ## m, zones closer than this to the contact point are dented too (the nearest fully)
-var underside_factor := 0.2  ## contacts from below (landing, bottoming out) dent less
+var threshold_kmh := 24.0  ## speed change of one impact below which nothing dents (the original's threshold)
+var full_kmh := 240.0  ## speed change that fully damages the zone hit (the original into a wall)
+var accumulate := 0.3  ## share of a smaller impact's damage that still adds to a zone (0 = the original's maximum)
+var car_factor := 2.0  ## contacts with another car: closing speed is about twice each car's speed change
+var straight := 0.1  ## impact direction across (or along) the car below this counts as straight on (the original's sectors)
+var underside_factor := 0.2  ## impacts from below (bottoming out) dent the bottom zone less; the original never dents it
 var log_impacts := false  ## print every resolved impact (tests, tuning)
 var tick_min := 30.0  ## N*s in one tick that still counts as contact
 var window := 12  ## physics ticks (0.1 s at 120 Hz) summed per impact
 var unlatch_damage := 0.5  ## front / rear damage that unlatches the hood, engine lid and doors
-var tear_speed_kmh := 100.0  ## impact speed (along the contact normal) that tears a swinging lid off
+var unlatch_speed_kmh := 80.0  ## impact speed (along the contact normal) that unlatches them at once (356 A)
+var tear_speed_kmh := 130.0  ## impact speed that tears the hood or engine lid off (356 A)
+var speed_factor := 1.0  ## car's top speed / the 356 A 1.6's (100 mph): scales the two speeds above
+var enabled := true  ## off past the finish line: nothing dents or comes loose any more
 var last_impact_kmh := 0.0
 var scrape := 0.0  ## N*s of body contact in the last tick (scraping, resting)
 var scrape_point := Vector3.ZERO  ## car-space centre of that contact (sparks)
@@ -36,12 +50,14 @@ var centroids: Array[Vector3] = []  ## per zone id, car space (Vector3.INF where
 var names: Array[String] = []
 var impacts := 0
 var last_impact := 0.0  ## N*s of the last impact that dented something
+var last_impact_dv := 0.0  ## km/h, speed change of the last resolved impact (car contacts weighted)
 
 ## {group, kind, zone, mass, nodes, parents, xforms, bounds (car space), state on|hinged|off, body, joint}
 var parts: Array[Dictionary] = []
 var _car: RigidBody3D
 var _meshes: Array[MeshInstance3D] = []
 var _sum := 0.0
+var _dv := 0.0  ## m/s, speed change of the current impact (car contacts weighted)
 var _point := Vector3.ZERO
 var _normal := Vector3.ZERO
 var _ticks := 0
@@ -84,14 +100,17 @@ func _init(car: RigidBody3D, model: Node3D, info: Dictionary) -> void:
 				_meshes.append(child as MeshInstance3D)
 
 
-## Feeds one physics tick of body contacts: [{point, normal, impulse}] in car space.
+## Feeds one physics tick of body contacts: [{point, normal, impulse, car}] in car space
+## (car: the contact is with another car).
 func add_tick(contacts: Array) -> void:
 	var tick := 0.0
+	var weighted := 0.0
 	var point := Vector3.ZERO
 	var normal := Vector3.ZERO
 	for c: Dictionary in contacts:
 		var impulse: float = c["impulse"]
 		tick += impulse
+		weighted += impulse * (car_factor if c.get("car", false) else 1.0)
 		point += c["point"] * impulse
 		normal += c["normal"] * impulse
 	scrape = tick
@@ -110,6 +129,7 @@ func add_tick(contacts: Array) -> void:
 	if _sum == 0.0:  # the impact begins: how fast did we hit (normal points from the obstacle into the car)?
 		_impact_speed = maxf(0.0, -before.dot(normal.normalized()))
 	_sum += tick
+	_dv += weighted / _car.mass
 	_point += point
 	_normal += normal
 	_ticks += 1
@@ -226,63 +246,71 @@ func corner_of(position: Vector3) -> int:
 func _resolve() -> void:
 	var point := _point / _sum
 	var normal := _normal.normalized()
-	var amount := (_sum - threshold) / scale
-	if normal.y > 0.7:
-		amount = (_sum * underside_factor - threshold) / scale
+	var hit := zone_hit(normal)
+	var dv := _dv * 3.6
+	if hit == BOTTOM:
+		dv *= underside_factor
+	var amount := dv / full_kmh if dv >= threshold_kmh else 0.0
 	if log_impacts:
-		print("  impact: %.0f N*s over %d ticks at %s, normal %s, %.0f km/h -> %.2f" % [
+		print("  impact: %.0f N*s over %d ticks at %s, normal %s, %.0f km/h, speed change %.0f km/h -> %s %.2f%s" % [
 			_sum, _ticks, point.snapped(Vector3.ONE * 0.01), normal.snapped(Vector3.ONE * 0.01),
-			_impact_speed * 3.6, maxf(amount, 0.0)])
+			_impact_speed * 3.6, dv, names[hit], amount, "" if enabled else " (damage off)"])
 	last_impact_kmh = _impact_speed * 3.6
+	last_impact_dv = dv
 	impacted.emit.call_deferred(last_impact_kmh, point, _sum)  # we are inside the physics callback
-	var hard := ""
-	if last_impact_kmh >= tear_speed_kmh:
-		hard = "front" if point.z < 0.0 else "rear"
-	if amount > 0.0:
-		_dent(point, amount, hard)
+	var end := "front" if point.z < 0.0 else "rear"
+	var hard := end if last_impact_kmh >= tear_speed_kmh * speed_factor else ""
+	var knock := end if last_impact_kmh >= unlatch_speed_kmh * speed_factor else ""
+	if enabled and amount > 0.0:
+		_dent(hit, amount, hard, knock)
 		impacts += 1
 		last_impact = _sum
-	elif hard != "":
-		_check_parts(hard)
+	elif enabled and knock != "":
+		_check_parts(hard, knock)
 	_sum = 0.0
+	_dv = 0.0
 	_point = Vector3.ZERO
 	_normal = Vector3.ZERO
 	_ticks = 0
 
 
-func _dent(point: Vector3, amount: float, hard := "") -> void:
-	var weights := PackedFloat32Array()
-	weights.resize(ZONE_COUNT)
-	var max_w := 0.0
-	var nearest := -1
-	var nearest_d := INF
-	for z in ZONE_COUNT:
-		if centroids[z] == Vector3.INF:
-			continue
-		var d := centroids[z].distance_to(point)
-		weights[z] = maxf(0.0, 1.0 - d / spread)
-		max_w = maxf(max_w, weights[z])
-		if d < nearest_d:
-			nearest_d = d
-			nearest = z
-	if max_w <= 0.0:
-		weights[nearest] = 1.0
-		max_w = 1.0
-	for z in ZONE_COUNT:
-		zone_damage[z] = minf(1.0, zone_damage[z] + amount * weights[z] / max_w)
+func _dent(hit: int, amount: float, hard := "", knock := "") -> void:
+	var old := zone_damage[hit]
+	zone_damage[hit] = minf(1.0, maxf(old, amount) + accumulate * minf(old, amount))
+	if hit < RING:
+		# Like the original: each ring zone beside the one hit gets at least the average of its
+		# own two neighbours.
+		for side: int in [(hit + RING - 1) % RING, (hit + 1) % RING]:
+			var around := (zone_damage[(side + RING - 1) % RING] + zone_damage[(side + 1) % RING]) / 2.0
+			zone_damage[side] = maxf(zone_damage[side], around)
 	_apply_visuals()
-	_check_parts(hard)
+	_check_parts(hard, knock)
+
+
+## The zone an impact dents, from its direction like the original (not from where it touched):
+## 8 sectors round the car, the roof when it comes from above, the bottom from below.
+## normal: car space, from the obstacle into the car.
+func zone_hit(normal: Vector3) -> int:
+	var d := -normal.normalized()  # from the car towards the obstacle; the car faces -Z
+	if d.y > 0.5:
+		return ROOF
+	if d.y < -0.7:
+		return BOTTOM
+	var lon := 0 if d.z < -straight else (2 if d.z > straight else 1)  # front, middle, rear
+	var lat := 0 if d.x < -straight else (2 if d.x > straight else 1)  # left, centre, right
+	return [[0, 1, 2], [7, ROOF, 3], [6, 5, 4]][lon][lat]
 
 
 ## Sets a zone's damage directly (tests, debugging); hard = "front" / "rear" simulates a hard impact.
 func set_damage(z: int, value: float, hard := "") -> void:
 	zone_damage[z] = clampf(value, 0.0, 1.0)
 	_apply_visuals()
-	_check_parts(hard)
+	_check_parts(hard, hard)
 
 
-## Decides what each part should do; hard = "front" / "rear" after a hard impact at that end.
-func _check_parts(hard := "") -> void:
+## Decides what each part should do; hard = "front" / "rear" after an impact at that end fast
+## enough to tear a lid off, knock = one fast enough to unlatch the lids and doors.
+func _check_parts(hard := "", knock := "") -> void:
 	var front := maxf(zone(1), maxf(zone(0), zone(2)))
 	var rear := maxf(zone(5), maxf(zone(4), zone(6)))
 	for part in parts:
@@ -292,12 +320,12 @@ func _check_parts(hard := "") -> void:
 				var end := "front" if part["kind"] == "hood" else "rear"
 				if hard == end:
 					want = "off"
-				elif (front if end == "front" else rear) > unlatch_damage:
+				elif knock == end or (front if end == "front" else rear) > unlatch_damage:
 					want = "hinged"
 			"door":
 				if zone_damage[part["zone"]] >= 1.0:
 					want = "off"
-				elif front > unlatch_damage or rear > unlatch_damage or hard != "":
+				elif front > unlatch_damage or rear > unlatch_damage or knock != "":
 					want = "hinged"
 			_:
 				if zone_damage[part["zone"]] >= 1.0:

@@ -60,12 +60,40 @@ func save_last() -> void:
 	cfg.save(FILE)
 
 
+func _ready() -> void:
+	get_tree().root.size_changed.connect(_apply_render_height)
+	_apply_render_height()
+
+
+## The 3D view renders at most stuttgart/render_height lines (1080 = Full HD) and is upscaled to
+## the window (project setting rendering/scaling_3d/mode, MetalFX spatial on macOS); the HUD stays
+## at the native resolution. 0 = the project's own rendering/scaling_3d/scale.
+func _apply_render_height() -> void:
+	var lines := int(ProjectSettings.get_setting("stuttgart/render_height", 0))
+	var height := DisplayServer.window_get_size().y
+	if lines <= 0 or height <= 0 or DisplayServer.get_name() == "headless":
+		return
+	get_tree().root.scaling_3d_scale = clampf(float(lines) / height, 0.25, 1.0)
+
+
 ## Full screen when the game runs on its own (not in the editor's embedded view, not headless
-## tests); -- --windowed=1 keeps a window.
+## tests); -- --windowed=1 keeps a window. The project starts full screen already
+## (display/window/size/mode, which also makes the editor run the game in its own window).
 func go_fullscreen() -> void:
 	if DisplayServer.get_name() == "headless" or Engine.is_embedded_in_editor():
 		return
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--windowed="):
+			_go_windowed()
 			return
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+
+
+## Leaves the full screen the project starts in. macOS ignores the switch while the window is
+## still animating into full screen (~1.5 s), so it is repeated until it takes.
+func _go_windowed() -> void:
+	for i in 50:
+		if DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_WINDOWED:
+			return
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		await get_tree().create_timer(0.1, true, false, true).timeout

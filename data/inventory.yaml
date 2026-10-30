@@ -187,6 +187,19 @@ items:
     status: decoded
     notes: "SHPI, 10 425 obrázků. 8bitové (0x7B) s paletou 0x2A/0x29, 16/24/32bitové. 15 souborů celých v RefPack, 222 obrázků s pixely v RefPack"
 
+  - id: track_maps
+    category: usable_now
+    priority: medium
+    path: ["FEData/TrackArt/*.fsh", "FEData/Data/nfs5.trk"]
+    count: {fsh: 47}
+    format: fsh
+    doc: docs/formats/trackart.md
+    tool: tools/fsh2png.py
+    output: "decomposed/FEData/TrackArt/<archiv>/*.png + index.json"
+    status: decoded
+    notes: "Schémata tratí pro menu: <trať>.fsh velký žlutý obrys + jmenovka + vlaječky, <trať>Sp.fsh 5 obrazovek 256×192 (mapa na silniční síti a snímky prostředí s mapou) + ikonky S/F, <trať>SpSm.fsh malá bílá mapka + S/F. Monaco1–5 jsou okruhy Factory Driveru, MCLASS/MGOLD/MMOD náhledy 192×144 pro Prize Race. Názvy archivů ke trati uvádí nfs5.trk (nerozluštěný)"
+    use: "Minimapa v HUD, výběr trati v menu"
+
   - id: sounds
     category: unpack
     priority: low

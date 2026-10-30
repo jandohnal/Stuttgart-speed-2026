@@ -88,6 +88,8 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Odpadající díly (světla, značka, výfuk, zástěry) a kola: házení od 50 % rohu, upadnutí při 100 % rohu i boku
 - [x] Díly na pantech: kapota / kryt motoru se uvolní nad 50 % předku / zádi a utrhnou při nárazu z 100 km/h, dveře se uvolní a v zatáčkách otevírají
 - [x] Zvuk motoru a auta ze zvuků originálu (lokálně, D-011): smyčky podle otáček a plynu, pneumatiky, vítr, nárazy, díly ([formats/bnk.md](formats/bnk.md))
+- [x] Rozbor modelu poškození originálu a srovnání s naším ([damage-model.md](damage-model.md), 30. 10. 2026)
+- [x] Poškození přiblížené originálu (D-010, 30. 10. 2026): práh a měřítko podle změny rychlosti, zóna podle směru nárazu a šíření do sousedů, maximum + 30 % menších nárazů, brzdy, pneumatiky, převodovka, výpadky motoru, přítlak, rychlosti pantů podle maximální rychlosti auta, po cíli bez poškození
 - [ ] Naladit poškození a jeho následky proti originálu (Wine); textury poškození; další vážné následky ([IDEA-006](../ideas/severe-damage-wheel-loss.md))
 - [x] Srovnávací jízdy s originálem (ruční jízda na druhém počítači 17. 10. 2026): hratelné a podobné originálu
 - [x] Druhé auto a trať: 935 Moby Dick v Monte Carlu, nastavení odvozená z dat místo ladění na 356 (test na rovině `straight_test`)
