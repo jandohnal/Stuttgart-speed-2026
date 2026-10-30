@@ -9,6 +9,9 @@ extends Camera3D
 @export var distance := 6.0
 @export var height := 2.4
 @export var look_height := 1.0
+## Where the car sits on screen while chasing: 0 = top edge, 0.5 = centre, 1 = bottom edge.
+## The camera tilts up so more of the track ahead is visible (the original has it in the lower third).
+@export var car_screen_y := 0.67
 @export var smoothing := 6.0
 @export var orbit_sensitivity := 0.005  ## radians per pixel of mouse drag
 @export var orbit_min_distance := 2.5
@@ -113,6 +116,9 @@ func _physics_process(delta: float) -> void:
 	# After the lerp, so smoothing cannot pull the camera back into a wall.
 	global_position = _avoid_geometry(pivot, global_position.lerp(wanted, t))
 	_aim(pivot)
+	# Pitch up so the pivot lands at car_screen_y instead of the screen centre.
+	var below := (2.0 * car_screen_y - 1.0) * tan(deg_to_rad(fov) * 0.5)
+	rotate_object_local(Vector3.RIGHT, atan(below))
 
 
 ## Intro camera: starts intro_start_distance in front of the car and circles round it

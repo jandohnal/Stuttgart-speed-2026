@@ -50,6 +50,8 @@ func _ready() -> void:
 	race = main.race
 	if race != null:
 		race.finished.connect(func(time: float) -> void: finish_time = time)
+		race.lap_completed.connect(func(lap: int, time: float) -> void:
+			print("  lap %d/%d: %s" % [lap, race.laps, RaceTimer.format_time(time)]))
 	else:
 		var road_data: Variant = OriginalAssets.load_json("GameData/Track/%s/%s_road.json" % [main.track_name, main.track_name])
 		var lap: Variant = road_data.get("lap") if road_data is Dictionary else null

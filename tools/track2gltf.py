@@ -2,7 +2,8 @@
 
 Format: docs/formats/crp.md (chapter "Tratě"). Verified on skidpad and farmland (Normandie).
 Writes next to <out>.gltf: <out>.bin, <stem>_road.json (SimD road slices split into segments,
-start/finish from <track>_fstart.scn), <stem>_objects.json (placed objects with their collision
+start/finish from <track>_fstart.scn, on a circuit without it an own line on a straight),
+<stem>_objects.json (placed objects with their collision
 type and mass from animdefs.txt; their nodes are in the group "props"), <stem>_lights.json (ef
 flares and emitters: world ones, ones on placed objects, ones on library prototypes) and uses the
 track textures converted by tools/fsh2png.py (converted on the fly if missing).
@@ -19,6 +20,7 @@ import os
 import re
 import struct
 
+import ai_lines
 import fsh2png
 import scn
 from common import find_file
@@ -33,6 +35,10 @@ PLACED_MIN_DISTANCE = 50.0  # m
 SIMD_SIZE = 80
 SEGMENT_LINK = 20.0  # m; a segment continues into the one that starts this close to its end (same direction)
 SEGMENT_GAP = 30.0  # m; slices are ~6 m apart, a bigger jump starts the next road segment (alternative routes)
+LAP_GRID_SLICES = 10  # slices (~60 m) behind a circuit's own start/finish line that must be straight (grid)
+LAP_AHEAD_SLICES = 6  # slices (~36 m) after it that must be straight
+LAP_STRAIGHT_DEG = 3.0  # largest heading change over that stretch
+LAP_LINE_OFFSET = 3.0  # m; both racing lines (.lsp) must stay this close to the slice centre there
 CENTERLINE = "__road_centerline"
 
 
@@ -136,6 +142,52 @@ def race_gates(src, slices):
                        "forward": [round(x, 4) for x in to_gltf(trigger["basis"][0:3])],
                        "line": [[round(x, 4) for x in to_gltf(ends[k:k + 3])] for k in (0, 3)]}
     return gates
+
+
+def lap_gates(src, slices, segments, lap):
+    """Own start/finish line for a circuit without _fstart.scn (Monte Carlo): the lap slice nearest
+    to the lap's start (slice 0, where the car used to start) whose stretch from LAP_GRID_SLICES
+    before to LAP_AHEAD_SLICES after it turns by at most LAP_STRAIGHT_DEG, so the grid stands on a
+    straight, and where both racing lines (racer/work/<track>0.lsp, 1.lsp) stay within
+    LAP_LINE_OFFSET of the slice centre: in Monte Carlo the slices run on into streets that a
+    variant closes off, while the route takes another street. Start and finish are the same line
+    across the road ("source": "lap")."""
+    order = [i for k in lap["segments"] for i in range(segments[k]["first"], segments[k]["last"] + 1)]
+    n = len(order)
+    track = os.path.splitext(os.path.basename(src))[0]
+    offsets = []
+    for k in (0, 1):
+        path = find_file(os.path.join(os.path.dirname(src), "racer", "work"), f"{track}{k}.lsp")
+        if path:
+            _, points = ai_lines.read_lsp(path)
+            if len(points) == len(slices):
+                offsets.append(ai_lines.line_offsets(points, slices)[0])
+
+    def heading(i):
+        f = slices[order[i % n]]["forward"]
+        return math.atan2(f[0], f[2])
+
+    def turn(i):
+        h = heading(i)
+        return max(abs((math.degrees(heading(i + k) - h) + 180.0) % 360.0 - 180.0)
+                   for k in range(-LAP_GRID_SLICES, LAP_AHEAD_SLICES + 1))
+
+    def on_route(i):
+        return all(abs(line[order[(i + k) % n]]) <= LAP_LINE_OFFSET
+                   for line in offsets for k in range(-LAP_GRID_SLICES, LAP_AHEAD_SLICES + 1))
+
+    straight = [i for i in range(n) if turn(i) <= LAP_STRAIGHT_DEG and on_route(i)]
+    if not straight:
+        return {}
+    index = order[min(straight, key=lambda i: min(i, n - i))]
+    s = slices[index]
+    pos, right, (left_w, right_w) = s["position"], s["right"], s["widths"][0:2]
+    line = {"slice": index,
+            "position": [round(x, 4) for x in pos], "forward": [round(x, 4) for x in s["forward"]],
+            "line": [[round(pos[k] - right[k] * left_w, 4) for k in range(3)],
+                     [round(pos[k] + right[k] * right_w, 4) for k in range(3)]],
+            "source": "lap"}
+    return {"start": line, "finish": dict(line)}
 
 
 def centerline_prims(slices, segments, lift=0.05):
@@ -273,10 +325,12 @@ def convert(src, out_path, level=0, library=False):
     length = sum(seg["length_m"] for seg in segments)
     lap = road_lap(segments)
     gates = race_gates(src, slices)
+    if not gates and lap:
+        gates = lap_gates(src, slices, segments, lap)
     with open(os.path.join(out_dir, stem + "_road.json"), "w") as fh:
         json.dump({"source": os.path.basename(src), "slice_count": len(slices), "length_m": round(length, 1),
                    "fields": "position, up, forward, right (unit vectors), flags [int0, int13..15], widths [4] m",
-                   "segments": segments, "lap": road_lap(segments), **gates,
+                   "segments": segments, "lap": lap, **gates,
                    "slices": [{k: [round(x, 4) if isinstance(x, float) else x for x in v] for k, v in s.items()}
                               for s in slices]}, fh)
 

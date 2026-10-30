@@ -4,22 +4,29 @@ extends Node3D
 ##   that makes the tyres squeal in CarAudio), left in the world; the oldest fade out and go;
 ## - dust and bits of ground behind the wheels off the road (the track's `terrain` group), in the
 ##   colour of the ground texture under the wheel, so grass throws green, a dirt path brown;
+##   green ground also throws blades and tufts of grass, ground strewn with fallen leaves
+##   (LEAF_GROUND) dry leaves;
 ## - sparks where the body hits something or scrapes along it.
 ## The ground under a wheel comes from its ray: the collider's track group (road, terrain) and the
 ## triangle's material (needs physics/jolt_physics_3d/queries/enable_ray_cast_face_index).
-## Dust and dirt use textures of the Kenney Particle Pack (CC0, assets/particles/kenney, a random
-## frame per particle); without them, and for the marks, textures are generated here (the
-## original's particle.fsh is 16-64 px). The sparks take their count and colours from the
+## Dust and dirt use textures of the Kenney Particle Pack, grass Kenney's Foliage Sprites and leaves
+## photos of 50 Dry Leaf Textures (all CC0, assets/particles/, a random frame per particle); without
+## them dust and dirt get textures generated here, as do the marks (the original's particle.fsh is
+## 16-64 px). The sparks take their count and colours from the
 ## original's "Sparks" system (particles.json, tools/particles.py).
 
 const Materials := preload("res://scripts/materials.gd")
 const PARTICLES := "GameData/Render/particles.json"
 const SPARKS_TAG := "SPRK"
 const GROUPS := ["road", "terrain", "objects"]
-const PACK_DIR := "res://assets/particles/kenney"
+const PACK_DIR := "res://assets/particles"
 const PACK := {  ## texture kind -> files in PACK_DIR, one atlas frame each
-	"puff": ["smoke_02", "smoke_04", "smoke_05", "smoke_07"],
-	"dirt": ["dirt_01", "dirt_02", "dirt_03"],
+	"puff": ["kenney/smoke_02", "kenney/smoke_04", "kenney/smoke_05", "kenney/smoke_07"],
+	"dirt": ["kenney/dirt_01", "kenney/dirt_02", "kenney/dirt_03"],
+	"grass": ["foliage/grass_0063", "foliage/grass_0075", "foliage/grass_0078", "foliage/grass_0079",
+		"foliage/grass_0080"],
+	"leaf": ["leaves/dry_leaf01", "leaves/dry_leaf03", "leaves/dry_leaf05", "leaves/dry_leaf08",
+		"leaves/dry_leaf13", "leaves/dry_leaf26", "leaves/dry_leaf34", "leaves/dry_leaf42"],
 }
 const PACK_FRAME := 256  ## px per atlas frame
 
@@ -42,6 +49,19 @@ const DUST_SIZE := 2.4  ## m, quad of one puff before its scale curve
 const DEBRIS_AMOUNT := 32  ## generated chips; the pack's dirt clusters need fewer
 const DEBRIS_CLUSTERS := 16
 const DEBRIS_LIFETIME := 0.9
+const GRASS_AMOUNT := 32
+const GRASS_LIFETIME := 1.0
+const GRASS_SIZE := 0.22  ## m, one blade or thin tuft
+## Ground counts as grass when the hue of its colour is green enough: grass textures are 0.16-0.24,
+## a gravel shoulder 0.147, dirt and sand 0.07-0.13.
+const GRASS_HUE := Vector2(0.155, 0.45)
+const GRASS_MIN_SATURATION := 0.15
+const LEAF_AMOUNT := 40
+const LEAF_LIFETIME := 2.5
+const LEAF_SIZE := 0.2  ## m, as the leaves falling from the crowns (FallingLeaves)
+## Ground textures strewn with fallen leaves: leag (grass, forest, farmland, foothills), rdca (road
+## edge, farmland, foothills).
+const LEAF_GROUND := ["leag", "rdca"]
 
 const SPARK_LIFETIME := 0.45
 const SPARK_TRAIL := 0.06  ## s of path each spark draws as a streak
@@ -63,6 +83,8 @@ var _width := 0.18  ## m, tyre tread width
 var _trails := []  ## per wheel: {last: Vector3 or INF, left, right, alpha, normal}
 var _dust: Array[GPUParticles3D] = []
 var _debris: Array[GPUParticles3D] = []
+var _grass: Array[GPUParticles3D] = []  ## null when the pack is missing
+var _leaves: Array[GPUParticles3D] = []
 var _sparks: GPUParticles3D
 var _spark_until := 0.0
 var _spark_ratio := 0.0
@@ -90,6 +112,10 @@ func setup(car: Car) -> void:
 		var debris := _make_debris()
 		add_child(debris)
 		_debris.append(debris)
+		for list: Array in [[_grass, _make_grass()], [_leaves, _make_leaves()]]:
+			if list[1] != null:
+				add_child(list[1])
+			list[0].append(list[1])
 	_sparks = _make_sparks()
 	add_child(_sparks)
 	if car.damage != null:
@@ -101,6 +127,15 @@ func dust_active() -> int:
 	var n := 0
 	for d in _dust:
 		n += 1 if d.emitting else 0
+	return n
+
+
+## Grass and leaf emitters currently throwing (tests).
+func foliage_active() -> Vector2i:
+	var n := Vector2i.ZERO
+	for i in _grass.size():
+		n.x += 1 if _grass[i] != null and _grass[i].emitting else 0
+		n.y += 1 if _leaves[i] != null and _leaves[i].emitting else 0
 	return n
 
 
@@ -135,8 +170,9 @@ func _process(delta: float) -> void:
 
 # --- ground ----------------------------------------------------------------------------------
 
-## Track group ("road", "terrain", "objects" or "") and ground colour under a ray hit:
-## {group, color}. Cached per collider; the colour is the average of the hit triangle's texture.
+## Track group ("road", "terrain", "objects" or ""), ground colour, texture name and whether the
+## material is see-through (crown cards, fences) under a ray hit: {group, color, texture, alpha}.
+## Cached per collider; the colour is the average of the hit triangle's texture.
 static func ground_under(collider: Object, face: int) -> Dictionary:
 	if collider == null:
 		return {}
@@ -153,8 +189,19 @@ static func ground_under(collider: Object, face: int) -> Dictionary:
 	surface = clampi(surface, 0, ends.size() - 1)
 	var colors: Dictionary = entry["colors"]
 	if not colors.has(surface):
-		colors[surface] = Materials.average_color(mesh.get_active_material(surface))
-	return {"group": entry["group"], "color": colors[surface]}
+		var material := mesh.get_active_material(surface)
+		var texture := material.resource_name.get_slice(" ", 0) if material != null else ""
+		var alpha := material is BaseMaterial3D and (material as BaseMaterial3D).transparency != BaseMaterial3D.TRANSPARENCY_DISABLED
+		colors[surface] = [Materials.average_color(material), texture, alpha]
+	return {"group": entry["group"], "color": colors[surface][0], "texture": colors[surface][1], "alpha": colors[surface][2]}
+
+
+## What the ground throws besides dust and dirt: {grass, leaves}, each 0 or 1.
+static func foliage(ground: Dictionary) -> Dictionary:
+	var c: Color = ground.get("color", Color.BLACK)
+	var green := c.h >= GRASS_HUE.x and c.h <= GRASS_HUE.y and c.s >= GRASS_MIN_SATURATION
+	var leaves := String(ground.get("texture", "")) in LEAF_GROUND
+	return {"grass": 1.0 if green or leaves else 0.0, "leaves": 1.0 if leaves else 0.0}
 
 
 ## The collider's mesh (its parent from create_trimesh_collision), track group and per surface
@@ -278,6 +325,13 @@ func _wheel_dust(i: int, w: Car.Wheel, ground: Dictionary, speed: float) -> void
 		amount = smoothstep(DUST_MIN_SPEED, DUST_SPEED_FULL, maxf(speed, spin))
 	dust.emitting = amount > 0.05
 	debris.emitting = amount > 0.15
+	var throws := foliage(ground) if debris.emitting else {}
+	var grass := _grass[i]
+	var leaves := _leaves[i]
+	if grass != null:
+		grass.emitting = throws.get("grass", 0.0) > 0.0
+	if leaves != null:
+		leaves.emitting = throws.get("leaves", 0.0) > 0.0
 	if not dust.emitting:
 		return
 	dust.amount_ratio = amount
@@ -290,6 +344,14 @@ func _wheel_dust(i: int, w: Car.Wheel, ground: Dictionary, speed: float) -> void
 	var color: Color = ground["color"]
 	(dust.process_material as ParticleProcessMaterial).color = color.lightened(0.3)
 	(debris.process_material as ParticleProcessMaterial).color = color.darkened(0.25)
+	if grass != null and grass.emitting:
+		grass.amount_ratio = amount
+		grass.global_transform = at
+		# The texture average is greyer than the blades in it.
+		(grass.process_material as ParticleProcessMaterial).color = Color.from_hsv(color.h, minf(color.s * 1.5, 1.0), minf(color.v * 1.2, 1.0))
+	if leaves != null and leaves.emitting:
+		leaves.amount_ratio = amount
+		leaves.global_transform = at
 
 
 func _make_dust() -> GPUParticles3D:
@@ -337,6 +399,67 @@ func _make_debris() -> GPUParticles3D:
 		return _emitter(p, m, 0.5, DEBRIS_CLUSTERS, DEBRIS_LIFETIME)
 	m = _billboard("chip", false)
 	return _emitter(p, m, 0.1, DEBRIS_AMOUNT, DEBRIS_LIFETIME)
+
+
+## Tufts and blades of grass torn out by the tyre (white sprites tinted by the ground colour).
+func _make_grass() -> GPUParticles3D:
+	var p := ParticleProcessMaterial.new()
+	p.direction = Vector3(0, 1, 1)
+	p.spread = 30.0
+	p.initial_velocity_min = 2.0
+	p.initial_velocity_max = 4.5
+	p.inherit_velocity_ratio = 0.3
+	p.gravity = Vector3(0, -7.0, 0)
+	p.damping_min = 0.5
+	p.damping_max = 1.0
+	p.angle_min = -40.0  # mostly upright, as torn out
+	p.angle_max = 40.0
+	p.angular_velocity_min = -180.0
+	p.angular_velocity_max = 180.0
+	p.scale_min = 0.6
+	p.scale_max = 1.2
+	p.color_ramp = _ramp([[0.0, Color.WHITE], [0.8, Color.WHITE], [1.0, Color(1, 1, 1, 0)]])
+	p.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	p.emission_box_extents = Vector3(_width * 0.5, 0.02, 0.05)
+	var m := _billboard("grass", false, p)
+	if m.particles_anim_h_frames <= 1:
+		return null
+	m.alpha_scissor_threshold = 0.4
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	return _emitter(p, m, GRASS_SIZE, GRASS_AMOUNT, GRASS_LIFETIME)
+
+
+## Dry leaves whirled up: light, tumbling, slow to settle (photos keep their own colours).
+func _make_leaves() -> GPUParticles3D:
+	var p := ParticleProcessMaterial.new()
+	p.direction = Vector3(0, 1.5, 1)
+	p.spread = 45.0
+	p.initial_velocity_min = 2.0
+	p.initial_velocity_max = 5.0
+	p.inherit_velocity_ratio = 0.25
+	p.gravity = Vector3(0, -2.0, 0)
+	p.damping_min = 1.5
+	p.damping_max = 3.0
+	p.angle_min = -180.0
+	p.angle_max = 180.0
+	p.angular_velocity_min = -540.0
+	p.angular_velocity_max = 540.0
+	p.scale_min = 0.6
+	p.scale_max = 1.0
+	p.turbulence_enabled = true  # flutter
+	p.turbulence_noise_strength = 2.0
+	p.turbulence_noise_scale = 3.0
+	p.turbulence_influence_min = 0.05
+	p.turbulence_influence_max = 0.2
+	p.color_ramp = _ramp([[0.0, Color.WHITE], [0.85, Color.WHITE], [1.0, Color(1, 1, 1, 0)]])
+	p.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	p.emission_box_extents = Vector3(_width * 0.5, 0.02, 0.05)
+	var m := _billboard("leaf", false, p)
+	if m.particles_anim_h_frames <= 1:
+		return null
+	m.alpha_scissor_threshold = 0.5
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	return _emitter(p, m, LEAF_SIZE, LEAF_AMOUNT, LEAF_LIFETIME)
 
 
 # --- sparks ----------------------------------------------------------------------------------
@@ -466,7 +589,7 @@ func _billboard(texture: String, glow: bool, p: ParticleProcessMaterial = null) 
 		p.anim_offset_min = 0.0
 		p.anim_offset_max = 1.0
 	else:
-		m.albedo_texture = _texture("puff" if texture == "dirt" else texture)
+		m.albedo_texture = _texture(texture if texture in ["chip", "mark"] else "puff")
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED
 	if glow:

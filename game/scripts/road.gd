@@ -89,6 +89,11 @@ func ahead(index: int, count: int) -> int:
 	return i
 
 
+## Index into `segments` of the segment holding slice `index`, -1 = none.
+func segment_index(index: int) -> int:
+	return _segment_index[index] if index >= 0 and index < _segment_index.size() else -1
+
+
 func segment_of(index: int) -> Dictionary:
 	var k := _segment_index[index] if index >= 0 and index < _segment_index.size() else -1
 	return segments[k] if k >= 0 else {}

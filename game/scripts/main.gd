@@ -14,15 +14,19 @@ extends Node3D
 ## Parts (CarParts): GameSettings.car_tune (stock / sport) and tyres (stock / slick / rain), else
 ## --tune= / --tyres=; default stock.
 ## Opponents (D-026, step C): on a track with a start line --opponents=<n> (0..MAX_OPPONENTS) puts n
-## AIDriver cars of the player's model on a staggered grid ahead of the player, each in another
-## colour of the model's palette; the game itself starts with project setting stuttgart/opponents
-## (default DEFAULT_OPPONENTS), the tests with none unless they ask. They are held by the countdown
+## AIDriver cars of the player's model on a staggered grid ahead of the player, each with its
+## driver's name, style and colour (OpponentProfiles); the game itself starts with project setting
+## stuttgart/opponents (default DEFAULT_OPPONENTS) when the menu's Opponents option is on, the
+## tests with none unless they ask. They are held by the countdown
 ## like the player and set back on the grid on restart.
+## Laps: on Monte Carlo's circuits (start = finish line, "source": "lap") the race is --laps=<n>
+## laps, in the game project setting stuttgart/laps (default DEFAULT_LAPS), in the tests one.
 
 const DEFAULT_TRACK := "farmland"
 const TrackProps := preload("res://scripts/track_props.gd")
 const CarAudio := preload("res://scripts/car_audio.gd")
 const CarEffects := preload("res://scripts/car_effects.gd")
+const FallingLeaves := preload("res://scripts/falling_leaves.gd")
 const Materials := preload("res://scripts/materials.gd")
 const SkyLighting := preload("res://scripts/sky_lighting.gd")
 const CarLights := preload("res://scripts/car_lights.gd")
@@ -45,10 +49,16 @@ const GRID_BEHIND := 3.0  ## m from the start line back to the car's centre (sta
 const GRID_STEP := 5.0  ## m between grid slots along the road (left and right column alternate)
 const GRID_SIDE := 2.0  ## m from the road centre to a grid column
 const MAX_OPPONENTS := 7
+const GROUND_PROBE_UP := 2.0  ## m above a reset point the ground search starts (road above the slice)
+const GROUND_PROBE_DOWN := 3.0  ## m below it the search ends
+const RESET_HEIGHT := 0.4  ## m of the car's origin above the road after a reset (as Road.transform_at)
+const DEFAULT_LAPS := 3  ## laps of a circuit (Monte Carlo) in the game; the tests drive one
 const DEFAULT_OPPONENTS := 3
 const STOP_BRAKE := 0.6  ## brake after the finish (~0.5 g: firm, the wheels do not lock)
 const STOP_LOOKAHEAD := 4  ## road slices ahead the car steers to after the finish
 const STOP_SPEED := 0.3  ## m/s below which the stopped car is held
+const OPPONENT_STOP_AFTER := 50.0  ## m past the finish line an opponent drives on before braking
+const STOP_ASIDE := 1.2  ## m from the road's edge (AIDriver._edges) a stopping opponent's centre ends up
 ## Model (GameData/CarModel/<model>) -> engine sound set. The original assigns the sound sets in its
 ## executable: 356 A (sd1a, idle note 29) and 935 (sdxc, flat six to 8000 rpm) are chosen by ear,
 ## the others guessed from the order of the sets (sd1 356 ... sd9 Boxster, sdx race cars) and still
@@ -254,10 +264,14 @@ var road_slices: Array = []  ## road.slices (the tests read them)
 var start_slice := 0
 var race: RaceTimer  ## null on tracks without start / finish lines (free driving)
 var ai_driver: AIDriver  ## null: the player drives
+var race_laps := -1  ## -1: --laps, else project setting stuttgart/laps in the game, 1 in tests
 var opponent_count := -1  ## -1: --opponents, else project setting stuttgart/opponents in the game, 0 in tests
 var opponents: Array[Car] = []  ## AI cars on the grid (their AIDriver is the child "AIDriver")
 var _opponent_grid: Array[Transform3D] = []
 var _stopping := false  ## past the finish: the car brakes along the road (_drive_to_stop)
+var standings: RaceStandings  ## order and gaps of all cars in the race, null without a race
+var _stopping_opponents: Array[Car] = []  ## opponents past the finish, braking along the road
+var _crossed := {}  ## opponent over the finish line, still racing on -> where it crossed it
 var _grid := Transform3D.IDENTITY  ## where the race starts (behind the start line)
 var prop_counts := {}  ## placed objects per collision type (TrackProps)
 var car_style := 0  ## [styleN] of the car's model in use (CarStyle), 0 = model without styles
@@ -324,10 +338,21 @@ func _ready() -> void:
 		_add_opponents(road_data, cars, color)
 	if _user_arg("ai").is_valid_int():
 		drive_by_ai(_user_arg("ai").to_int())
+	if track != null and _user_arg("effects") != "0" and _user_arg("leaves") != "0":  # --leaves=0: no leaves from crowns
+		var leaves := FallingLeaves.new()
+		leaves.name = "FallingLeaves"
+		add_child(leaves)
+		var field: Array[Car] = [car]
+		field.append_array(opponents)
+		leaves.setup(road, track, car, field)
 	if track != null:
 		RaceLines.gate_decals(track)
 		if road_data is Dictionary and road_data.has("start"):
-			track.add_child(RaceLines.start_line(road_data["start"], road_slices[int(road_data["start"]["slice"])]))
+			var start: Dictionary = road_data["start"]
+			var line := RaceLines.start_line(start, road_slices[int(start["slice"])], start.get("source") == "lap")
+			var lift := line.basis.y * RESET_HEIGHT
+			line.position = _on_ground(Transform3D(line.basis, line.position + lift)).origin - lift
+			track.add_child(line)
 
 
 ## Countdown, clock and best time between the original's start and finish lines. The tests load
@@ -336,14 +361,25 @@ func _setup_race(road_data: Dictionary) -> void:
 	race = RaceTimer.new()
 	race.name = "Race"
 	add_child(race)
-	race.setup(car, road_data["start"], road_data["finish"], road_slices, road_data.get("segments", []))
+	var laps := 1
+	if road_data["start"].get("source") == "lap":
+		var arg := _user_arg("laps")
+		laps = race_laps if race_laps > 0 else (arg.to_int() if arg.is_valid_int() else
+			(int(ProjectSettings.get_setting("stuttgart/laps", DEFAULT_LAPS)) if _is_game() else 1))
+	race.setup(car, road_data["start"], road_data["finish"], road, laps)
 	race.finished.connect(_on_race_finished)
 	_grid = _grid_transform(road_data["start"])
 	car.reset_to(_grid)
 	if _is_game():
-		race.keep_records(RECORDS_FILE, track_name, car_key)
+		race.keep_records(RECORDS_FILE, track_name, car_key if race.laps == 1 else "%s %d laps" % [car_key, race.laps])
 	race.begin(COUNTDOWN if _is_game() else 0.0)
+	standings = RaceStandings.new()
+	standings.name = "Standings"
+	add_child(standings)
+	standings.setup(race, road, road_data["start"], road_data["finish"])
+	standings.crossed_line.connect(_on_opponent_crossed)
 	($HUD as Hud).race = race
+	($HUD as Hud).standings = standings
 
 
 ## Builds `target` as car `key` (cars.json parsed in `cars`): model in `color` ("" = untinted),
@@ -389,32 +425,42 @@ func _build_car(target: Car, key: String, color: String, cars: Variant, player: 
 
 
 ## Opponents on the grid ahead of the player (slots 0..n-1, the player in slot n), each driven by
-## an AIDriver on racing line 0 and painted in the next colour of the palette after the player's.
+## an AIDriver on racing line 0 in the style of its OpponentProfiles profile, painted in the
+## palette colour nearest to the profile's.
 func _add_opponents(road_data: Dictionary, cars: Variant, player_color: String) -> void:
 	var arg := _user_arg("opponents")
 	var count := opponent_count
 	if count < 0:
-		count = arg.to_int() if arg.is_valid_int() else (int(ProjectSettings.get_setting("stuttgart/opponents", DEFAULT_OPPONENTS)) if _is_game() else 0)
+		if arg.is_valid_int():
+			count = arg.to_int()
+		elif _is_game() and GameSettings.options["opponents"]:
+			count = int(ProjectSettings.get_setting("stuttgart/opponents", DEFAULT_OPPONENTS))
+		else:
+			count = 0
 	count = clampi(count, 0, MAX_OPPONENTS)
 	if count == 0:
 		return
 	var ai_data: Variant = OriginalAssets.load_json("GameData/Track/%s/%s_ai.json" % [track_name, track_name])
 	var car_colors: Variant = OriginalAssets.load_json(CAR_COLORS) if OriginalAssets.exists(CAR_COLORS) else null
 	var palette: Array = car_palette(car_key, car_colors)["colors"]
-	var first := maxi(palette.find(player_color if not player_color.is_empty() else car_palette(car_key, car_colors)["default"]), 0)
+	var taken: Array = [player_color if not player_color.is_empty() else car_palette(car_key, car_colors)["default"]]
 	for k in count:
+		var profile := OpponentProfiles.profile(k)
 		var opponent := Car.new()
 		opponent.name = "Opponent%d" % (k + 1)
 		add_child(opponent)
-		var color: String = palette[(first + k + 1) % palette.size()] if palette.size() > 1 else ""
+		var color := OpponentProfiles.nearest_color(profile["color"], palette, taken)
+		taken.append(color)
 		if not _build_car(opponent, car_key, color, cars, false):
 			opponent.queue_free()
 			break
 		var driver := AIDriver.new()
 		driver.name = "AIDriver"
 		opponent.add_child(driver)
+		OpponentProfiles.apply(driver, profile)
 		driver.setup(opponent, road, ai_data, 0)
 		opponents.append(opponent)
+		standings.add_car(opponent, profile["name"])
 		_opponent_grid.append(_grid_slot(road_data["start"], k))
 	var field: Array[Car] = [car]
 	field.append_array(opponents)
@@ -437,12 +483,14 @@ func _grid_slot(start: Dictionary, k: int) -> Transform3D:
 	var side := GRID_SIDE * (-1.0 if k % 2 == 0 else 1.0)
 	var xf := road.transform_at(i, side)
 	xf.origin += road.forwards[i] * along
-	return xf
+	return _on_ground(xf)
 
 
 ## Every car back on its grid slot, repaired, held while the countdown runs.
 func _place_on_grid() -> void:
 	car.reset_to(_grid)
+	_stopping_opponents.clear()
+	_crossed.clear()
 	for k in opponents.size():
 		var opponent := opponents[k]
 		opponent.repair()
@@ -458,7 +506,24 @@ func _grid_transform(start: Dictionary) -> Transform3D:
 	var s: Dictionary = road_slices[int(start["slice"])]
 	var up := _vec(s["up"])
 	var fwd := _vec(start["forward"]).normalized()
-	return Transform3D(Basis.looking_at(fwd, up), _vec(start["position"]) - fwd * GRID_BEHIND + up * 0.4)
+	return _on_ground(Transform3D(Basis.looking_at(fwd, up), _vec(start["position"]) - fwd * GRID_BEHIND + up * RESET_HEIGHT))
+
+
+## `xf` moved onto the road surface below or a little above it: the original's slices do not
+## always lie on the road mesh (Monte Carlo's monaco2 start: 1.2 m below the tunnel entrance, so a
+## car put there fell through it). Rays skip back faces, so a tunnel roof above does not count.
+func _on_ground(xf: Transform3D) -> Transform3D:
+	if not is_inside_tree():
+		return xf
+	var up := xf.basis.y.normalized()
+	var query := PhysicsRayQueryParameters3D.create(xf.origin + up * GROUND_PROBE_UP, xf.origin - up * GROUND_PROBE_DOWN)
+	query.hit_back_faces = false
+	query.exclude = [car.get_rid()]
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if hit.is_empty() or (hit["normal"] as Vector3).dot(up) < 0.7:
+		return xf
+	xf.origin = (hit["position"] as Vector3) + up * RESET_HEIGHT
+	return xf
 
 
 ## Past the finish line the player's keys stop working: the car brakes firmly along the road
@@ -484,13 +549,38 @@ func drive_by_ai(line_index := 0) -> AIDriver:
 	return ai_driver
 
 
-func _drive_to_stop() -> void:
-	var target: Dictionary = road_slices[slice_ahead(_nearest_slice(), STOP_LOOKAHEAD)]
-	var to_target := car.to_local(_vec(target["position"]))
+## An opponent over the finish line races on for OPPONENT_STOP_AFTER m (out of the way of the
+## cars still coming), then its driver lets go and it stops at the side of the road.
+func _on_opponent_crossed(crossed_car: Car) -> void:
+	_crossed[crossed_car] = crossed_car.global_position
+
+
+func _start_stopping(c: Car) -> void:
+	_crossed.erase(c)
+	(c.get_node("AIDriver") as AIDriver).enabled = false
+	c.auto_throttle = 0.0
+	c.auto_brake = STOP_BRAKE
+	_stopping_opponents.append(c)
+
+
+## Brakes `c` along the road until it stands: the player's car to the road's centre, an opponent
+## to the edge of the road on the side it is on.
+func _drive_to_stop(c: Car) -> void:
+	if c.held:
+		return
+	var ahead := slice_ahead(road.nearest(c.global_position), STOP_LOOKAHEAD)
+	var target_pos := _vec(road_slices[ahead]["position"])
+	var driver := c.get_node_or_null("AIDriver") as AIDriver
+	if driver != null:
+		var edges := driver._edges(ahead)
+		var lat := driver._lateral(c.global_position, ahead)
+		var aside := edges.x + STOP_ASIDE if lat < (edges.x + edges.y) * 0.5 else edges.y - STOP_ASIDE
+		target_pos = driver.line[ahead] + road.rights[ahead] * aside
+	var to_target := c.to_local(target_pos)
 	var angle := atan2(-to_target.x, -to_target.z)  # positive = target on the left
-	car.auto_steer = clampf(angle * 3.0, -1.0, 1.0)
-	if absf(car.forward_speed) < STOP_SPEED:
-		car.held = true
+	c.auto_steer = clampf(angle * 3.0, -1.0, 1.0)
+	if absf(c.forward_speed) < STOP_SPEED:
+		c.held = true
 
 
 func _restart_race() -> void:
@@ -710,7 +800,7 @@ func _reset_car(slice_index: int) -> void:
 	if road.size() == 0:
 		car.reset_to(Transform3D(Basis.IDENTITY, Vector3(0, 1, 0)))
 		return
-	car.reset_to(road.transform_at(slice_index))
+	car.reset_to(_on_ground(road.transform_at(slice_index)))
 
 
 func _nearest_slice() -> int:
@@ -771,8 +861,14 @@ func _toggle_log() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if _stopping and not get_tree().paused:
-		_drive_to_stop()
+	if not get_tree().paused:
+		if _stopping:
+			_drive_to_stop(car)
+		for opponent in _crossed.keys():
+			if (opponent as Car).global_position.distance_to(_crossed[opponent]) > OPPONENT_STOP_AFTER:
+				_start_stopping(opponent)
+		for opponent in _stopping_opponents:
+			_drive_to_stop(opponent)
 	if _log == null or get_tree().paused or car.telemetry.is_empty():
 		return
 	_log_time += delta

@@ -177,7 +177,8 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
   - **Za cílem** se stopky zastaví, hráč auto neovládá (ani R) a auto samo brzdí podél silnice do zastavení, pak stojí na brzdách.
   - **Čáry:** cílová čára jsou dlaždice originálu (`FNSH` z `_fstart.scn`, D-009), startovní čára vlastní bílý pruh (originál ji nemá); obě jako decaly. Auto stojí 3 m za startovní čarou (trigger startu je 2,2 m před řezem, na kterém auto dřív stálo).
 - **Důvod:** Přání uživatele (29. 10. 2026): funkční start a cíl se stopkami, start odpočtem místo průjezdu čarou; viditelné čáry a za cílem zastavit hru (ovládání, auto bezpečně zastavit, stopky). Jak start řešil originál při jízdě bez soupeřů, se ověří přes Wine.
-- **Důsledky:** Monte Carlo a skidpad start a cíl nemají, jezdí se volně; okruhy s počítáním kol (`lap` v `_road.json`), mezičasy a zvuk odpočtu zatím nejsou. Kontrolní body jsou jen po hlavní trase mezi startem a cílem, alternativní úseky `SimD` se neberou v úvahu.
+- **Doplnění (30. 10. 2026, okruhy):** Monte Carlo (monaco1–5) dostalo vlastní čáru startu a cíle z `tools/track2gltf.py` (`"source": "lap"`): nejbližší místo k řezu 0 po směru kola, kde je silnice 60 m před čárou a 36 m za ní rovná (do 3°) a obě ideální stopy (`.lsp`) vedou do 3 m od středu řezů. Řez 0 sám nevyhovuje (monaco3 v zatáčce) a samotná rovinka také ne (monaco4: řezy tam vedou do uzavřené ulice, stopa jede 17–21 m vedle). Závod jede na kola (hra 3, `stuttgart/laps`), čára je černobílá šachovnice, kontrolní body se počítají po silnici přes navazující úseky. Auta se na startu a po R pokládají na skutečný povrch silnice, protože řezy místy leží pod ním.
+- **Důsledky:** Skidpad start a cíl nemá, jezdí se volně; mezičasy a zvuk odpočtu zatím nejsou. Kde originál v Monaku závod startoval, nevíme (ověřit ve Wine). Kontrolní body jsou jen po hlavní trase mezi startem a cílem; úseky, které objíždí vedlejší silnice, kontrolní body nemají.
 
 ## D-026 Rejd řízení zmenšený s rychlostí
 - **Stav:** accepted
@@ -201,13 +202,36 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
 - **Důvod:** Originál řídil AI regulátory polohy bez simulace pneumatik a držel ji u hráče gumičkou a kolonou ([opponents.md](opponents.md)). Dnešní závodní hry dávají AI stejnou fyziku jako hráči a sílu AI nastavitelnou otevřeně; skrytá gumička je kritizovaná. Náš jízdní model už je hotový pro libovolný počet aut.
 - **Důsledky:** Výkon fyziky v GDScriptu pro 4–8 aut se musí změřit dřív než racecraft a osobnosti. Soupeři na původní trati s původním autem spadají pod výjimku D-009 a data zůstávají jen lokálně.
 
-## D-028 Efekty kol a karoserie: stopy pneumatik, prach mimo silnici, jiskry
+## D-028 Efekty kol a karoserie: stopy pneumatik, prach, tráva a listí mimo silnici, jiskry
 - **Stav:** accepted
 - **Rozhodnutí:** Každé auto má uzel `Effects` (`scripts/car_effects.gd`), jen vestavěné prostředky Godotu (D-012):
   - **Stopy pneumatik:** tmavý pás pod kolem na silnici (skupina `road`), když pneumatika klouže za vrcholem přilnavosti (stejný skluz jako pískání v `car_audio.gd`). Vlastní mesh v prostoru světa po kusech (48 čtyřúhelníků), každé auto drží 40 kusů, nejstarší čtvrtina postupně mizí.
   - **Prach a kousky země:** `GPUParticles3D` za každým kolem na terénu (skupina `terrain`), síla podle rychlosti auta nebo prokluzu kola. Barva je průměr textury trojúhelníku pod kolem (paprsek kola vrací index trojúhelníku, Jolt `enable_ray_cast_face_index`), takže pole práší hnědě, tráva zeleně a sníh bíle, bez ruční tabulky povrchů.
+  - **Tráva a listí:** zelený terén (odstín průměrné barvy 0,155–0,45, sytost aspoň 0,15) hází navíc stébla a tenké trsy trávy obarvené podle terénu (sytější a světlejší než průměr textury). Textury terénu posypané spadaným listím (`LEAF_GROUND`: `leag` tráva s listím na forest, farmland a foothills, `rdca` okraj silnice s listím na farmland a foothills) hází i suché listí (0,6–1× z 0,2 m listí z korun), které se točí a pomalu snáší. Hranice odstínu jsou změřené na texturách: tráva 0,16–0,24, štěrková krajnice `rda2` 0,147, hlína a písek 0,07–0,13.
+  - **Padající listí ze stromů** (`falling_leaves.gd`, jeden uzel pro celou trať): při načtení se vyberou trojúhelníky korun. Jsou to průhledné materiály trati (karty korun; plot a keře jsou nízko, most neprůhledný), které nejsou zelené (zelená koruna listí neshazuje), leží aspoň 4 m nad silnicí a nejvýš 10 m od její osy. Zařadí se k nejbližšímu úseku silnice (farmland 4 461 trojúhelníků nad 380 úseky, forest 296 nad 78). Listy (nejvýš 195, 0,2 m) vznikají v náhodném bodě koruny v úsecích 60 m před autem hráče po silnici, takže i za zatáčkou. List, který kamera vidí blíž než 45 m, začíná v koruně. Ostatní můžou začít níž (častěji u země) nebo už ležet (20 %). List klesá rychlostí 1,95 m/s, převrací se a houpe. Dopadne na zem nalezenou paprskem dolů skrz koruny, leží na ní aspoň 4 s a zmizí, až ho kamera nevidí (nejpozději po 15 s). Listy za autem mimo záběr se ruší. Každé auto (hráč i soupeři) rychlejší než 3 m/s vyhodí list ve svém obrysu nebo do 2,5 m za sebou nahoru, ve směru jízdy a do strany, ať list leží, nebo padá. Listy simuluje GDScript a kreslí je jeden `MultiMesh` (snímek atlasu v `INSTANCE_CUSTOM`). FPS s listím a bez něj (`--leaves=0`) je stejné (33–35).
   - **Jiskry:** krátké světelné čárky (stopy částic, HDR barva pro glow) při nárazu nad 1 000 N·s a při drhnutí karoserie nad 4 m/s. Počet a barvy (bílá → oranžová) jsou ze systému `Sparks` (`SPRK`) v `particle.ini` originálu.
-  - **Textury částic:** prach a hroudy hlíny z balíčku *Particle Pack* od Kenney (CC0, stažený 30. 10. 2026 se souhlasem uživatele): 4 obláčky `smoke_*` a 3 shluky `dirt_*` v `game/assets/particles/kenney/` (≈ 570 kB, v gitu, s `License.txt`), každá částice dostane náhodný snímek. Stopy pneumatik a jiskry mají vlastní texturu z kódu. Bez balíčku se použijí textury generované v kódu. Textury `particle.fsh` originálu mají jen 16–64 px, `spark_*` z balíčku jsou klikaté výboje a na kovové jiskry se nehodí.
+  - **Textury částic:** prach a hroudy hlíny z balíčku *Particle Pack* od Kenney (CC0, stažený 30. 10. 2026 se souhlasem uživatele): 4 obláčky `smoke_*` a 3 shluky `dirt_*` v `game/assets/particles/kenney/` (≈ 570 kB, v gitu, s `License.txt`), každá částice dostane náhodný snímek. Stopy pneumatik a jiskry mají vlastní texturu z kódu. Tráva: 5 bílých siluet stébel a trsů z *Foliage Sprites* od Kenney (CC0, `game/assets/particles/foliage/`). Listí: 8 fotek z *50 Dry Leaf Textures* (autor pistachio, fotky z Pixabay, CC0, `game/assets/particles/leaves/`). Obojí staženo z OpenGameArt 30. 10. 2026 se souhlasem uživatele a zmenšeno na 256 px (≈ 0,6 MB). Bez balíčku se prach a hroudy kreslí texturami generovanými v kódu, tráva a listí se vynechají. Textury `particle.fsh` originálu mají jen 16–64 px, `spark_*` z balíčku jsou klikaté výboje a na kovové jiskry se nehodí.
 - **Důvod:** Přání uživatele (30. 10. 2026): prach / listí / bláto / štěrk mimo silnici podle trati, jiskry při nárazu, stopy při pískání pneumatik. Silnice a terén jsou v glTF oddělené skupiny, takže povrch pod kolem je známý bez nových dat.
-- **Důsledky:** Jiskry létají při nárazu do čehokoli, i do pneumatik nebo balíků (typ materiálu překážky zatím neznáme, `animdefs.txt` má jen typ kolize). Listí a stébla trávy (`LF02`, `LF03`, `GRSS` v `particle.fsh`) a povrch podle `df` článků CRP zatím nejsou. Mimo silnici stopy nezůstávají. Na stroji vytíženém jinou prací se FPS s efekty a bez nich nelišilo (23,2 za autem v obou případech).
+- **Důsledky:** Jiskry létají při nárazu do čehokoli, i do pneumatik nebo balíků (typ materiálu překážky zatím neznáme, `animdefs.txt` má jen typ kolize). Listí podle seznamu textur je pravidlo jen pro původní tratě; povrch podle `df` článků CRP zatím není. Mimo silnici stopy nezůstávají. Na stroji vytíženém jinou prací se FPS s efekty a bez nich nelišilo (23,2 za autem v obou případech).
+
+## D-029 Tři stálí soupeři s vlastním jménem, stylem a barvou
+- **Stav:** accepted
+- **Rozhodnutí:** Soupeři mají pevné profily (`game/scripts/opponent_profiles.gd`): jméno, jízdní styl a barvu laku. Ve hře jezdí zatím 3 soupeři, rošt bere profily popořadě (pole position první).
+  - **Profily:**
+
+    | Jméno | Styl | Barva |
+    | --- | --- | --- |
+    | Klaus Wendt | agresivní | červená |
+    | Henri Duval | plynulý | stříbrná |
+    | Marco Bellini | opatrný | tmavě modrá |
+
+  - **Styl** nastavuje řidiče `AIDriver`:
+    - kolik přilnavosti plánuje v zatáčkách (0,84 / 0,81 / 0,77);
+    - kolik brzdného zpomalení plánuje (0,86 / 0,80 / 0,74);
+    - odstup za autem (0,3 / 0,5 / 0,8 s jízdy);
+    - jak brzy předjíždí pomalé auto (pod 85 / 70 / 60 % rychlosti profilu).
+  - **Barva:** soupeř jede vždy model hráče. Dostane barvu z palety toho modelu, která je nejbližší jeho barvě. Ve všech autech všech epoch je tak stejný (nebo nejpodobnější, jakou model má). Barvu hráče a barvy už rozdané přeskočí.
+  - **Menu:** přepínač **Soupeři** (ano / ne, `GameSettings.options["opponents"]`, výchozí ano) určuje, jestli soupeři ve hře jsou.
+- **Důvod:** Přání uživatele (30. 10. 2026): poznat soupeře podle jména a barvy a každému dát jiný styl jízdy. Jména jsou vlastní, ne z originálu.
+- **Důsledky:** Profily zatím nevyužívají vlastnosti osobností z `prsonal` (krok D). Barva se hledá podle vzdálenosti v RGB, u palet bez podobného odstínu může vyjít jiný tón. Při více soupeřích než profilech se profily opakují s číslem za jménem (testy se 7 auty).
 

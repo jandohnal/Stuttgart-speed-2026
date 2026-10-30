@@ -1,11 +1,15 @@
 class_name Hud
 extends CanvasLayer
-## Rev counter and speedometer dials, a small telemetry readout and the race stopwatch.
+## Rev counter and speedometer dials, a small telemetry readout and the race stopwatch. With
+## RaceStandings: the player's place and every car's gap to the player under the stopwatch while
+## racing, and the results (place, time, gap) under the finish banner once the player is in
+## (the cars behind with an estimated time, marked ~).
 
 const Odometer := preload("res://scripts/odometer.gd")
 const GAUGE_SIZE := 210.0
 const MARGIN := 16.0
 const GAUGE_OPACITY := 0.6
+const LAP_BANNER_TIME := 1.5  ## s the "LAP n/N" banner shows after crossing the line on a circuit
 
 @export var car_path: NodePath
 ## Telemetry readout (g forces, steering, TC cut, boost, damage); set from the menu option.
@@ -19,6 +23,10 @@ var speed_gauge := Gauge.new()
 var _scales_set := false
 var _gauge_box := HBoxContainer.new()
 var race: RaceTimer  ## set by main on tracks with start / finish lines
+var standings: RaceStandings  ## set by main with the race
+var _place := _big_label(32)  ## "P2/4"
+var _order := GridContainer.new()  ## place, name, gap while racing
+var _results := GridContainer.new()  ## place, name, time, gap after the player's finish
 var _stopwatch := _big_label(40)
 var _banner := _big_label(96)  ## countdown, GO, finish
 
@@ -47,12 +55,30 @@ func _ready() -> void:
 	# Top right: the help and diagnostics text runs along the top left.
 	_stopwatch.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, int(MARGIN))
 	_stopwatch.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_stopwatch.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_banner.set_anchors_and_offsets_preset(Control.PRESET_CENTER, Control.PRESET_MODE_MINSIZE)
 	_banner.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_banner.grow_vertical = Control.GROW_DIRECTION_BOTH
 	for l: Label in [_stopwatch, _banner]:
 		l.visible = false
 		add_child(l)
+	_place.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, int(MARGIN))
+	_place.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_place.position.y += 120.0  # below the stopwatch and the help line
+	_order.columns = 3
+	_order.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, int(MARGIN))
+	_order.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_order.position.y += 168.0
+	_results.columns = 4
+	# Top centre, below the help line: the finish banner is in the middle, the dials bottom right.
+	_results.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP, Control.PRESET_MODE_MINSIZE, 130)
+	_results.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	for c: Control in [_place, _order, _results]:
+		c.visible = false
+		add_child(c)
+	for g: GridContainer in [_order, _results]:
+		g.add_theme_constant_override("h_separation", 18)
+		g.add_theme_constant_override("v_separation", 2)
 
 
 static func _big_label(font_size: int) -> Label:
@@ -113,6 +139,10 @@ func _update_race() -> void:
 		return
 	_stopwatch.visible = true
 	_stopwatch.text = RaceTimer.format_time(race.elapsed)
+	if race.laps > 1:
+		_stopwatch.text += "\nLAP %d/%d" % [race.lap, race.laps] if race.state != RaceTimer.State.FINISHED else ""
+		if race.last_lap < INF:
+			_stopwatch.text += "\nlast %s" % RaceTimer.format_time(race.last_lap)
 	_banner.visible = true
 	_banner.modulate = Color.WHITE
 	match race.state:
@@ -120,10 +150,16 @@ func _update_race() -> void:
 			_banner.text = str(ceili(race.countdown))
 		RaceTimer.State.RUNNING:
 			var go := race.since_go()
-			_banner.visible = go >= 0.0
-			_banner.text = "GO!"
-			_banner.modulate.a = 1.0 - go / RaceTimer.GO_SHOW_TIME
+			var on_lap := race.elapsed - race.lap_start
+			_banner.visible = go >= 0.0 or race.lap > 1 and on_lap < LAP_BANNER_TIME
+			if go >= 0.0:
+				_banner.text = "GO!"
+				_banner.modulate.a = 1.0 - go / RaceTimer.GO_SHOW_TIME
+			else:
+				_banner.text = "FINAL LAP" if race.lap == race.laps else "LAP %d/%d" % [race.lap, race.laps]
+				_banner.modulate.a = 1.0 - on_lap / LAP_BANNER_TIME
 		RaceTimer.State.FINISHED:
+			_update_standings(true)
 			var text := "FINISH  %s" % RaceTimer.format_time(race.elapsed)
 			if race.previous_best < INF:
 				var diff := race.elapsed - race.previous_best
@@ -132,6 +168,7 @@ func _update_race() -> void:
 			_banner.add_theme_font_size_override("font_size", 48)
 			return
 	_banner.add_theme_font_size_override("font_size", 96)
+	_update_standings(false)
 
 
 func _damage_text(d: Dictionary) -> String:
@@ -140,3 +177,48 @@ func _damage_text(d: Dictionary) -> String:
 	return "damage  front %d%%  rear %d%%  left %d%%  right %d%%  roof %d%%   engine -%d%%   parts lost %d  loose %d\n" % [
 		roundi(d["front"] * 100.0), roundi(d["rear"] * 100.0), roundi(d["left"] * 100.0),
 		roundi(d["right"] * 100.0), roundi(d["roof"] * 100.0), roundi(d["engine"] * 100.0), int(d["lost"]), int(d["loose"])]
+
+
+## Place and gaps while racing (`finished` false), the results table once the player is in.
+func _update_standings(finished: bool) -> void:
+	var racing := standings != null and standings.entries.size() > 1 and race.state != RaceTimer.State.COUNTDOWN
+	_place.visible = racing and not finished
+	_order.visible = racing and not finished
+	_results.visible = racing and finished
+	if not racing:
+		return
+	var order := standings.order()
+	if not finished:
+		_place.text = "P%d/%d" % [standings.player_position(), order.size()]
+		_fill(_order, order, false)
+	else:
+		_fill(_results, order, true)
+
+
+## One row per car: place, name, (time,) gap to the player; the player's row in yellow.
+func _fill(grid: GridContainer, order: Array, with_time: bool) -> void:
+	var cells: Array[String] = []
+	var player_row := -1
+	for k in order.size():
+		var e: RaceStandings.Entry = order[k]
+		var is_player: bool = e == standings.entries[0]
+		if is_player:
+			player_row = k
+		cells.append("%d" % (k + 1))
+		cells.append(e.name)
+		if with_time:
+			var time := RaceTimer.format_time(e.finish_time) if e.finish_time >= 0.0 else "racing"
+			cells.append("~" + time if e.estimated else time)
+		cells.append("" if is_player else "%+.2f" % standings.gap_to_player(e))
+	var size := 28 if with_time else 22
+	while grid.get_child_count() < cells.size():
+		var l := _big_label(size)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		grid.add_child(l)
+	for i in grid.get_child_count():
+		var l := grid.get_child(i) as Label
+		l.visible = i < cells.size()
+		if i < cells.size():
+			l.text = cells[i]
+			l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT if i % grid.columns == 1 else HORIZONTAL_ALIGNMENT_RIGHT
+			l.modulate = Color(1.0, 0.85, 0.3) if i / grid.columns == player_row else Color.WHITE

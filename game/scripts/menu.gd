@@ -1,7 +1,7 @@
 extends Control
 ## Main menu of the prototype (D-009): car with its parts (Stock / Sport, CarParts) and paint colour,
 ## track, tyres (stock / slick / rain) and time of day (day / night) dropdowns, a row of option toggles (driver
-## aids, sound, diagnostics) and Play. The lists come from main.gd (CARS, TRACKS); entries whose
+## aids, sound, diagnostics, opponents) and Play. The lists come from main.gd (CARS, TRACKS); entries whose
 ## data is missing in decomposed/ are disabled. The choice goes to the GameSettings autoload and
 ## user://settings.cfg, then the game scene takes over. Colours: the car's original palette
 ## (Main.car_palette), first entry "original" = the texture untinted. The options are set only here, not in game.
@@ -23,6 +23,7 @@ const OPTION_LABELS := {
 	"traction_control": "Kontrola trakce",
 	"sound": "Zvuk",
 	"diagnostics": "Diagnostika",
+	"opponents": "Soupeři",
 }
 
 @onready var car_option: OptionButton = %CarOption

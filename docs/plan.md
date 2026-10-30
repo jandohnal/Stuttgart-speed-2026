@@ -96,8 +96,10 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Noční světla tratí z originálu: záře `ef` a `flare.dat`, blikající výstražná světla, tunelová a pouliční světla (D-021, [formats/flare.md](formats/flare.md))
 - [x] Závod od startu do cíle (D-025): odpočet 3-2-1, stopky, kontrolní body, průjezd cílovou čárou, nejlepší čas; kamera při startu obletí auto
 - [x] Efekty (D-028): stopy pneumatik na silnici při smyku, prach a kousky země za koly mimo silnici v barvě terénu, jiskry při nárazu a drhnutí (`effects_test`)
-- [ ] Efekty: listí a tráva podle trati, povrch z `df` článků CRP, jiskry jen od kovových a kamenných překážek
-- [ ] Okruhy s počítáním kol (Monte Carlo, `lap` v `_road.json`), mezičasy, zvuk odpočtu
+- [x] Efekty: tráva na zeleném terénu a listí na texturách se spadaným listím, listí padající z podzimních korun na zem, rozvířené projíždějícími auty (D-028)
+- [ ] Efekty: povrch z `df` článků CRP, jiskry jen od kovových a kamenných překážek
+- [x] Okruhy s počítáním kol: Monte Carlo s vlastní čarou startu a cíle (D-025), `lap_test`
+- [ ] Mezičasy, zvuk odpočtu; ověřit ve Wine, kde originál v Monaku startuje
 - [ ] Rozhodnout definitivně o enginu (D-002)
 
 ## Fáze 3 – Opravený původní obsah
@@ -119,8 +121,10 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Rozbor AI originálu, srovnání s dnešními hrami a plán ([opponents.md](opponents.md), D-026)
 - [x] Soupeři B: řidič AI pro jedno auto (`Car.auto_drive` bez klávesových ramp, `scripts/ai_driver.gd`, sdílená silnice `scripts/road.gd`, stopa `.lsp`, rychlostní profil, návrat na stopu); `ai_drive_test`: 356 A farmland 5:57, 935 a 356 A dvě kola Monte Carla (stopa 1) bez resetu, doteku a smyku nad 12° (po prvním vyzkoušení ve hře doplněno brzdění podle kruhu přilnavosti a ubírání plynu v zatáčce a ve smyku) ([game/README.md](../game/README.md))
 - [x] Soupeři C1: startovní rošt (3 soupeři ve hře, `--opponents=0..7`, stejné auto v jiných barvách, odpočet a restart pro všechny, odstup od auta před sebou); `grid_test` se 3 i 7 soupeři bez doteku
-- [ ] Soupeři C2: pořadí a cíl pro každé auto, pozice v HUD, výsledky; měření FPS v okně s 1 / 3 / 7 soupeři
+- [x] Soupeři C2: pořadí a cíl pro každé auto (`race_standings.gd`, i kola na okruhu), pozice a rozdíl v čase proti hráči v HUD, výsledková tabulka po cíli (soupeři za hráčem s odhadnutým časem), soupeři brzdí 50 m za cílem a zastaví u kraje; `standings_test`
+- [ ] Soupeři C3: měření FPS v okně s 1 / 3 / 7 soupeři
 - [x] Soupeři D1: objetí pomalého nebo stojícího auta (posun stopy na stranu s místem, těsně, dotyk dovolen; bez místa opatrné vytlačení pod prahem poškození); `pass_test` (zaparkované, šikmé a napříč stojící auto, zastavení před kolonou)
+- [x] Soupeři D2: 3 stálé profily soupeřů (jméno, jízdní styl, barva laku nejbližší z palety modelu) a přepínač Soupeři v menu (D-029)
 - [ ] Soupeři D: racecraft (předjíždění v jízdě, obrana, prostor) a osobnosti z `prsonal`
 - [ ] Soupeři E: síla AI v menu, volitelná gumička
 - [ ] Provoz, policie

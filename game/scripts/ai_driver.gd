@@ -18,7 +18,7 @@ extends Node
 ## is stuck, off the road or on its roof is put back on the line, like the player's reset key.
 ## Traffic: a car ahead in the same lane (`others`; the cars' widths overlap sideways, measured from
 ## the line on each car's slice) caps the target speed at its speed plus a term on the gap beyond
-## FOLLOW_GAP + FOLLOW_TIME of the own speed, so the field queues up instead of running into each
+## FOLLOW_GAP + follow_time of the own speed, so the field queues up instead of running into each
 ## other. A car ahead that is much slower than the profile there and holds this car up (stopped,
 ## crashed, or a player crawling or waiting on the road; not an AI car that queues behind another or
 ## is speeding up) is passed: the driver shifts its whole line sideways (pass_offset, at PASS_RATE)
@@ -42,7 +42,6 @@ const FOLLOW_RANGE := 60.0  ## m ahead other cars are looked at
 const FOLLOW_WIDTH := 2.4  ## m sideways (in the car's frame) a car ahead counts as in the lane, plus FOLLOW_SPREAD per m ahead
 const FOLLOW_SPREAD := 0.05  ## the lane widens ahead: a car in a curve ahead is off to the side
 const FOLLOW_GAP := 6.0  ## m kept from centre to centre beyond CAR_LENGTH at a standstill
-const FOLLOW_TIME := 0.5  ## s of the own speed added to the gap
 const FOLLOW_GAIN := 0.5  ## m/s of speed per m the gap is off
 const CAR_LENGTH := 4.5  ## m
 const HALF_WIDTH := 0.9  ## m, half a car's width (the 356 is 1.66 m wide)
@@ -50,8 +49,6 @@ const LANE_MARGIN := 0.2  ## m two cars side by side must be apart beyond their 
 const PASS_MARGIN := 0.4  ## m left between the cars when passing (close: they may touch)
 const PASS_RANGE := 30.0  ## m ahead a slow car is passed from, plus PASS_TIME of the own speed
 const PASS_TIME := 1.5  ## s
-const PASS_SLOW := 0.7  ## a car ahead slower than this share of the profile there is passed when it
-## is also PASS_DIFF slower than this car, holds this car up (it follows it) or nearly stands
 const PASS_DIFF := 3.0  ## m/s
 const PASS_RATE := 2.5  ## m/s the line shifts sideways
 const PASS_CRAWL := 3.0  ## m/s allowed close behind a car being passed, to get round it
@@ -68,6 +65,10 @@ const LOST_DISTANCE := 30.0  ## m from the line at the tracked slice: search the
 
 @export var grip_use := 0.8  ## share of the tyres' friction planned for in corners (skill)
 @export var brake_use := 0.8  ## share of the possible deceleration planned for braking
+@export var follow_time := 0.5  ## s of the own speed added to the gap kept behind a car
+## A car ahead slower than this share of the profile there is passed when it is also PASS_DIFF
+## slower than this car, holds this car up (it follows it) or nearly stands.
+@export var pass_slow := 0.7
 @export var speed_gain := 0.5  ## throttle per m/s below the target speed
 @export var brake_gain := 0.35  ## brake per m/s above the target speed
 @export var steer_gain := 1.0  ## times the pure pursuit wheel angle
@@ -342,7 +343,7 @@ func _follow_limit(speed: float) -> float:
 		if absf(_lateral(other.global_position, at) - own) > _half_size(other, at) + HALF_WIDTH + LANE_MARGIN:
 			continue
 		var other_speed := other.linear_velocity.dot(-car.global_basis.z)
-		var gap := ahead - CAR_LENGTH - (FOLLOW_GAP + maxf(speed, 0.0) * FOLLOW_TIME)
+		var gap := ahead - CAR_LENGTH - (FOLLOW_GAP + maxf(speed, 0.0) * follow_time)
 		var keep := maxf(other_speed + FOLLOW_GAIN * gap, 0.0)
 		if other == pushing:
 			keep = maxf(keep, maxf(other_speed, 0.0) + PUSH_SPEED)
@@ -386,7 +387,7 @@ func _plan_pass(delta: float) -> void:
 			if ahead <= 0.0 or absf(_lateral(other.global_position, at) - pass_offset) > _half_size(other, at) + HALF_WIDTH + LANE_MARGIN:
 				continue
 			var other_speed := other.linear_velocity.length()
-			if other_speed > speed_limit[at] * PASS_SLOW:
+			if other_speed > speed_limit[at] * pass_slow:
 				continue
 			var other_driver := other.get_node_or_null("AIDriver") as AIDriver
 			if other_driver != null and other_driver.enabled and (other_driver.following != null or other_driver.target_speed > other_speed + 2.0):

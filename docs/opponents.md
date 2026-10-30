@@ -68,12 +68,13 @@ Kroky jsou v [plan.md](plan.md) (fáze 1 data, fáze 4 soupeři).
 
 **C. Závod se soupeři**
 - Startovní rošt za startovní čárou (řezy za `start.slice`, střídavě vlevo a vpravo), stejné auto nebo výběr v menu. Hotovo 30. 10. 2026: stejné auto v jiných barvách palety, hráč startuje poslední; aby se auta na stejné stopě nesrážela, drží AI odstup od auta před sebou (jinak asi 18 doteků na auto za minutu).
-- `race_timer.gd`: pořadí podle postupu po řezech, cíl pro každé auto, pozice v HUD, výsledky.
+- Pořadí podle postupu po řezech, cíl pro každé auto, pozice v HUD, výsledky. Hotovo 30. 10. 2026 jako samostatný `race_standings.gd` vedle `RaceTimer`: rozdíl v čase proti hráči podle okamžiku průjezdu stejným místem (jako časomíra), počítá i s koly okruhu.
 - Zvuk motoru a světla soupeřů (stávající skripty jsou pro každé auto).
 - **Brána:** FPS s 1 / 3 / 7 soupeři (okno, pohled za autem, stojící i v jízdě). Při poklesu LOD.
 
 **D. Racecraft a osobnosti**
 - Hotovo 30. 10. 2026: objetí pomalého nebo stojícího auta (hráč zastaví před soupeřem). Soupeř posune stopu na stranu s místem, objíždí těsně a smí se dotknout; bez místa auto opatrně vytlačí (o 1,5 m/s rychleji, pod prahem poškození). Podle přání hráče má být soupeř spíš agresivní, ale s ohledem na poškození. Po vyzkoušení ve hře (soupeři za stojícím hráčem zastavili nebo objížděli pozdě) se počítá velikost aut podle natočení, objíždí se po vlastní straně a začne se hned, když pomalé auto soupeře zdržuje.
+- Hotovo 30. 10. 2026: 3 stálí soupeři s profilem (D-029), tedy jménem, jízdním stylem (podíl přilnavosti a brzd, odstup, ochota předjíždět) a barvou, která zůstává stejná napříč auty. Osobnosti z `prsonal` je později můžou nahradit nebo doplnit.
 - Výhled na auta před sebou podle řezů, posun stopy při předjíždění (druhá stopa `.lsp`), nebrzdit „do auta“, ponechat prostor.
 - Vlastnosti `prsonal.json` → parametry: dovednost a zatáčky → podíl profilové rychlosti a přesnost stopy; brzdění → rezerva brzdného bodu; kličkování → šum ve stopě; blokování a agresivita → bránění a kontakt; četnost chyb → občasné přebrzdění nebo smyk.
 

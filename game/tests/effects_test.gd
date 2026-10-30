@@ -1,5 +1,5 @@
 extends Node
-## Test of the car effects (CarEffects: tyre marks, dust off the road, sparks):
+## Test of the car effects (CarEffects: tyre marks, dust, grass and leaves off the road, sparks):
 ##   godot --headless --path game res://tests/effects_test.tscn [-- --track=farmland --car=356Acoupe16]
 ##   godot --path game res://tests/effects_test.tscn -- --shot=<folder>   (window: saves screenshots)
 ##   --offroad=<m>: start that far right of the road centre (negative: left), facing away from the
@@ -12,7 +12,7 @@ extends Node
 const RUN_UP := 7.0  ## s of throttle along the road
 const SKID := 1.6  ## s of full steering and brake
 const DURATION := 22.0
-const SHOT_TIMES := [7.6, 8.4, 8.9, 9.4, 9.9]
+const SHOT_TIMES := [3.0, 5.0, 7.6, 8.4, 8.9, 9.4, 9.9, 13.0]
 
 var main: Node3D
 var car: Car
@@ -21,6 +21,11 @@ var t := 0.0
 var last_print := -1
 var max_dust := 0
 var max_marks := 0
+var max_grass := 0
+var max_leaves := 0
+var max_falling := 0  ## leaves from the crowns
+var max_lying := 0
+var textures := {}  ## ground texture under wheel 0 off the road -> s
 var spark_time := 0.0
 var groups := {}  ## ground group -> wheel ticks
 var shot_dir := ""
@@ -80,20 +85,32 @@ func _physics_process(delta: float) -> void:
 			groups[g] = int(groups.get(g, 0)) + 1
 	max_dust = maxi(max_dust, effects.dust_active())
 	max_marks = maxi(max_marks, effects.mark_quads())
+	var foliage: Vector2i = effects.foliage_active()
+	max_grass = maxi(max_grass, foliage.x)
+	max_leaves = maxi(max_leaves, foliage.y)
+	var fl: Node = main.get_node_or_null("FallingLeaves")
+	if fl != null:
+		var c: Dictionary = fl.counts()
+		max_falling = maxi(max_falling, c["falling"])
+		max_lying = maxi(max_lying, c["lying"])
 	if effects.sparks_active():
 		spark_time += delta
 	if int(t) != last_print:
 		last_print = int(t)
 		var w: Car.Wheel = car.wheels[0]
 		var ground: Dictionary = effects.ground_under(w.ray.get_collider(), w.ray.get_collision_face_index()) if w.ray.is_colliding() else {}
-		print("t=%2d %5.0f km/h  wheel 0 on %-8s colour %s  dust %d  marks %d  sparks %s" % [
-			last_print, car.forward_speed * 3.6, ground.get("group", "-"),
+		print("t=%2d %5.0f km/h  wheel 0 on %-8s %-4s colour %s  dust %d  grass %d  leaves %d  marks %d  sparks %s  crown leaves %s" % [
+			last_print, car.forward_speed * 3.6, ground.get("group", "-"), ground.get("texture", "-"),
 			(ground.get("color", Color.BLACK) as Color).to_html(false), effects.dust_active(),
-			effects.mark_quads(), effects.sparks_active()])
+			foliage.x, foliage.y, effects.mark_quads(), effects.sparks_active(),
+			fl.counts() if fl != null else {}])
+		if ground.get("group", "") == "terrain":
+			textures[ground["texture"]] = int(textures.get(ground["texture"], 0)) + 1
 	if t >= DURATION:
-		print("EFFECTS: marks %d quads, dust on %d wheels at most, sparks %.2f s, ground ticks %s" % [
-			max_marks, max_dust, spark_time, groups])
+		print("EFFECTS: marks %d quads, dust on %d wheels at most, grass %d, leaves %d, crown leaves falling %d lying %d (at most), thrown by cars %d, sparks %.2f s, ground ticks %s, terrain textures (s) %s" % [
+			max_marks, max_dust, max_grass, max_leaves, max_falling, max_lying, fl.kicks if fl != null else 0, spark_time, groups, textures])
 		var ok := max_marks > 0 and max_dust > 0
+		print("FPS %.1f" % Engine.get_frames_per_second())
 		print("RESULT: %s" % ("OK" if ok else "FAIL (marks and dust expected)"))
 		get_tree().quit(0 if ok else 1)
 

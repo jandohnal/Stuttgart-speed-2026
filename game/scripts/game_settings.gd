@@ -6,13 +6,15 @@ extends Node
 
 const FILE := "user://settings.cfg"
 ## Option -> default. steering_assist, brake_assist (ABS) and traction_control are Car properties;
-## sound unmutes the master bus; diagnostics shows the telemetry readout in the HUD.
+## sound unmutes the master bus; diagnostics shows the telemetry readout in the HUD; opponents puts
+## the opponents (main.gd, stuttgart/opponents of them) on the grid of a race.
 const DEFAULT_OPTIONS := {
 	"steering_assist": false,
 	"brake_assist": false,
 	"traction_control": false,
 	"sound": true,
 	"diagnostics": true,
+	"opponents": true,
 }
 
 ## Key in cars.json (main.gd CARS); empty = not chosen in the menu.
