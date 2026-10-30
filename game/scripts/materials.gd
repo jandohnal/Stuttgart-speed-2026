@@ -275,6 +275,23 @@ static func _metal_rough_texture(tex: Texture2D) -> Texture2D:
 	return ImageTexture.create_from_image(out)
 
 
+## Average colour of a material's base colour texture times its colour (dust of the ground).
+static func average_color(material: Material) -> Color:
+	var m := material as BaseMaterial3D
+	if m == null:
+		return Color(0.5, 0.45, 0.35)
+	var img := _image(m.albedo_texture)
+	if img == null:
+		return m.albedo_color
+	img.resize(16, 16, Image.INTERPOLATE_CUBIC)
+	var sum := Color(0, 0, 0, 0)
+	for y in 16:
+		for x in 16:
+			sum += img.get_pixel(x, y)
+	sum /= 256.0
+	return Color(sum.r, sum.g, sum.b) * Color(m.albedo_color.r, m.albedo_color.g, m.albedo_color.b)
+
+
 static func _image(tex: Texture2D) -> Image:
 	if tex == null:
 		return null

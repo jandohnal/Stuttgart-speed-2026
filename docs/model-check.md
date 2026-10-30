@@ -6,11 +6,11 @@ Výsledky `tools/mesh_check.py` z 18. 10. 2026, auta 29. 10. 2026 (D-016, D-022)
 
 ## Auta (úroveň 1)
 
-Stav 29. 10. 2026: kontrola navíc měří pořadí vrcholů dílů kreslených jen z lícové strany a odsazení vrstvených dílů (D-016). 1 OK, 43 WARN, žádný FAIL. WARN dávají skoro u všech aut nové kontroly, ne nové chyby. Celkem 112 222 trojúhelníků ve všech stylech, převodník jich 3 432 otočil podle normál.
+Stav 30. 10. 2026: kontrola měří i pořadí vrcholů dílů kreslených jen z lícové strany a odsazení vrstvených dílů (D-016). Převodník zvedá vrstvené díly 1 mm nad podklad (viz níže). 9 OK, 35 WARN, žádný FAIL. WARN dává hlavně pořadí vrcholů jednostranných dílů a překryvy dílů. Celkem 112 222 trojúhelníků ve všech stylech, převodník jich 3 432 otočil podle normál.
 
 **Sloupce navíc:**
 - *styly* = počet `[styleN]` (– = model bez stylů).
-- *otevřené hrany* = délka hran jen s jedním trojúhelníkem (svary do 1 mm), rozsah přes styly. Karoserie originálu jsou z panelů, takže nula není cíl, ale styly jednoho modelu by se měly lišit jen svými díly.
+- *otevřené hrany* = délka hran jen s jedním trojúhelníkem (svary do 1 mm), rozsah přes styly. Vrstvené díly (světla, obtisky, stíny kol …) se nepočítají, leží nad podkladem s vlastním okrajem. Karoserie originálu jsou z panelů, takže nula není cíl, ale styly jednoho modelu by se měly lišit jen svými díly.
 - *překryvy* = dvojice dílů se 10 a více trojúhelníky ve stejné rovině a stejném směru (z-fighting). Nepočítají se díly položené na jiné záměrně (obtisky, světla, značky, kliky, stěrače, stíny kol, vnitřní a vnější panel víka).
 - *pořadí jednostranných* = sdílené hrany, na kterých dva sousední trojúhelníky nesouhlasí v pořadí vrcholů, a aspoň jeden z nich hra kreslí jen z lícové strany (vnitřní panely víek, interiér, sklo). Špatně otočený trojúhelník je pak díra.
 - *vrstvy* = vrstvené díly bez odsazení (střed trojúhelníku do 0,2 mm od dílu pod ním, hra je kreslí ve stejné hloubce) / zapuštěné (aspoň 3 rohy víc než 0,5 mm pod dílem). Počet dvojic dílů přes všechny styly.
@@ -19,50 +19,50 @@ Stav 29. 10. 2026: kontrola navíc měří pořadí vrcholů dílů kreslených 
 
 | Auto | Trojúhelníky | Styly | Otočeno | Proti normálám | Zahozeno | Otevřené hrany (m) | Překryvy | Pořadí jednostranných | Vrstvy bez odsazení / zapuštěné | Stav |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 356_1 | 3602 | 2 | 130 | 0 | 0 | 144–145 | – | 2 | 0 / 1 | WARN |
-| 356a | 6795 | 12 | 201 | 0 | 0 | 128–143 | – | 12 | 0 / 4 | WARN |
-| 356b | 6127 | 13 | 134 | 0 | 0 | 129–149 | – | 12 | 2 / 0 | WARN |
-| 550 | 2985 | 1 | 47 | 0 | 0 | 67–67 | – | 3 | 1 / 0 | WARN |
-| 901 | 4695 | 7 | 98 | 0 | 0 | 123–135 | – | 4 | 6 / 0 | WARN |
-| 914 | 2828 | 3 | 20 | 0 | 0 | 125–125 | – | 4 | 1 / 0 | WARN |
-| 928 | 3410 | 1 | 11 | 0 | 0 | 90–90 | – | 3 | 2 / 2 | WARN |
-| 930 | 2963 | 2 | 79 | 0 | 0 | 128–128 | – | 7 | 3 / 0 | WARN |
-| 935 | 2963 | – | 6 | 0 | 0 | 137–137 | – | 10 | 2 / 0 | WARN |
-| 944 | 4150 | 8 | 298 | 0 | 0 | 103–106 | Body/Engine | 2 | 1 / 6 | WARN |
-| 959 | 3016 | 1 | 13 | 0 | 0 | 121–121 | – | 6 | 0 / 1 | WARN |
-| 964 | 4729 | 8 | 228 | 0 | 0 | 130–133 | – | 13 | 10 / 0 | WARN |
-| 993 | 4689 | 9 | 196 | 0 | 0 | 122–128 | – | 20 | 0 / 0 | WARN |
-| 996 | 5010 | 5 | 243 | 0 | 0 | 160–164 | Body/SkirtS | 22 | 0 / 0 | WARN |
-| boxster | 3216 | 3 | 179 | 0 | 0 | 136–140 | – | 11 | 2 / 1 | WARN |
-| cop356 | 5612 | 4 | 155 | 0 | 0 | 144–161 | Interior/InteriorRoof | 12 | 4 / 3 | WARN |
-| cop356_german | 6110 | 4 | 155 | 0 | 0 | 138–158 | – | 12 | 2 / 3 | WARN |
-| cop930 | 3067 | – | 91 | 0 | 0 | 132–132 | – | 7 | 3 / 0 | WARN |
-| cop930_german | 3075 | 1 | 91 | 0 | 0 | 138–138 | – | 7 | 3 / 0 | WARN |
-| cop993 | 2961 | 1 | 100 | 0 | 0 | 124–124 | – | 18 | 1 / 1 | WARN |
-| cop993_german | 2977 | 1 | 100 | 0 | 0 | 133–133 | – | 18 | 1 / 1 | WARN |
-| eas1 | 430 | – | 22 | 0 | 0 | 68–68 | – | 18 | 4 / 0 | WARN |
-| eas10 | 508 | – | 2 | 0 | 0 | 79–79 | – | – | 4 / 0 | WARN |
-| eas11 | 511 | – | 32 | 0 | 0 | 77–77 | – | 28 | 4 / 0 | WARN |
-| eas2 | 561 | – | 0 | 0 | 0 | 101–101 | – | – | 4 / 0 | WARN |
-| eas3 | 484 | – | 0 | 0 | 0 | 140–140 | – | – | 4 / 1 | WARN |
-| eas4 | 503 | – | 0 | 0 | 0 | 103–103 | – | – | 4 / 0 | WARN |
-| eas5 | 440 | – | 0 | 0 | 0 | 73–73 | – | – | 4 / 0 | WARN |
-| eas6 | 468 | – | 8 | 0 | 0 | 68–68 | – | 14 | 4 / 0 | WARN |
-| eas7 | 468 | – | 0 | 0 | 0 | 73–73 | – | – | 4 / 0 | WARN |
-| eas8 | 460 | – | 2 | 0 | 0 | 71–71 | – | – | 4 / 0 | WARN |
-| eas9 | 489 | – | 0 | 0 | 0 | 93–93 | – | – | 4 / 0 | WARN |
-| eden1 | 450 | – | 6 | 0 | 0 | 46–46 | – | 14 | 4 / 0 | WARN |
-| eden2 | 428 | – | 8 | 0 | 0 | 49–49 | – | 18 | 4 / 0 | WARN |
-| eden3 | 428 | – | 10 | 0 | 0 | 52–52 | – | 16 | 4 / 0 | WARN |
-| eden4 | 390 | – | 14 | 0 | 0 | 49–49 | – | 16 | 4 / 0 | WARN |
-| eden5 | 412 | – | 10 | 0 | 0 | 72–72 | – | 16 | 2 / 0 | WARN |
-| f901 | 3114 | 1 | 83 | 0 | 0 | 132–132 | – | 4 | 3 / 0 | WARN |
-| f996 | 3172 | 1 | 150 | 0 | 0 | 155–155 | – | 8 | 0 / 0 | WARN |
-| fboxster | 2982 | 3 | 153 | 0 | 0 | 141–141 | – | 8 | 2 / 1 | WARN |
-| gt1 | 3040 | 1 | 161 | 0 | 0 | 98–98 | DoorIn/Interior | 13 | 0 / 0 | WARN |
-| gt2 | 3023 | 1 | 114 | 0 | 0 | 124–124 | – | 18 | 0 / 0 | WARN |
-| gt3 | 3280 | 1 | 82 | 0 | 0 | 160–160 | – | 8 | 0 / 0 | WARN |
-| postship | 1201 | – | 0 | 0 | 0 | 34–34 | – | – | 0 / 0 | OK |
+| 356_1 | 3602 | 2 | 130 | 0 | 0 | 121–122 | – | 2 | 0 / 1 | WARN |
+| 356a | 6795 | 12 | 201 | 0 | 0 | 90–115 | – | 12 | 0 / 4 | WARN |
+| 356b | 6127 | 13 | 134 | 0 | 0 | 102–121 | – | 12 | 0 / 0 | WARN |
+| 550 | 2985 | 1 | 47 | 0 | 0 | 55–55 | – | 3 | 0 / 0 | WARN |
+| 901 | 4695 | 7 | 98 | 0 | 0 | 90–91 | – | 4 | 0 / 0 | WARN |
+| 914 | 2828 | 3 | 20 | 0 | 0 | 104–104 | – | 4 | 0 / 0 | WARN |
+| 928 | 3410 | 1 | 11 | 0 | 0 | 64–64 | – | 3 | 0 / 2 | WARN |
+| 930 | 2963 | 2 | 79 | 0 | 0 | 103–103 | – | 7 | 1 / 0 | WARN |
+| 935 | 2963 | – | 6 | 0 | 0 | 102–102 | – | 10 | 0 / 0 | WARN |
+| 944 | 4150 | 8 | 298 | 0 | 0 | 75–77 | Body/Engine | 2 | 0 / 6 | WARN |
+| 959 | 3016 | 1 | 13 | 0 | 0 | 89–89 | – | 6 | 0 / 1 | WARN |
+| 964 | 4729 | 8 | 228 | 0 | 0 | 103–106 | – | 13 | 0 / 0 | WARN |
+| 993 | 4689 | 9 | 196 | 0 | 0 | 94–100 | – | 18 | 0 / 0 | WARN |
+| 996 | 5010 | 5 | 243 | 0 | 0 | 128–133 | Body/SkirtS | 22 | 0 / 0 | WARN |
+| boxster | 3216 | 3 | 179 | 0 | 0 | 114–118 | – | 11 | 0 / 1 | WARN |
+| cop356 | 5612 | 4 | 155 | 0 | 0 | 116–132 | Interior/InteriorRoof | 12 | 2 / 0 | WARN |
+| cop356_german | 6110 | 4 | 155 | 0 | 0 | 108–125 | – | 12 | 0 / 0 | WARN |
+| cop930 | 3067 | – | 91 | 0 | 0 | 107–107 | – | 7 | 1 / 0 | WARN |
+| cop930_german | 3075 | 1 | 91 | 0 | 0 | 107–107 | – | 7 | 1 / 0 | WARN |
+| cop993 | 2961 | 1 | 100 | 0 | 0 | 95–95 | – | 18 | 1 / 1 | WARN |
+| cop993_german | 2977 | 1 | 100 | 0 | 0 | 98–98 | – | 18 | 1 / 1 | WARN |
+| eas1 | 430 | – | 22 | 0 | 0 | 70–70 | – | 18 | 0 / 0 | WARN |
+| eas10 | 508 | – | 2 | 0 | 0 | 83–83 | – | – | 0 / 0 | OK |
+| eas11 | 511 | – | 32 | 0 | 0 | 78–78 | – | 28 | 0 / 0 | WARN |
+| eas2 | 561 | – | 0 | 0 | 0 | 97–97 | – | – | 0 / 0 | OK |
+| eas3 | 484 | – | 0 | 0 | 0 | 152–152 | – | – | 0 / 0 | OK |
+| eas4 | 503 | – | 0 | 0 | 0 | 109–109 | – | – | 0 / 0 | OK |
+| eas5 | 440 | – | 0 | 0 | 0 | 76–76 | – | – | 0 / 0 | OK |
+| eas6 | 468 | – | 8 | 0 | 0 | 72–72 | – | 14 | 0 / 0 | WARN |
+| eas7 | 468 | – | 0 | 0 | 0 | 77–77 | – | – | 0 / 0 | OK |
+| eas8 | 460 | – | 2 | 0 | 0 | 73–73 | – | – | 0 / 0 | OK |
+| eas9 | 489 | – | 0 | 0 | 0 | 95–95 | – | – | 0 / 0 | OK |
+| eden1 | 450 | – | 6 | 0 | 0 | 49–49 | – | 14 | 0 / 0 | WARN |
+| eden2 | 428 | – | 8 | 0 | 0 | 53–53 | – | 18 | 0 / 0 | WARN |
+| eden3 | 428 | – | 10 | 0 | 0 | 57–57 | – | 16 | 0 / 0 | WARN |
+| eden4 | 390 | – | 14 | 0 | 0 | 53–53 | – | 16 | 0 / 0 | WARN |
+| eden5 | 412 | – | 10 | 0 | 0 | 71–71 | – | 16 | 0 / 0 | WARN |
+| f901 | 3114 | 1 | 83 | 0 | 0 | 103–103 | – | 4 | 0 / 0 | WARN |
+| f996 | 3172 | 1 | 150 | 0 | 0 | 119–119 | – | 8 | 0 / 0 | WARN |
+| fboxster | 2982 | 3 | 153 | 0 | 0 | 114–120 | – | 8 | 0 / 1 | WARN |
+| gt1 | 3040 | 1 | 161 | 0 | 0 | 67–67 | DoorIn/Interior | 13 | 0 / 0 | WARN |
+| gt2 | 3023 | 1 | 114 | 0 | 0 | 95–95 | – | 16 | 0 / 0 | WARN |
+| gt3 | 3280 | 1 | 82 | 0 | 0 | 131–131 | – | 8 | 0 / 0 | WARN |
+| postship | 1201 | – | 0 | 0 | 0 | 31–31 | – | – | 0 / 0 | OK |
 
 ### Styly a překryvy dílů
 
@@ -81,21 +81,22 @@ Kontrola 19. 10. 2026: všech 44 modelů ve všech 113 stylech na skidpadu, kame
 | 901, 914 (a všechna auta s víky) | vnitřní panel víka (`HoodIn`, `TrunkIn`) v rovině vnějšího: textura zavazadlového prostoru prosvítala přes přední víko | vnitřní panely otočené dovnitř, kreslené jen z lícové strany |
 | všechna auta s víky (29. 10. 2026) | vnitřní panely se otáčely po jednotlivých trojúhelnících, v ohybu na okraji víka podle vnějšího trojúhelníku přes ohyb: 356 A `HoodIn` 32 a `TrunkIn` 20 hran s opačným pořadím, po uvolnění nebo utržení víka (D-010) díry v rozích zespodu | celý souvislý kus panelu se otočí podle hlasování všech jeho trojúhelníků |
 | 356 B, 944, cop356, cop993, f901, GT2, f996 | vnitřní panel varianty (`TrunkIn1`) nebo vnější varianty (`TrunkOut1`, `TrunkOut2`, u f996 `SpoilerDown`) se jménem nepárovaly, panel se vůbec neotočil (f996: 16 trojúhelníků ve stejné rovině jako křídlo) | párování podle jména bez čísla varianty, vnější panel podle začátku jména |
+| 944, 914, 935 a dalších 41 modelů (30. 10. 2026) | vrstvené díly (světla, obtisky, stíny kol, kliky) leží v rovině podkladu, originál je kreslí až po něm; ve hře mají vlastní transformaci uzlu a blikají (944: pruh zadních světel `Light4` je kopie šesti trojúhelníků `Body` s texturou světel, `Body` má pod ním lak) | rohy vrstvených dílů do 1 mm nad podkladem (a nejvýš 0,5 mm pod ním) se zvednou na 1 mm po normále podkladu; trojúhelníky se zapuštěným rohem zůstanou, cíle poškození jsou posuny, takže odsazení drží i po promáčknutí |
 
 Zbývá (původní data, ne chyba převodu):
 
 - `cop356` styly 2–4 (Hardtop, Speedster, Cabrio): záď za dveřmi existuje jen jako hrubý díl z LOD (`CabrioUp*` od z = 0,45 m) a `Roof1` nemá na úrovni 1 plech střechy, takže za dveřmi chybí boky a hardtop je bez střechy. `nfs5.car` používá pro policejní 356 jen style1 (Coupe), hra jiný nepoužije.
 - WARN překryvy jsou jednotlivé díly položené na karoserii jinak, než je seznam záměrných: 996 boční prahy `SkirtS` na `Body1` (16), 944 motor na `Body` (10), GT1 výplně dveří na interiéru (17), cop356 Hardtop strop na interiéru (12). Na snímcích nejsou vidět.
 - 944 kabriolety (cabrioturbo, S2cabrio) mají za sedadly otevřenou vanu bez krytu složené střechy; v datech jiný díl není.
-- Otevřené hrany se ve stylech jednoho modelu liší nejvýš o 26 m (cop356_german, cop356, 356 B: jiná záď kabrioletu); snímky děry neukázaly.
+- Otevřené hrany se ve stylech jednoho modelu liší nejvýš o 25 m (356 A, 356 B, cop356_german, cop356: jiná záď kabrioletu); snímky děry neukázaly.
 
 ### Pořadí vrcholů a vrstvy
 
 Kontrola 29. 10. 2026 (první měření v Blenderu na 356 A coupe 1.6, pak `mesh_check.py` na všech autech). Vnitřní panely víek jsou opravené (tabulka výše). Zbývá, zatím neopraveno:
 
 - **Pořadí vrcholů jednostranných dílů** (počet aut): motor `Engine` 17, zrcátko `SideMirror` 16 (část na stránce skla nebo interiéru), interiér `Interior` 12, `TrunkSpace` 6, sedadla 4, stěrač `Wiper1a` 4, palubní deska 2, ojediněle další. Vidět jsou jen z kokpitu, při otevřeném nebo utrženém víku (motor, zavazadlový prostor) a u zrcátek zblízka. Oprava: stejné otáčení po souvislých kusech jako u víek, s orientací ven od středu auta nebo podle uložených normál.
-- **Vrstvy bez odsazení** (dvojice dílů): světla na karoserii 34, stíny kol na kolech 62, obtisky na karoserii 8, ojediněle stěrače, obtisky interiéru a na víku. Ve hře hrozí z-fighting. Oprava: posun vrstveného dílu po normále o 1 mm v převodníku, stejně i u cílů poškození. U 356 A jsou světla odsazená 0,3–5 mm, nic takového nepotřebují.
-- **Zapuštěné vrstvy** (25 dvojic): obtisky na stažené střeše kabrioletů, kliky, stěrače, světla na prazích. Jejich část je schovaná pod podkladem.
+- **Vrstvy bez odsazení** (dvojice dílů): opraveno 30. 10. (tabulka výše), ze zhruba sta dvojic zbývá 7: obtisk na karoserii 930 a cop930 (0,03 mm), stěrač na karoserii cop993 (0,18 mm, zapuštěný) a zadní světla cop356 na zádi `CabrioUp1` ve stylech 2–4, které hra nepoužívá.
+- **Zapuštěné vrstvy** (25 dvojic 29. 10., teď 18): obtisky na stažené střeše kabrioletů, kliky, stěrače, světla na prazích. Jejich část je schovaná pod podkladem.
 
 ## Tratě (úroveň 0)
 

@@ -16,6 +16,18 @@ extends Node
 ## on the speed, the throttle by the speed error, cut back while the tyres are busy cornering and
 ## when the car slides (a rear-engined 356 spins on full throttle in a corner). Recovery: a car that
 ## is stuck, off the road or on its roof is put back on the line, like the player's reset key.
+## Traffic: a car ahead in the same lane (`others`; the cars' widths overlap sideways, measured from
+## the line on each car's slice) caps the target speed at its speed plus a term on the gap beyond
+## FOLLOW_GAP + FOLLOW_TIME of the own speed, so the field queues up instead of running into each
+## other. A car ahead that is much slower than the profile there and holds this car up (stopped,
+## crashed, or a player crawling or waiting on the road; not an AI car that queues behind another or
+## is speeding up) is passed: the driver shifts its whole line sideways (pass_offset, at PASS_RATE)
+## to PASS_MARGIN beside it (its size counted as it stands, across the road it is wider), on the side
+## with room on the road (the side it already took while that is still possible), and back once the
+## car is a car length behind. Passing is close and may touch; with too little room on both sides
+## the driver squeezes past on the side with more and pushes: it drives into the car PUSH_SPEED
+## faster than the car moves, slow enough that the impact stays under the damage threshold
+## (CarDamage.threshold). Racecraft is step D.
 
 const LOOK_TIME := 0.7  ## s of the current speed to the steering target (TRAFCFG look_ahead_factor)
 const MIN_LOOK := 10.0  ## m
@@ -26,6 +38,25 @@ const MIN_REACTION := 8.0  ## m
 const MIN_BRAKE_SHARE := 0.3  ## share of the deceleration still planned where cornering takes all the grip
 const SLIDE_LIFT_DEG := 4.0  ## slide angle where the throttle starts being cut back
 const SLIDE_OFF_DEG := 10.0  ## slide angle with the throttle shut
+const FOLLOW_RANGE := 60.0  ## m ahead other cars are looked at
+const FOLLOW_WIDTH := 2.4  ## m sideways (in the car's frame) a car ahead counts as in the lane, plus FOLLOW_SPREAD per m ahead
+const FOLLOW_SPREAD := 0.05  ## the lane widens ahead: a car in a curve ahead is off to the side
+const FOLLOW_GAP := 6.0  ## m kept from centre to centre beyond CAR_LENGTH at a standstill
+const FOLLOW_TIME := 0.5  ## s of the own speed added to the gap
+const FOLLOW_GAIN := 0.5  ## m/s of speed per m the gap is off
+const CAR_LENGTH := 4.5  ## m
+const HALF_WIDTH := 0.9  ## m, half a car's width (the 356 is 1.66 m wide)
+const LANE_MARGIN := 0.2  ## m two cars side by side must be apart beyond their sizes not to block each other
+const PASS_MARGIN := 0.4  ## m left between the cars when passing (close: they may touch)
+const PASS_RANGE := 30.0  ## m ahead a slow car is passed from, plus PASS_TIME of the own speed
+const PASS_TIME := 1.5  ## s
+const PASS_SLOW := 0.7  ## a car ahead slower than this share of the profile there is passed when it
+## is also PASS_DIFF slower than this car, holds this car up (it follows it) or nearly stands
+const PASS_DIFF := 3.0  ## m/s
+const PASS_RATE := 2.5  ## m/s the line shifts sideways
+const PASS_CRAWL := 3.0  ## m/s allowed close behind a car being passed, to get round it
+const EDGE_MARGIN := 0.6  ## m kept from the road edge when passing
+const PUSH_SPEED := 1.5  ## m/s faster than a car that cannot be passed: pushes it aside without damage
 const MAX_SPEED := 120.0  ## m/s, cap of the corner speed on straights
 const STUCK_SPEED := 1.0  ## m/s
 const STUCK_TIME := 4.0  ## s below STUCK_SPEED (not held) before a reset
@@ -56,6 +87,11 @@ var curvature := PackedFloat32Array()  ## 1/m of the line at every slice
 var corner_speed := PackedFloat32Array()  ## m/s the line's radius allows at every slice
 var speed_limit := PackedFloat32Array()  ## m/s, the profile: corner speeds and the braking into them
 var slide_deg := 0.0  ## angle between the car's heading and its travel, this tick
+var others: Array[Car] = []  ## the other cars on the track (the own car is skipped)
+var following: Car  ## car ahead that limits the speed this tick, null = none
+var passing: Car  ## car being passed, null = none
+var pass_offset := 0.0  ## m the line is shifted sideways now (+ = right), for passing
+var pushing: Car  ## slow car with no room beside it, pushed out of the way; null = none
 var step_length := PackedFloat32Array()  ## m from a slice's line point to the next one's
 
 var _wheelbase := 2.4
@@ -163,6 +199,7 @@ func _physics_process(delta: float) -> void:
 		car.auto_brake = 0.0
 		car.auto_steer = 0.0
 		return
+	_plan_pass(delta)
 	_steer(delta)
 	_pedals()
 
@@ -176,7 +213,9 @@ func _track(delta: float) -> void:
 		_stuck_time = 0.0
 		return
 	var speed := car.linear_velocity.length()
-	_stuck_time = _stuck_time + delta if speed < STUCK_SPEED else 0.0
+	# Waiting behind a car is not being stuck (pushing one that does not move is).
+	var waiting := following != null and following != pushing
+	_stuck_time = _stuck_time + delta if speed < STUCK_SPEED and not waiting else 0.0
 	var lateral := absf((pos - line[slice]).dot(road.rights[slice]))
 	_off_time = _off_time + delta if lateral > _half_width(slice) + OFF_ROAD else 0.0
 	_upside_time = _upside_time + delta if car.global_basis.y.dot(road.ups[slice]) < 0.2 else 0.0
@@ -236,10 +275,15 @@ func _point_ahead(distance: float) -> Vector3:
 	for n in 200:
 		var j := road.ahead(i, 1)
 		if j == i or step_length[i] >= left:
-			return line[i].lerp(line[j], clampf(left / maxf(step_length[i], 0.01), 0.0, 1.0))
+			return _shifted(i).lerp(_shifted(j), clampf(left / maxf(step_length[i], 0.01), 0.0, 1.0))
 		left -= step_length[i]
 		i = j
-	return line[i]
+	return _shifted(i)
+
+
+## Line point on slice i moved sideways by the passing offset.
+func _shifted(i: int) -> Vector3:
+	return line[i] + road.rights[i] * pass_offset
 
 
 func _pedals() -> void:
@@ -257,7 +301,7 @@ func _pedals() -> void:
 		dist += step_length[i]
 		i = j
 		allowed = minf(allowed, speed_limit[i])
-	target_speed = allowed
+	target_speed = minf(allowed, _follow_limit(speed))
 	var error := target_speed - speed
 	var need := (speed * speed - speed_limit[i] * speed_limit[i]) / (2.0 * maxf(dist, 1.0))  # m/s2
 	var flat := car.linear_velocity - car.global_basis.y * car.linear_velocity.dot(car.global_basis.y)
@@ -277,3 +321,120 @@ func _pedals() -> void:
 	car.auto_brake = 0.0
 	var throttle := clampf(0.3 + error * speed_gain, 0.0, 1.0) if error >= 0.0 else 0.2
 	car.auto_throttle = minf(throttle, maxf(left, 0.2)) * calm
+
+
+## Highest speed that keeps the gap to the nearest car ahead in the lane (INF: none). A car blocks
+## the lane when the two cars' widths overlap sideways (from the line on each car's slice; a car
+## turned across the road is wider). The car being passed may be approached at PASS_CRAWL while
+## there is room behind it, the one being pushed at PUSH_SPEED faster than it moves.
+func _follow_limit(speed: float) -> float:
+	var limit := INF
+	following = null
+	var own := _lateral(car.global_position, slice)
+	for other in others:
+		if other == car or other == null:
+			continue
+		var local := car.to_local(other.global_position)
+		var ahead := -local.z
+		if ahead <= 0.0 or ahead > FOLLOW_RANGE:
+			continue
+		var at := road.nearest_ahead(other.global_position, slice, TRACK_WINDOW * 2)
+		if absf(_lateral(other.global_position, at) - own) > _half_size(other, at) + HALF_WIDTH + LANE_MARGIN:
+			continue
+		var other_speed := other.linear_velocity.dot(-car.global_basis.z)
+		var gap := ahead - CAR_LENGTH - (FOLLOW_GAP + maxf(speed, 0.0) * FOLLOW_TIME)
+		var keep := maxf(other_speed + FOLLOW_GAIN * gap, 0.0)
+		if other == pushing:
+			keep = maxf(keep, maxf(other_speed, 0.0) + PUSH_SPEED)
+		elif other == passing and ahead - CAR_LENGTH > 1.5:
+			keep = maxf(keep, PASS_CRAWL)
+		if keep < limit:
+			limit = keep
+			following = other
+	return limit
+
+
+## m sideways from the line on slice i (+ = right).
+func _lateral(pos: Vector3, i: int) -> float:
+	return (pos - line[i]).dot(road.rights[i])
+
+
+## m sideways from its centre a car on slice i takes up: half its width when it points along the
+## road, half its length when it stands across.
+func _half_size(other: Car, i: int) -> float:
+	var along := absf(other.global_basis.z.dot(road.forwards[i]))
+	var across := sqrt(maxf(1.0 - along * along, 0.0))
+	return along * HALF_WIDTH + across * CAR_LENGTH * 0.5
+
+
+## Picks the car to pass and moves pass_offset beside it: on the side with room, or squeezed
+## against the edge with more room when neither has enough (then the car is also pushed).
+func _plan_pass(delta: float) -> void:
+	var speed := maxf(car.forward_speed, 0.0)
+	var blocker: Car = null
+	var blocker_ahead := INF
+	var blocker_slice := slice
+	for other in others:
+		if other == car or other == null:
+			continue
+		var ahead := -car.to_local(other.global_position).z
+		if ahead <= -CAR_LENGTH or ahead > PASS_RANGE + speed * PASS_TIME:
+			continue
+		var at := road.nearest_ahead(other.global_position, slice, TRACK_WINDOW * 2)
+		if other != passing and other != pushing:
+			# A new car to pass: in the shifted lane and slow for this part of the road.
+			if ahead <= 0.0 or absf(_lateral(other.global_position, at) - pass_offset) > _half_size(other, at) + HALF_WIDTH + LANE_MARGIN:
+				continue
+			var other_speed := other.linear_velocity.length()
+			if other_speed > speed_limit[at] * PASS_SLOW:
+				continue
+			var other_driver := other.get_node_or_null("AIDriver") as AIDriver
+			if other_driver != null and other_driver.enabled and (other_driver.following != null or other_driver.target_speed > other_speed + 2.0):
+				continue  # an AI car queuing behind another or speeding up (the start): no overtaking yet (step D)
+			if other_speed > speed - PASS_DIFF and other != following and other_speed > STUCK_SPEED * 2.0:
+				continue
+		if ahead < blocker_ahead:
+			blocker = other
+			blocker_ahead = ahead
+			blocker_slice = at
+	passing = null
+	pushing = null
+	var target := 0.0
+	if blocker != null:
+		var lat := _lateral(blocker.global_position, blocker_slice)
+		var reach := _half_size(blocker, blocker_slice) + HALF_WIDTH + PASS_MARGIN
+		if absf(lat) >= reach and absf(pass_offset) < 0.1:
+			blocker = null  # the line itself goes past it
+	if blocker != null:
+		var lat := _lateral(blocker.global_position, blocker_slice)
+		var reach := _half_size(blocker, blocker_slice) + HALF_WIDTH + PASS_MARGIN
+		var edges := _edges(blocker_slice)
+		var side := _pass_side(blocker, lat, reach, edges, _lateral(car.global_position, slice))
+		target = clampf(lat + side * reach, edges.x, edges.y)
+		passing = blocker
+		if absf(target - lat) < reach - PASS_MARGIN:
+			pushing = blocker  # squeezed: not enough room beside it
+	pass_offset = move_toward(pass_offset, target, PASS_RATE * delta)
+
+
+## Usable road on slice i, sideways from the line: (left edge, right edge) less EDGE_MARGIN.
+func _edges(i: int) -> Vector2:
+	var centre := -line_offsets[i]
+	var half := _half_width(i)
+	if absf(centre) > half:
+		centre = 0.0  # the line runs beside the slices (Monte Carlo): its own road
+	return Vector2(centre - half + EDGE_MARGIN, centre + half - EDGE_MARGIN)
+
+
+## +1 (right) or -1 (left): the side to pass `other` (sideways `lat`) on, `reach` from its centre.
+## The side this car is on (sideways `own`) while it has room, so it never cuts across the other
+## car's nose; else the side with room; with room on neither, the one with more.
+func _pass_side(_other: Car, lat: float, reach: float, edges: Vector2, own: float) -> float:
+	var right_room := edges.y - lat
+	var left_room := lat - edges.x
+	var here := 1.0 if own >= lat else -1.0
+	if (here > 0.0 and right_room >= reach) or (here < 0.0 and left_room >= reach):
+		return here
+	if right_room >= reach or left_room >= reach:
+		return 1.0 if right_room >= reach else -1.0
+	return 1.0 if right_room >= left_room else -1.0

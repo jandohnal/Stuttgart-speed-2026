@@ -550,6 +550,103 @@ def orient_inner_skins(candidates):
         print(f"  inner skins: {flipped} triangles turned away from their outer skin")
 
 
+# Parts the original lays flush on others on purpose (drawn after them): lamps, plates, handles,
+# wipers, wheel shadows, logos (prefix of the part name; tools/mesh_check.py uses the same list).
+LAYERED = ("Decal", "Light", "HeadLight", "License", "Handle", "Cap", "Wiper", "WheelShadow", "SteerLogo", "Needle")
+LIFT = 0.001  # m: a layered part's corner ends at least this far above the part below it
+LIFT_TOL = 0.005  # m: how far above or below a part a corner still lies on it
+LIFT_SUNK = 0.0005  # m: corners deeper in the part below are sunk on purpose (wiper ends), left alone
+LIFT_PARALLEL = 0.9  # cos between a face at the corner and the part below (same side)
+LIFT_CELL = 0.1  # m, grid for the search
+LIFT_PASSES = 3  # over the parts below a corner, while it moves
+
+
+def lift_layers(candidates, skip=()):
+    """Move the corners of layered parts (LAYERED) that lie on another part (closer than LIFT, not
+    sunk deeper than LIFT_SUNK) to LIFT above it, along that part's normal; triangles with a sunk
+    corner stay as they are.
+
+    The original draws them after the part below at the same depth; the game draws both with their
+    own node transforms, so where they are in one plane they z-fight (944: the tail lamp strip
+    Light4 is a copy of six Body triangles with the lamp texture, the Body has paint there). The
+    damage targets are offsets, so a dented lamp stays above its dented body."""
+    planes, grid = [], {}
+    for k, c in enumerate(candidates):
+        if k in skip or c[2].strip().startswith(LAYERED):
+            continue
+        for tri in mesh_triangles(c[5]):
+            n = cross(*tri)
+            length = math.sqrt(sum(x * x for x in n))
+            if length < 1e-12:
+                continue
+            planes.append((tri, tuple(x / length for x in n)))
+            lo = [math.floor((min(p[i] for p in tri) - LIFT_TOL) / LIFT_CELL) for i in range(3)]
+            hi = [math.floor((max(p[i] for p in tri) + LIFT_TOL) / LIFT_CELL) for i in range(3)]
+            for x in range(lo[0], hi[0] + 1):
+                for y in range(lo[1], hi[1] + 1):
+                    for z in range(lo[2], hi[2] + 1):
+                        grid.setdefault((x, y, z), []).append(len(planes) - 1)
+    lifted = Counter()
+    for k, c in enumerate(candidates):
+        if k in skip or not c[2].strip().startswith(LAYERED):
+            continue
+        offset, prims = c[5][0], c[5][1]
+        for pos, _, _, idx in prims.values():
+            # Unit normals of the faces at each corner (the winding agrees with the stored normals by
+            # now); a smoothed vertex normal on a crease (914 Light4) is parallel to neither side.
+            faces = {}
+            for t in range(0, len(idx) - 2, 3):
+                n = cross(*(pos[i] for i in idx[t:t + 3]))
+                length = math.sqrt(sum(x * x for x in n))
+                if length > 1e-12:
+                    for i in idx[t:t + 3]:
+                        faces.setdefault(i, []).append(tuple(x / length for x in n))
+
+            def below(p, fns):
+                """(face, unit normal, signed distance) of the part faces parallel to p's faces, p within LIFT_TOL of them."""
+                cell = tuple(math.floor(p[j] / LIFT_CELL) for j in range(3))
+                for tri, n in (planes[j] for j in grid.get(cell, ())):
+                    if all(sum(f[j] * n[j] for j in range(3)) < LIFT_PARALLEL for f in fns):
+                        continue
+                    d = sum((p[j] - tri[0][j]) * n[j] for j in range(3))
+                    if abs(d) <= LIFT_TOL and point_triangle_distance(p, *tri) <= abs(d) + 1e-6:
+                        yield tri, n, d
+
+            # A triangle with a corner sunk in the part below (and on no other part) is left as it is:
+            # lifting only its other corners would tilt it through that part (944 HeadLight).
+            sunk = set()
+            for i, fns in faces.items():
+                p = [pos[i][j] + offset[j] for j in range(3)]
+                ds = [d for _, _, d in below(p, fns)]
+                if any(d < -LIFT_SUNK for d in ds) and not any(-LIFT_SUNK <= d < LIFT for d in ds):
+                    sunk.add(i)
+            fixed = {i for t in range(0, len(idx) - 2, 3) if sunk & set(idx[t:t + 3]) for i in idx[t:t + 3]}
+            for i, fns in faces.items():
+                if i in fixed:
+                    continue
+                p = [pos[i][j] + offset[j] for j in range(3)]
+                moved = False
+                # Every part face below it, so a corner on a crease ends above both sides; again while
+                # it moves (cop356: lifted above Body it ends just under CabrioUp1, 1.1 mm higher).
+                for _ in range(LIFT_PASSES):
+                    step = False
+                    for tri, n, _ in list(below(p, fns)):
+                        # On the part: within LIFT_SUNK below to LIFT above it, measured after the moves
+                        # so far (the faces around a corner in one plane lift it once).
+                        d = sum((p[j] - tri[0][j]) * n[j] for j in range(3))
+                        if -LIFT_SUNK <= d < LIFT - 1e-9:
+                            p = [p[j] + (LIFT - d) * n[j] for j in range(3)]
+                            step = moved = True
+                    if not step:
+                        break
+                if moved:
+                    pos[i] = tuple(p[j] - offset[j] for j in range(3))
+                    lifted[c[2].strip()] += 1
+    if lifted:
+        print(f"  layers: {sum(lifted.values())} corners lifted {LIFT * 1000:g} mm above the part below "
+              f"({', '.join(f'{name} {n}' for name, n in sorted(lifted.items()))})")
+
+
 def cover_grid(tri_lists):
     grid = {}
     for tris in tri_lists:
@@ -655,6 +752,7 @@ def convert(src, out_path, level=1, include_all=False, tpg=None, cars=None):
             candidates.append((art, base, name, part_slot, lev, mesh))
     redundant = set() if include_all else redundant_lods(candidates, level, styles)
     orient_inner_skins(candidates)
+    lift_layers(candidates, redundant)
     skipped += len(redundant)
     for k, (art, base, name, part_slot, lev, mesh) in enumerate(candidates):
         if k in redundant:

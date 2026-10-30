@@ -13,10 +13,16 @@ extends Node3D
 ## --ai=0|1: the car is driven by AIDriver along the original's racing line 0 or 1 (D-026).
 ## Parts (CarParts): GameSettings.car_tune (stock / sport) and tyres (stock / slick / rain), else
 ## --tune= / --tyres=; default stock.
+## Opponents (D-026, step C): on a track with a start line --opponents=<n> (0..MAX_OPPONENTS) puts n
+## AIDriver cars of the player's model on a staggered grid ahead of the player, each in another
+## colour of the model's palette; the game itself starts with project setting stuttgart/opponents
+## (default DEFAULT_OPPONENTS), the tests with none unless they ask. They are held by the countdown
+## like the player and set back on the grid on restart.
 
 const DEFAULT_TRACK := "farmland"
 const TrackProps := preload("res://scripts/track_props.gd")
 const CarAudio := preload("res://scripts/car_audio.gd")
+const CarEffects := preload("res://scripts/car_effects.gd")
 const Materials := preload("res://scripts/materials.gd")
 const SkyLighting := preload("res://scripts/sky_lighting.gd")
 const CarLights := preload("res://scripts/car_lights.gd")
@@ -36,6 +42,10 @@ const RECORDS_FILE := "user://records.cfg"  ## best race times, [track] car = se
 const COUNTDOWN := 3.0  ## s of 3-2-1 before GO
 const RaceLines := preload("res://scripts/race_lines.gd")
 const GRID_BEHIND := 3.0  ## m from the start line back to the car's centre (standing start)
+const GRID_STEP := 5.0  ## m between grid slots along the road (left and right column alternate)
+const GRID_SIDE := 2.0  ## m from the road centre to a grid column
+const MAX_OPPONENTS := 7
+const DEFAULT_OPPONENTS := 3
 const STOP_BRAKE := 0.6  ## brake after the finish (~0.5 g: firm, the wheels do not lock)
 const STOP_LOOKAHEAD := 4  ## road slices ahead the car steers to after the finish
 const STOP_SPEED := 0.3  ## m/s below which the stopped car is held
@@ -244,6 +254,9 @@ var road_slices: Array = []  ## road.slices (the tests read them)
 var start_slice := 0
 var race: RaceTimer  ## null on tracks without start / finish lines (free driving)
 var ai_driver: AIDriver  ## null: the player drives
+var opponent_count := -1  ## -1: --opponents, else project setting stuttgart/opponents in the game, 0 in tests
+var opponents: Array[Car] = []  ## AI cars on the grid (their AIDriver is the child "AIDriver")
+var _opponent_grid: Array[Transform3D] = []
 var _stopping := false  ## past the finish: the car brakes along the road (_drive_to_stop)
 var _grid := Transform3D.IDENTITY  ## where the race starts (behind the start line)
 var prop_counts := {}  ## placed objects per collision type (TrackProps)
@@ -300,38 +313,15 @@ func _ready() -> void:
 		car_key = GameSettings.car_key
 	if car_key.is_empty():
 		car_key = _user_arg("car") if not _user_arg("car").is_empty() else ProjectSettings.get_setting("stuttgart/car", DEFAULT_CAR)
-	var info := car_info(car_key)
-	var model_path := car_model_path(car_key)
-	var engine_sound := "GameData/Sounds/" + str(info["engine_sound"])
 	var cars: Variant = OriginalAssets.load_json(CAR_PHYSICS)
-	var physics := car_physics_key(car_key)
-	if cars is Dictionary and cars.has(physics):
-		var model := OriginalAssets.load_gltf(model_path)
-		var car_colors: Variant = OriginalAssets.load_json(CAR_COLORS) if OriginalAssets.exists(CAR_COLORS) else null
-		car_style = CarStyle.apply(model, model_path, car_style_of(car_key, car_colors))
-		var color := GameSettings.car_color if not GameSettings.car_color.is_empty() else _user_arg("color")
-		Materials.setup_car(model, Color.from_string(color, Color(0, 0, 0, 0)) if not color.is_empty() else Color(0, 0, 0, 0))
-		car.setup(model, _fitted_parts(cars[physics], physics))
-		Materials.add_car_reflections(car)
-		lights = CarLights.new()
-		car.add_child(lights)
-		lights.setup(car, model, time_of_day == "night")
+	var color := GameSettings.car_color if not GameSettings.car_color.is_empty() else _user_arg("color")
+	if _build_car(car, car_key, color, cars, true):
 		_load_mileage()
-		var damage: Variant = OriginalAssets.load_json(model_path.get_basename() + "_damage.json")
-		if damage is Dictionary:
-			car.setup_damage(damage)
-		var engine: Variant = OriginalAssets.load_json(engine_sound.path_join("engine.json"))
-		if engine is Dictionary:
-			var audio := CarAudio.new()
-			audio.name = "Audio"
-			car.add_child(audio)
-			audio.rpm_scale = 4.0 / float(info["cylinders"])  # engine.json assumes a four
-			audio.setup(car, engine, engine_sound, SFX_BANK)
-	else:
-		push_error("Car %s (physics %s) not found in %s" % [car_key, physics, CAR_PHYSICS])
 	_reset_car(start_slice)
 	if road_data is Dictionary and road_data.has("start") and road_data.has("finish") and _user_arg("slice").is_empty():
 		_setup_race(road_data)
+	if race != null and cars is Dictionary:
+		_add_opponents(road_data, cars, color)
 	if _user_arg("ai").is_valid_int():
 		drive_by_ai(_user_arg("ai").to_int())
 	if track != null:
@@ -346,7 +336,7 @@ func _setup_race(road_data: Dictionary) -> void:
 	race = RaceTimer.new()
 	race.name = "Race"
 	add_child(race)
-	race.setup(car, road_data["start"], road_data["finish"], road_slices)
+	race.setup(car, road_data["start"], road_data["finish"], road_slices, road_data.get("segments", []))
 	race.finished.connect(_on_race_finished)
 	_grid = _grid_transform(road_data["start"])
 	car.reset_to(_grid)
@@ -354,6 +344,113 @@ func _setup_race(road_data: Dictionary) -> void:
 		race.keep_records(RECORDS_FILE, track_name, car_key)
 	race.begin(COUNTDOWN if _is_game() else 0.0)
 	($HUD as Hud).race = race
+
+
+## Builds `target` as car `key` (cars.json parsed in `cars`): model in `color` ("" = untinted),
+## physics with the chosen parts, lamps, damage and engine sound. The player's car also gets the
+## reflection probe (it follows the camera; one moving probe per car would be re-captured all the
+## time) and sets car_style / lights. False when the car's physics are missing.
+func _build_car(target: Car, key: String, color: String, cars: Variant, player: bool) -> bool:
+	var info := car_info(key)
+	var model_path := car_model_path(key)
+	var engine_sound := "GameData/Sounds/" + str(info["engine_sound"])
+	var physics := car_physics_key(key)
+	if not (cars is Dictionary and cars.has(physics)):
+		push_error("Car %s (physics %s) not found in %s" % [key, physics, CAR_PHYSICS])
+		return false
+	var model := OriginalAssets.load_gltf(model_path)
+	var car_colors: Variant = OriginalAssets.load_json(CAR_COLORS) if OriginalAssets.exists(CAR_COLORS) else null
+	var style := CarStyle.apply(model, model_path, car_style_of(key, car_colors))
+	Materials.setup_car(model, Color.from_string(color, Color(0, 0, 0, 0)) if not color.is_empty() else Color(0, 0, 0, 0))
+	target.setup(model, _fitted_parts(cars[physics], physics))
+	var car_lights := CarLights.new()
+	target.add_child(car_lights)
+	car_lights.setup(target, model, time_of_day == "night")
+	if player:
+		car_style = style
+		lights = car_lights
+		Materials.add_car_reflections(target)
+	var damage: Variant = OriginalAssets.load_json(model_path.get_basename() + "_damage.json")
+	if damage is Dictionary:
+		target.setup_damage(damage)
+	var engine: Variant = OriginalAssets.load_json(engine_sound.path_join("engine.json"))
+	if engine is Dictionary:
+		var audio := CarAudio.new()
+		audio.name = "Audio"
+		target.add_child(audio)
+		audio.rpm_scale = 4.0 / float(info["cylinders"])  # engine.json assumes a four
+		audio.setup(target, engine, engine_sound, SFX_BANK)
+	if _user_arg("effects") != "0":  # --effects=0: without tyre marks, dust and sparks (FPS comparison)
+		var effects := CarEffects.new()
+		effects.name = "Effects"
+		target.add_child(effects)
+		effects.setup(target)
+	return true
+
+
+## Opponents on the grid ahead of the player (slots 0..n-1, the player in slot n), each driven by
+## an AIDriver on racing line 0 and painted in the next colour of the palette after the player's.
+func _add_opponents(road_data: Dictionary, cars: Variant, player_color: String) -> void:
+	var arg := _user_arg("opponents")
+	var count := opponent_count
+	if count < 0:
+		count = arg.to_int() if arg.is_valid_int() else (int(ProjectSettings.get_setting("stuttgart/opponents", DEFAULT_OPPONENTS)) if _is_game() else 0)
+	count = clampi(count, 0, MAX_OPPONENTS)
+	if count == 0:
+		return
+	var ai_data: Variant = OriginalAssets.load_json("GameData/Track/%s/%s_ai.json" % [track_name, track_name])
+	var car_colors: Variant = OriginalAssets.load_json(CAR_COLORS) if OriginalAssets.exists(CAR_COLORS) else null
+	var palette: Array = car_palette(car_key, car_colors)["colors"]
+	var first := maxi(palette.find(player_color if not player_color.is_empty() else car_palette(car_key, car_colors)["default"]), 0)
+	for k in count:
+		var opponent := Car.new()
+		opponent.name = "Opponent%d" % (k + 1)
+		add_child(opponent)
+		var color: String = palette[(first + k + 1) % palette.size()] if palette.size() > 1 else ""
+		if not _build_car(opponent, car_key, color, cars, false):
+			opponent.queue_free()
+			break
+		var driver := AIDriver.new()
+		driver.name = "AIDriver"
+		opponent.add_child(driver)
+		driver.setup(opponent, road, ai_data, 0)
+		opponents.append(opponent)
+		_opponent_grid.append(_grid_slot(road_data["start"], k))
+	var field: Array[Car] = [car]
+	field.append_array(opponents)
+	for opponent in opponents:
+		(opponent.get_node("AIDriver") as AIDriver).others = field
+	_grid = _grid_slot(road_data["start"], opponents.size())
+	_place_on_grid()
+	race.started.connect(func() -> void:
+		for opponent in opponents:
+			opponent.held = false)
+
+
+## Grid slot k: GRID_BEHIND + k GRID_STEP behind the start line along the road, alternately left
+## and right of the centre (k = 0 is pole position, on the left).
+func _grid_slot(start: Dictionary, k: int) -> Transform3D:
+	var line := _grid_transform(start)
+	var behind := line.origin - (-line.basis.z) * (k * GRID_STEP)
+	var i := road.nearest(behind)
+	var along := (behind - road.positions[i]).dot(road.forwards[i])
+	var side := GRID_SIDE * (-1.0 if k % 2 == 0 else 1.0)
+	var xf := road.transform_at(i, side)
+	xf.origin += road.forwards[i] * along
+	return xf
+
+
+## Every car back on its grid slot, repaired, held while the countdown runs.
+func _place_on_grid() -> void:
+	car.reset_to(_grid)
+	for k in opponents.size():
+		var opponent := opponents[k]
+		opponent.repair()
+		opponent.reset_to(_opponent_grid[k])
+		opponent.held = race.state == RaceTimer.State.COUNTDOWN and race.countdown > 0.0
+		var driver := opponent.get_node("AIDriver") as AIDriver
+		driver.enabled = true
+		driver.slice = road.nearest(opponent.global_position)
 
 
 ## Standing start: the car's centre GRID_BEHIND behind the start line, on the road.
@@ -383,6 +480,7 @@ func drive_by_ai(line_index := 0) -> AIDriver:
 		car.add_child(ai_driver)
 	var ai_data: Variant = OriginalAssets.load_json("GameData/Track/%s/%s_ai.json" % [track_name, track_name])
 	ai_driver.setup(car, road, ai_data, line_index)
+	ai_driver.others = opponents
 	return ai_driver
 
 
@@ -402,8 +500,8 @@ func _restart_race() -> void:
 	car.auto_steer = 0.0
 	if ai_driver != null:
 		ai_driver.enabled = true
-	car.reset_to(_grid)
 	race.begin(COUNTDOWN)
+	_place_on_grid()
 	($Camera as FollowCamera).play_intro()
 
 

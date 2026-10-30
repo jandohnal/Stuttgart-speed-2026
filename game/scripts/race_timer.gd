@@ -19,6 +19,7 @@ const CHECKPOINT_RADIUS := 40.0  ## m from the checkpoint slice that counts as p
 const LINE_HEIGHT := 10.0  ## m above or below the line that still counts (bridges over the road)
 const LINE_MARGIN := 2.0  ## m past the line's end points that still counts
 const GO_SHOW_TIME := 1.0  ## s the HUD keeps showing GO
+const JOIN_DISTANCE := 20.0  ## m from the main road within which a side road's ends join it
 
 var state := State.COUNTDOWN
 var countdown := 0.0  ## s left until GO
@@ -37,15 +38,63 @@ var _record_track := ""
 var _record_car := ""
 
 
-## start / finish: the road file's entries {position, forward, line, slice}; slices: road slices.
-func setup(race_car: Car, start: Dictionary, finish: Dictionary, slices: Array) -> void:
+## start / finish: the road file's entries {position, forward, line, slice}; slices, segments:
+## the road file's slices and segments {first, last, next}.
+func setup(race_car: Car, start: Dictionary, finish: Dictionary, slices: Array, segments: Array = []) -> void:
 	car = race_car
 	_finish = finish
 	_checkpoints.clear()
 	var first := int(start["slice"])
 	var last := int(finish["slice"])
+	var bypassed := _bypassed(slices, segments, first)
 	for i in range(first + CHECKPOINT_STEP, last - CHECKPOINT_STEP / 2, CHECKPOINT_STEP):
-		_checkpoints.append(_vec(slices[i]["position"]))
+		if not bypassed.any(func(r: Vector2i) -> bool: return i >= r.x and i <= r.y):
+			_checkpoints.append(_vec(slices[i]["position"]))
+
+
+## Stretches [from, to] of the main road (the segment holding slice `main_slice`) that a side road
+## bypasses: a chain of other segments linked by "next" leaves the main road near `from` and joins
+## it again near `to` (both ends within JOIN_DISTANCE of it).
+static func _bypassed(slices: Array, segments: Array, main_slice: int) -> Array[Vector2i]:
+	var ranges: Array[Vector2i] = []
+	var main := -1
+	var linked := {}
+	for k in segments.size():
+		var seg: Dictionary = segments[k]
+		if main_slice >= int(seg["first"]) and main_slice <= int(seg["last"]):
+			main = k
+		if seg["next"] != null:
+			linked[int(seg["next"])] = true
+	if main < 0:
+		return ranges
+	var main_first := int(segments[main]["first"])
+	var main_last := int(segments[main]["last"])
+	for k in segments.size():
+		if k == main or linked.has(k):
+			continue
+		var tail := k
+		var seen := {k: true}
+		while segments[tail]["next"] != null and int(segments[tail]["next"]) != main and not seen.has(int(segments[tail]["next"])):
+			tail = int(segments[tail]["next"])
+			seen[tail] = true
+		var enter := _vec(slices[int(segments[k]["first"])]["position"])
+		var leave := _vec(slices[int(segments[tail]["last"])]["position"])
+		var a := _nearest(slices, main_first, main_last, enter)
+		var b := _nearest(slices, main_first, main_last, leave)
+		if enter.distance_to(_vec(slices[a]["position"])) < JOIN_DISTANCE and leave.distance_to(_vec(slices[b]["position"])) < JOIN_DISTANCE:
+			ranges.append(Vector2i(mini(a, b), maxi(a, b)))
+	return ranges
+
+
+static func _nearest(slices: Array, from: int, to: int, pos: Vector3) -> int:
+	var best_i := from
+	var best_d := INF
+	for i in range(from, to + 1):
+		var d := pos.distance_squared_to(_vec(slices[i]["position"]))
+		if d < best_d:
+			best_d = d
+			best_i = i
+	return best_i
 
 
 ## Best times are kept in `file` under [track] car = seconds; without a call nothing is saved.

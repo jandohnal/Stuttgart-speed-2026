@@ -29,6 +29,7 @@ var unlatch_damage := 0.5  ## front / rear damage that unlatches the hood, engin
 var tear_speed_kmh := 100.0  ## impact speed (along the contact normal) that tears a swinging lid off
 var last_impact_kmh := 0.0
 var scrape := 0.0  ## N*s of body contact in the last tick (scraping, resting)
+var scrape_point := Vector3.ZERO  ## car-space centre of that contact (sparks)
 
 var zone_damage := PackedFloat32Array()
 var centroids: Array[Vector3] = []  ## per zone id, car space (Vector3.INF where unknown)
@@ -94,6 +95,8 @@ func add_tick(contacts: Array) -> void:
 		point += c["point"] * impulse
 		normal += c["normal"] * impulse
 	scrape = tick
+	if tick > 0.0:
+		scrape_point = point / tick
 	var velocity := _car.global_basis.inverse() * _car.linear_velocity
 	var before := _prev_velocity
 	_prev_velocity = velocity

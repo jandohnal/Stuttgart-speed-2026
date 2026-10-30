@@ -18,7 +18,7 @@ Checks:
   part in the same plane, facing the same way; facing away: back_to_back, only counted). Parts
   laid flush on others on purpose (LAYERED: decals, lamps, plates ..., In / Out skins of a lid)
   and overlaps under OVERLAP_MIN triangles are counted apart (layered_overlaps).
-  Open edges (used by one triangle only, corners welded at 1 mm) as total length per style: the
+  Open edges (used by one triangle only, corners welded at 1 mm, layered parts left out) as total length per style: the
   styles of one model should differ only by their own parts, so an outlier is a missing part.
   Other overlaps (a part doubled, parts of two styles at once): WARN
   Layered parts (LAYERED) closer than FLUSH to the part below them (z-fighting in the game, which
@@ -42,6 +42,7 @@ from array import array
 from collections import Counter
 
 from crp import cross
+from crp2gltf import LAYERED
 
 FLIPPED_MAX = 0.005  # share of triangles
 DOWN_MAX = 0.005
@@ -235,9 +236,8 @@ def car_triangles(gl, accessor):
     return out
 
 
-# Parts the original lays flush on others on purpose (drawn after them): lamps, plates, handles,
-# wipers, wheel shadows, logos; and the inner and outer skins of one lid (HoodIn / HoodOut).
-LAYERED = ("Decal", "Light", "HeadLight", "License", "Handle", "Cap", "Wiper", "WheelShadow", "SteerLogo", "Needle")
+# Parts the original lays flush on others on purpose (LAYERED, from the converter, which lifts them
+# LIFT above the part below); and the inner and outer skins of one lid (HoodIn / HoodOut).
 OVERLAP_MIN = 10  # triangles: smaller overlaps of other parts are edges touching, not a doubled part
 
 
@@ -357,8 +357,10 @@ def style_check(parts):
             k = [key(p) for p in tri]
             if len(set(k)) < 3:
                 continue
-            for a, b in ((0, 1), (1, 2), (2, 0)):
-                edges[frozenset((k[a], k[b]))] += 1
+            # Layered parts lie on others with their own rim (LIFT above them): not open body edges.
+            if not base_name(name).startswith(LAYERED):
+                for a, b in ((0, 1), (1, 2), (2, 0)):
+                    edges[frozenset((k[a], k[b]))] += 1
             corners = frozenset(k)
             other = seen.get(corners)
             if other is not None and other != name:

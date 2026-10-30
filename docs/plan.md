@@ -95,6 +95,8 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Barva laku z palety originálu vedle výběru auta (D-020)
 - [x] Noční světla tratí z originálu: záře `ef` a `flare.dat`, blikající výstražná světla, tunelová a pouliční světla (D-021, [formats/flare.md](formats/flare.md))
 - [x] Závod od startu do cíle (D-025): odpočet 3-2-1, stopky, kontrolní body, průjezd cílovou čárou, nejlepší čas; kamera při startu obletí auto
+- [x] Efekty (D-028): stopy pneumatik na silnici při smyku, prach a kousky země za koly mimo silnici v barvě terénu, jiskry při nárazu a drhnutí (`effects_test`)
+- [ ] Efekty: listí a tráva podle trati, povrch z `df` článků CRP, jiskry jen od kovových a kamenných překážek
 - [ ] Okruhy s počítáním kol (Monte Carlo, `lap` v `_road.json`), mezičasy, zvuk odpočtu
 - [ ] Rozhodnout definitivně o enginu (D-002)
 
@@ -104,7 +106,7 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
   - [x] Pořadí vrcholů dílů kreslených jen z lícové strany, vrstvené díly bez odsazení a zapuštěné (29. 10. 2026)
   - [x] Vnitřní panely víek otočené po souvislých kusech, varianty `TrunkIn1` a víko f996 (všech 44 aut bez chyby)
   - [ ] Pořadí vrcholů dalších jednostranných dílů (motor, zrcátka, interiér, zavazadlový prostor)
-  - [ ] Odsazení vrstev o 1 mm v převodníku (světla, stíny kol, obtisky), i u cílů poškození
+  - [x] Odsazení vrstev o 1 mm v převodníku (světla, stíny kol, obtisky), i u cílů poškození (30. 10. 2026, podnět: blikající zadní světla 944; zbývá 7 drobných dvojic)
   - [ ] Hloubka protnutí dílů (bez dílů, které se jen dotýkají hranou)
 - [ ] Auta: opravy jako pravidla v `crp2gltf.py` a `materials.gd` (světla a odznaky na laku, interiér / exteriér, vnitřní a vnější sklo, okna, dveře a víka), přegenerovat všech 44 aut a ověřit kontrolou a snímky za autem
 - [ ] Tratě: spáry silnice a terénu, díry, orientace ploch, objekty kolem trati u všech 15 tratí
@@ -116,8 +118,10 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [ ] Rychlý závod, mise testovacího jezdce, kariéra
 - [x] Rozbor AI originálu, srovnání s dnešními hrami a plán ([opponents.md](opponents.md), D-026)
 - [x] Soupeři B: řidič AI pro jedno auto (`Car.auto_drive` bez klávesových ramp, `scripts/ai_driver.gd`, sdílená silnice `scripts/road.gd`, stopa `.lsp`, rychlostní profil, návrat na stopu); `ai_drive_test`: 356 A farmland 5:57, 935 a 356 A dvě kola Monte Carla (stopa 1) bez resetu, doteku a smyku nad 12° (po prvním vyzkoušení ve hře doplněno brzdění podle kruhu přilnavosti a ubírání plynu v zatáčce a ve smyku) ([game/README.md](../game/README.md))
-- [ ] Soupeři C: závod se soupeři (startovní rošt, pořadí a cíl pro každé auto, pozice v HUD), měření FPS s 1 / 3 / 7 soupeři
-- [ ] Soupeři D: racecraft (předjíždění, prostor) a osobnosti z `prsonal`
+- [x] Soupeři C1: startovní rošt (3 soupeři ve hře, `--opponents=0..7`, stejné auto v jiných barvách, odpočet a restart pro všechny, odstup od auta před sebou); `grid_test` se 3 i 7 soupeři bez doteku
+- [ ] Soupeři C2: pořadí a cíl pro každé auto, pozice v HUD, výsledky; měření FPS v okně s 1 / 3 / 7 soupeři
+- [x] Soupeři D1: objetí pomalého nebo stojícího auta (posun stopy na stranu s místem, těsně, dotyk dovolen; bez místa opatrné vytlačení pod prahem poškození); `pass_test` (zaparkované, šikmé a napříč stojící auto, zastavení před kolonou)
+- [ ] Soupeři D: racecraft (předjíždění v jízdě, obrana, prostor) a osobnosti z `prsonal`
 - [ ] Soupeři E: síla AI v menu, volitelná gumička
 - [ ] Provoz, policie
 - [ ] Zvuky originálu pro všechny situace (soupeři, provoz, policie, prostředí)

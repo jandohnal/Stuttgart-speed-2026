@@ -1,6 +1,6 @@
 ---
 type: decisions
-updated: 2026-10-29
+updated: 2026-10-30
 format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), kontext a důsledky."
 ---
 
@@ -103,6 +103,7 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
 - **Důvod:** Přání uživatele (18. 10. 2026): auta bez obrácených normál a děr, tratě bez děr a se správně orientovanými polygony. Originál kreslí oboustranně a jeho pořadí vrcholů není spolehlivé (2,9 % trojúhelníků aut, 28 % terénu farmlandu). Kontrola z čísel stojí méně tokenů než prohlížení snímků.
 - **Důsledky:** Modely jsou připravené na kreslení jen předních stran (back-face culling), materiály glTF ale zatím zůstávají oboustranné. Výsledky jsou v `docs/model-check.md` a při každém novém převodu se spouští kontrola.
 - **Změna 29. 10. 2026:** Kontrola měří i pořadí vrcholů sousedních trojúhelníků u dílů, které hra kreslí jen z lícové strany (vnitřní panely víek, interiér, sklo), a vrstvené díly (světla, obtisky, kliky, stíny kol) bez odsazení od podkladu (pod 0,2 mm) nebo zapuštěné do něj (aspoň 3 rohy víc než 0,5 mm). Obojí je WARN. Podnět: kontrola 356 A v Blenderu, kde měl vnitřní panel kapoty v ohybu 32 hran s opačným pořadím, tedy díry po utržení kapoty.
+- **Změna 30. 10. 2026:** Vrstvené díly bez odsazení opravuje převodník: zvedne je 1 mm nad podklad (podnět: blikající zadní světla 944). Otevřené hrany se počítají bez vrstvených dílů, protože jejich okraj teď leží nad podkladem.
 
 ## D-017 Asistenti, zvuk a diagnostika se nastavují v menu
 - **Stav:** accepted
@@ -171,7 +172,7 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
 - **Rozhodnutí:** Na tratích se startem a cílem z `_fstart.scn` (`start`, `finish` v `_road.json`) jede hra závod od startu do cíle (`game/scripts/race_timer.gd`).
   - **Start:** odpočet 3-2-1, auto stojí na startovní čáře originálu, drží ho brzdy a sešlápnutá spojka, motor jde vytočit. Stopky běží od GO, ne od průjezdu startovní čárou.
   - **Čas:** součet kroků fyziky (pauza ho zastaví, testy jsou opakovatelné), v cíli dopočítaný na okamžik průjezdu čárou v rámci kroku. Formát m:ss.cc.
-  - **Cíl** platí jen ve směru jízdy, v šířce čáry a po průjezdu všech kontrolních bodů (řez silnice každých 50 řezů v okruhu 40 m). Návrat na silnici (R) čas nezastaví.
+  - **Cíl** platí jen ve směru jízdy, v šířce čáry a po průjezdu všech kontrolních bodů (řez silnice každých 50 řezů v okruhu 40 m). Na úsecích, které objíždí vedlejší silnice (zkratky trati), kontrolní body nejsou, jinak by zkratka znemožnila dojet do cíle. Návrat na silnici (R) čas nezastaví.
   - **Nejlepší čas** pro trať a auto v `user://records.cfg`. Backspace = závod znovu (auto na start, oprava, nový odpočet).
   - **Za cílem** se stopky zastaví, hráč auto neovládá (ani R) a auto samo brzdí podél silnice do zastavení, pak stojí na brzdách.
   - **Čáry:** cílová čára jsou dlaždice originálu (`FNSH` z `_fstart.scn`, D-009), startovní čára vlastní bílý pruh (originál ji nemá); obě jako decaly. Auto stojí 3 m za startovní čarou (trigger startu je 2,2 m před řezem, na kterém auto dřív stálo).
@@ -199,3 +200,14 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
   - **Výkon:** zjednodušený pohyb po stopě (jako originál podle `TRAFCFG`) jen jako LOD pro vzdálená auta, pokud měření FPS ukáže, že je nutný.
 - **Důvod:** Originál řídil AI regulátory polohy bez simulace pneumatik a držel ji u hráče gumičkou a kolonou ([opponents.md](opponents.md)). Dnešní závodní hry dávají AI stejnou fyziku jako hráči a sílu AI nastavitelnou otevřeně; skrytá gumička je kritizovaná. Náš jízdní model už je hotový pro libovolný počet aut.
 - **Důsledky:** Výkon fyziky v GDScriptu pro 4–8 aut se musí změřit dřív než racecraft a osobnosti. Soupeři na původní trati s původním autem spadají pod výjimku D-009 a data zůstávají jen lokálně.
+
+## D-028 Efekty kol a karoserie: stopy pneumatik, prach mimo silnici, jiskry
+- **Stav:** accepted
+- **Rozhodnutí:** Každé auto má uzel `Effects` (`scripts/car_effects.gd`), jen vestavěné prostředky Godotu (D-012):
+  - **Stopy pneumatik:** tmavý pás pod kolem na silnici (skupina `road`), když pneumatika klouže za vrcholem přilnavosti (stejný skluz jako pískání v `car_audio.gd`). Vlastní mesh v prostoru světa po kusech (48 čtyřúhelníků), každé auto drží 40 kusů, nejstarší čtvrtina postupně mizí.
+  - **Prach a kousky země:** `GPUParticles3D` za každým kolem na terénu (skupina `terrain`), síla podle rychlosti auta nebo prokluzu kola. Barva je průměr textury trojúhelníku pod kolem (paprsek kola vrací index trojúhelníku, Jolt `enable_ray_cast_face_index`), takže pole práší hnědě, tráva zeleně a sníh bíle, bez ruční tabulky povrchů.
+  - **Jiskry:** krátké světelné čárky (stopy částic, HDR barva pro glow) při nárazu nad 1 000 N·s a při drhnutí karoserie nad 4 m/s. Počet a barvy (bílá → oranžová) jsou ze systému `Sparks` (`SPRK`) v `particle.ini` originálu.
+  - **Textury částic:** prach a hroudy hlíny z balíčku *Particle Pack* od Kenney (CC0, stažený 30. 10. 2026 se souhlasem uživatele): 4 obláčky `smoke_*` a 3 shluky `dirt_*` v `game/assets/particles/kenney/` (≈ 570 kB, v gitu, s `License.txt`), každá částice dostane náhodný snímek. Stopy pneumatik a jiskry mají vlastní texturu z kódu. Bez balíčku se použijí textury generované v kódu. Textury `particle.fsh` originálu mají jen 16–64 px, `spark_*` z balíčku jsou klikaté výboje a na kovové jiskry se nehodí.
+- **Důvod:** Přání uživatele (30. 10. 2026): prach / listí / bláto / štěrk mimo silnici podle trati, jiskry při nárazu, stopy při pískání pneumatik. Silnice a terén jsou v glTF oddělené skupiny, takže povrch pod kolem je známý bez nových dat.
+- **Důsledky:** Jiskry létají při nárazu do čehokoli, i do pneumatik nebo balíků (typ materiálu překážky zatím neznáme, `animdefs.txt` má jen typ kolize). Listí a stébla trávy (`LF02`, `LF03`, `GRSS` v `particle.fsh`) a povrch podle `df` článků CRP zatím nejsou. Mimo silnici stopy nezůstávají. Na stroji vytíženém jinou prací se FPS s efekty a bez nich nelišilo (23,2 za autem v obou případech).
+

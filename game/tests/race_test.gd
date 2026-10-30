@@ -4,19 +4,30 @@ extends Node
 ## 1. Countdown: the car stays on the start line with full throttle and the engine revs freely.
 ## 2. After GO the car drives off; a jump across the fields to the finish line does not count,
 ##    nor does crossing it backwards.
-## 3. Passing every checkpoint (the car is moved from one to the next) and crossing the finish
-##    line at 30 m/s stops the clock at the moment of the crossing.
+## 3. The car is moved along the road from the start to just before the finish, taking all three
+##    of farmland's shortcuts (SHORTCUTS), and passes every checkpoint; crossing the finish line at
+##    30 m/s then stops the clock at the moment of the crossing.
 ## 4. After the finish the keys do nothing (full throttle and steering are held down): the car
 ##    brakes along the road to a stop and is held there; the clock does not change.
 ## 5. Restart (Backspace) puts the car back behind the start line with a new countdown.
 
 const COUNTDOWN := 3.0
 const CROSS_SPEED := 30.0  # m/s
+const ROUTE_STEP := 3  ## road slices the car is moved per tick along the route
+## Farmland's side roads: [main slice where it leaves, side road slices in driving order, main
+## slice where it joins again] (from the segments in farmland_road.json).
+const SHORTCUTS := [
+	[241, [Vector2i(1840, 1848), Vector2i(1808, 1839), Vector2i(1849, 1857)], 302],
+	[658, [Vector2i(1858, 1881), Vector2i(1945, 1994), Vector2i(1882, 1905)], 766],
+	[975, [Vector2i(1906, 1924), Vector2i(1672, 1807), Vector2i(1925, 1944)], 1224],
+]
 
 var main: Node3D
 var car: Car
 var race: RaceTimer
 var t := 0.0
+var route: Array[int] = []  ## slices from the start to the finish over the shortcuts
+var route_at := 0
 var step := "countdown"
 var step_t := 0.0
 var start_pos := Vector3.ZERO
@@ -77,11 +88,15 @@ func _physics_process(delta: float) -> void:
 				_expect(race.state == RaceTimer.State.RUNNING, "crossing the finish backwards does not count")
 				_next("checkpoints")
 		"checkpoints":
-			# One checkpoint per tick: put the car on it and let the timer see it.
-			if race.checkpoints_left > 0:
-				var cp: Vector3 = race._checkpoints[race._checkpoints.size() - race.checkpoints_left]
-				car.reset_to(Transform3D(car.global_basis, cp + Vector3.UP * 0.5))
+			# Along the route a few slices per tick, so the timer sees the car everywhere on it.
+			if route.is_empty():
+				route = _shortcut_route()
+			if route_at < route.size():
+				var s: Dictionary = main.road_slices[route[route_at]]
+				car.reset_to(Transform3D(car.global_basis, main._vec(s["position"]) + Vector3.UP * 0.5))
+				route_at += ROUTE_STEP
 			else:
+				_expect(race.checkpoints_left == 0, "every checkpoint passed over the shortcuts (%d left)" % race.checkpoints_left)
 				_next("finish")
 		"finish":
 			if step_t < delta * 1.5:
@@ -107,6 +122,19 @@ func _physics_process(delta: float) -> void:
 
 
 ## Car 3 m before (dir 1) or after (dir -1) the finish line, moving across it at CROSS_SPEED.
+func _shortcut_route() -> Array[int]:
+	var slices: Array[int] = []
+	var i: int = main.start_slice
+	var last := int(race._finish["slice"]) - 10
+	for cut in SHORTCUTS:
+		slices.append_array(range(i, int(cut[0])))
+		for side: Vector2i in cut[1]:
+			slices.append_array(range(side.x, side.y + 1))
+		i = int(cut[2])
+	slices.append_array(range(i, last))
+	return slices
+
+
 func _cross_finish(dir: float) -> void:
 	var finish: Dictionary = OriginalAssets.load_json("GameData/Track/farmland/farmland_road.json")["finish"]
 	var fwd := Vector3(finish["forward"][0], 0.0, finish["forward"][2]).normalized()
