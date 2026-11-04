@@ -112,6 +112,7 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
 - **Důvod:** Přání uživatele (18. 10. 2026). Nastavení patří před start jízdy, ne na obrazovku hry.
 - **Důsledky:** Testy spouštějí `main.tscn` bez menu a dostanou výchozí hodnoty, uložené nastavení hráče je neovlivní. Spojka při rozjezdu, náběh kláves a automatická převodovka zůstávají bez přepínače (D-015).
 - **Změna 19. 10. 2026:** Asistent řízení, ABS a kontrola trakce jsou ve výchozím stavu **vypnuté**, zvuk a diagnostika zůstávají zapnuté. Důvod: po převzetí brzd, účinnosti převodu a brzdění motorem z dat originálu (D-023) se auta podle uživatele chovají velmi věrně originálu i bez asistentů. Asistenti zůstávají v menu jako volba. Testy teď jezdí bez asistentů: 356 A brzdí ze 100 km/h na 60,2 m (s ABS 58,2 m) a 935 se při rozjezdu neprotáčí ani bez kontroly trakce (max. skluz 0,10, vrchol 0,12). Hráč, který má uložené nastavení v `user://settings.cfg`, si zachová svou volbu.
+- **Změna 4. 11. 2026:** Přepínač diagnostiky je zrušený. Z obrazu při jízdě zmizel původní text vlevo nahoře: údaje telemetrie (přetížení, úhel řízení, zásah kontroly trakce, plnicí tlak turba, poškození) i nápověda s ovládáním. Důvod: přání uživatele. Telemetrie zůstává v záznamu F2 do CSV, ovládání popisuje `game/README.md`. Vlevo nahoře teď je jen počet FPS, vždy viditelný a bez přepínače.
 
 ## D-018 Odrazy okolí v laku a sklech auta
 - **Stav:** accepted
@@ -231,7 +232,7 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
     - kolik přilnavosti plánuje v zatáčkách (0,84 / 0,81 / 0,77);
     - kolik brzdného zpomalení plánuje (0,86 / 0,80 / 0,74);
     - odstup za autem (0,3 / 0,5 / 0,8 s jízdy);
-    - jak brzy předjíždí pomalé auto (pod 85 / 70 / 60 % rychlosti profilu).
+    - jak ochotně předjíždí: auto před sebou musí jet pomaleji, než by on sám mohl jet v tom místě trati, aspoň o 1 / 2 / 3,5 m/s (`pass_speed_margin`, 2. 11. 2026 místo podílu rychlosti profilu).
   - **Barva:** soupeř jede vždy model hráče. Dostane barvu z palety toho modelu, která je nejbližší jeho barvě. Ve všech autech všech epoch je tak stejný (nebo nejpodobnější, jakou model má). Barvu hráče a barvy už rozdané přeskočí.
   - **Menu:** přepínač **Soupeři** (ano / ne, `GameSettings.options["opponents"]`, výchozí ano) určuje, jestli soupeři ve hře jsou.
 - **Důvod:** Přání uživatele (30. 10. 2026): poznat soupeře podle jména a barvy a každému dát jiný styl jízdy. Jména jsou vlastní, ne z originálu.
@@ -268,14 +269,42 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
   - Tik 1/30 s sedí na výšku: tříšť vodopádů propadne svých asi 90 m za dobu života, fontána na castle stoupá asi 1 m. S tikem 1/60 s stoupala fontána jako sloup kouře do 6 m.
   - Mlha `WF08` u krytého mostu na forest (řezy 1630–1634) tak fouká vodorovně mostem přes silnici.
   - **Textury:** mlha (`sstk`) má obláčky Kenney, tříšť a kapky (`WFAL`, `FOUN`, `FOU2`, `DRIP`) textury originálu z `particle.fsh`.
+  - **Pohyb mlhy:** `particle.ini` má u mlhy `WF08` a `RPD4` nulovou váhu a obláčky by letěly stálou rychlostí po přímce, což působilo nepřirozeně. Hra proto mlze přidává to, co v datech není: klesání 0,12 m/s² (`WF08` přejde silnici asi ve výšce auta a pak se usazuje), zpomalování vzduchem, turbulenci, rozptyl směru a rychlosti a rozpínání obláčků ze 70 % velikosti. Krytí je dvojnásobné proti originálu, protože se obláčky cestou rozptylují.
   - **Tekoucí voda:** materiály vodopádů (`wfw*` na forest, castle a canyon), peřejí (`rvr2`) a fontány v Monaku (`fnt1`–`fnt3`) posouvají texturu. Pravidlo je podle dvojice trať a textura, směr podle orientace UV meshe, aby voda vždy tekla dolů.
   - **Mokré auto:** auto v zóně tříště (podél dráhy zdroje, široké jako jeho částice) zmokne, `CarEffects.wet()`. Lak, chrom a sklo jsou až o 60 % méně drsné, lak a obtisky o 25 % tmavší. Auto schne asi 25 s, v jízdě rychleji.
+  - **Pilot realistického vodopádu na forest** (`game/scripts/waterfall.gd`, `game/shaders/waterfall.gdshader`), zatím jen `wfw2` a `wfw4` u krytého mostu:
+    - Shader kreslí původní mesh. Souřadnice toku je odmocnina z propadlé výšky (nezávisle na UV meshe), takže voda dolů zrychluje a pruhy se protahují. Dvě vrstvy původní textury s různou rychlostí a šum dělají pěnu, okraje jsou měkké a mezi pruhy je tenká vrstva vody. Mesh má jen 36 vrcholů, proto se vlní jen obraz, ne tvar.
+    - Částice: kapky odletující z plochy (420, vznikají v náhodných bodech trojúhelníků meshe, kreslené jako krátké pruhy), mlžný závoj v dolních 70 % výšky a cákance u paty na polohách mlhy originálu (`WF02`). Cákance běží stále, protože vodopád dopadá stále, takže sub-emitter ani kolize částic nejsou potřeba.
+    - Tříšť z dopadu: většina mlhy je voda odražená od paty (170 obláčků na každé místo dopadu), rychlost je zlomek dopadové rychlosti √(2gh) (forest 91 m: 42 m/s). Letí přes most ve směru pádu. Pomalá mlha `WF08` je jen menší část (3× počet originálu). Celkem asi 10× víc mlhy než původně.
+    - Všechny obláčky jsou 2× pomalejší jako zpomalený záběr na stejné dráze (rychlost 1/2, život 2×, gravitace a brzdění 1/4) a dorůstají do 10 m. Vzhled i množství schválil uživatel 4. 11. 2026.
+    - Zvuk: smyčka `waterfall huge` z `track.viv` u paty vodopádu.
   - **Rozvíření:** každé auto (hráč i soupeři) do 80 m od vody veze `GPUParticlesAttractorSphere3D`, který částice odfoukne. Prach, jiskry a listí od kol ho ignorují.
   - `--water=0` vodu vypne.
 - **Důvod:** Přání uživatele (30. 10. 2026): v originále auta projíždějí tříští vodopádu u mostu na forest; k tomu zmoknutí auta, rozvíření mlhy a stejné prvky na ostatních tratích.
 - **Důsledky:**
-  - **Výkon:** mlha se kreslí neosvětlená, s jasem 0,8 ve dne a 0,15 v noci. Osvětlené velké obláčky přes sebe braly u mostu 11 z 31 FPS, neosvětlené žádné (31 s vodou i bez ní). Obláčky mlhy jsou 0,6× velikosti originálu a je jich 1,5× víc.
+  - **Pilot:** při jízdě mostem skrz tříšť je FPS skoro stejné s vodou i bez ní (v mostě a za ním asi 21–32 s vodou, 23–36 bez ní, dvě jízdy s vodou a jedna bez ní). Propad v mostě tedy nezpůsobuje voda; podle uživatele souvisí se světlem.
+  - **Viditelnost:** mlha v mostě je hustá a na chvíli zakryje výhled. Kapky jsou z kamery za autem nenápadné. Zvuk jen hraje podle testu, poslechem neověřený. V mostě se netlumí. Na castle a canyon zůstává posouvaná textura, dokud se pilot neschválí.
+  - **Výkon:** mlha se kreslí neosvětlená, s jasem 0,8 ve dne a 0,15 v noci. Osvětlené velké obláčky přes sebe braly u mostu 11 z 31 FPS, neosvětlené žádné (31 s vodou i bez ní). Obláčky mlhy mají velikost originálu a je jich 1,5× víc (`WF08` 3×).
   - **Hydranty** (`HYDR`, `HYDB`, `HYDM` na castle) se zatím nezapojují, nejspíš stříkají až po nárazu.
   - **Rozvíření mlhy** je zapnuté, ale na snímcích jsem ho zvlášť neověřoval.
   - **Mokrý lak** je na bílém autě vidět málo.
   - **Mimochodem opravené:** reset auta hledá zem od 3,5 m nad řezem (dřív 2 m). Podlaha nádvoří na castle je 2,5 m nad řezem a auto tam propadalo.
+
+
+## D-034 Karty rostlin a paprsky světla v terénu nemají kolizi
+- **Stav:** accepted
+- **Rozhodnutí:** `tools/track2gltf.py` oddělí z článků skupin `terrain` a `objects` díly s texturou ze seznamu `PLANT_TEXTURES` (keře, karty stromů, tráva, kapradí, mech, větve, koruny `cbb`, sluneční paprsky `bem2`) do uzlu `<článek> plants` ve skupině `drivethrough`, která kolizi nemá (D-031). Stíny (příznak `Base` 0x0040: `Shadow#`, `Ltreeshade#`, textura `sh80`) jdou do skupiny `shadows`, také bez kolize. Skutečné kmeny (`brk1`), ploty, svodidla a zdi zůstávají pevné.
+- **Důvod:** Hlášení uživatele (canyon, 4. 11. 2026): auto narazí do neviditelné stěny. Karty mají trojúhelníky přes 15–60 m a jejich průhledná část stojí ve výšce auta až 4,5 m od osy silnice (canyon řez 249, `CNK0248L (1 CLIFFDROP2DEEP_SECONDARY)`, `shrb`), na forest paprsek `BEAM05` 1,5 m od osy. Trimesh kolize alfu nezná. Před opravou tam auto narazilo se změnou rychlosti 50 km/h, po opravě projede (`card_test`). Stíny jako příčina vyloučené (leží na zemi, s jejich kolizí auto projelo), kolizi nemají, protože jsou to jen obtisky.
+- **Důsledky:** Stromy nakreslené na kartách (`evrc`, `oakg`, pravá půlka atlasu `shrb`) nezastaví, i když je kmen vidět; karta neodliší kmen od průhledné části. Seznam je ruční, patří do něj textury podle vzhledu. Zbývají průhledné plochy plotů a svodidel (`bar1`, `bar2`, `cem3`, `fe01`, `abgr`), které jsou v kolizi celé, a je to správně, protože plot je vidět. Originál přes Wine neověřen.
+
+## D-035 Gumička: soupeři zůstávají poblíž hráče, s výjimkou ze stejné fyziky
+- **Stav:** accepted
+- **Rozhodnutí:** Přepínač RUBBER BAND v menu, výchozí zapnutý (`GameSettings.options["rubber_band"]`, `--rubber=0|1`, v testech vypnutý). Mění z D-026 výchozí vypnutou gumičku. Každý soupeř má `effort` od −1 do +1 podle svého časového rozdílu proti hráči (`scripts/race_rubber_band.gd`):
+  - **Do 2 s od hráče** je effort 0 a rozhoduje styl řidiče. Plný effort je při rozdílu 5 s. Effort roste o 0,05 za sekundu a klesá o 0,02 za sekundu, aby soupeř nezačal nečekaně brzdit nebo zrychlovat.
+  - **Soupeř za hráčem:** násobič profilu `pace` až na limit přilnavosti (`√(0,90 / grip_use)`: Wendt ~1,035, Duval ~1,05, Bellini ~1,08) a výkon motoru až +10 %.
+  - **Soupeř před hráčem:** `pace` až 0,75 a plyn až 50 %. Strop rychlosti z plánu se nepoužil, protože auta nejvyšší rychlost většinou nedosáhnou.
+  - **Mezi soupeři:** soupeř nezačne předjíždět auto, které čeká na hráče (`pace` pod 1).
+  - Gumička končí v cíli soupeře a v cíli hráče.
+- **Důvod:** Přání uživatele (4. 11. 2026): rychlého hráče mají soupeři dojet, pomalý hráč je má moci dojet. Tabulku `glue.json` (×1,25 až ×0,82 na ±600 m) nejde převzít: originál jel po stopě bez plné fyziky, u nás by to znamenalo nehodu. Násobič profilu `k` odpovídá `grip_use × k²` a `brake_use × k²`, takže se profil nemusí přepočítávat. Časový rozdíl platí stejně pro pomalá i rychlá auta.
+- **Důsledky:** Výkon +10 % je jediná výjimka ze stejné fyziky a uživatel ji schválil: stejné auto by jinak na rovince hráče dohnat nemohlo. Hráč s velkým náskokem může přesto ujet, soupeř nad limit přilnavosti nejede. Na havarovaného hráče soupeři nečekají, jen pojedou nejnižším tempem. Čekající skupina se nepředjíždí, takže se pořadí soupeřů mění méně než bez gumičky.
+

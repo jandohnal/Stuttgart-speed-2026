@@ -75,12 +75,13 @@ Kroky jsou v [plan.md](plan.md) (fáze 1 data, fáze 4 soupeři).
 **D. Racecraft a osobnosti**
 - Hotovo 30. 10. 2026: objetí pomalého nebo stojícího auta (hráč zastaví před soupeřem). Soupeř posune stopu na stranu s místem, objíždí těsně a smí se dotknout; bez místa auto opatrně vytlačí (o 1,5 m/s rychleji, pod prahem poškození). Podle přání hráče má být soupeř spíš agresivní, ale s ohledem na poškození. Po vyzkoušení ve hře (soupeři za stojícím hráčem zastavili nebo objížděli pozdě) se počítá velikost aut podle natočení, objíždí se po vlastní straně a začne se hned, když pomalé auto soupeře zdržuje.
 - Hotovo 30. 10. 2026: 3 stálí soupeři s profilem (D-029), tedy jménem, jízdním stylem (podíl přilnavosti a brzd, odstup, ochota předjíždět) a barvou, která zůstává stejná napříč auty. Osobnosti z `prsonal` je později můžou nahradit nebo doplnit.
+- Hotovo 2. 11. 2026: předjíždění v jízdě. Soupeř předjede auto, které v tom místě jede pomaleji, než by mohl on sám (vlastní profil na posunuté stopě, rezerva podle profilu). Místo vedle auta musí vystačit až za něj, jinak zůstane za ním. Ke stojícímu autu do havárie nepředjíždí. Auto před sebou měří po silnici.
 - Výhled na auta před sebou podle řezů, posun stopy při předjíždění (druhá stopa `.lsp`), nebrzdit „do auta“, ponechat prostor.
 - Vlastnosti `prsonal.json` → parametry: dovednost a zatáčky → podíl profilové rychlosti a přesnost stopy; brzdění → rezerva brzdného bodu; kličkování → šum ve stopě; blokování a agresivita → bránění a kontakt; četnost chyb → občasné přebrzdění nebo smyk.
 
 **E. Obtížnost**
 - Síla AI ve stupních podle `tuning.json` + rozptyl osobností podle `SPREAD`, volba v menu (jako D-017).
-- Gumička z `glue.json` jako volitelná položka, výchozí vypnutá; rozhodnout po hraní.
+- Gumička: hotovo 4. 11. 2026 (D-035), přepínač v menu, výchozí zapnutý. Místo tabulky `glue.json` řídí tempo časový rozdíl proti hráči, viz kap. 7.
 
 **F. Později**
 Reakce ze `SCRIPTS`, provoz (TRAFCFG, `.edg`, `.jnc`), policie (`Cops/*.cop`, `hhglue`), postavy a dialogy přes LLM ([IDEA-002](../ideas/llm-opponent-personas.md)), posilované učení (Godot RL Agents).
@@ -103,7 +104,7 @@ Tady se mění povaha a vzhled soupeřů.
 
 | Co | Kde |
 | --- | --- |
-| Tři profily: `name`, `style` (popis), `color`, `grip_use`, `brake_use`, `follow_time`, `pass_slow` | `PROFILES` |
+| Tři profily: `name`, `style` (popis), `color`, `grip_use`, `brake_use`, `follow_time`, `pass_speed_margin` | `PROFILES` |
 | Pořadí profilů na roštu, opakování s číslem při více soupeřích | `profile()` |
 | Předání stylu řidiči (před `AIDriver.setup`, které staví rychlostní profil) | `apply()` |
 | Nejbližší barva z palety modelu (bez barvy hráče a už rozdaných) | `nearest_color()` |
@@ -116,16 +117,17 @@ Nastavitelné u každého řidiče (`@export var`). První čtyři přepisuje pr
 | `grip_use` | 0,8 | podíl přilnavosti plánovaný v zatáčkách (rychlost v zatáčce) |
 | `brake_use` | 0,8 | podíl brzdného zpomalení (jak pozdě brzdí) |
 | `follow_time` | 0,5 s | odstup za autem před sebou navíc k `FOLLOW_GAP` |
-| `pass_slow` | 0,7 | pod jaký podíl rychlosti profilu musí auto před ním zpomalit, aby ho objel |
+| `pass_speed_margin` | 2 m/s | o kolik musí auto před ním jet pomaleji, než by on sám mohl jet v tom místě trati (jeho profil na posunuté stopě), aby se ho pokusil předjet; menší = dravější |
 | `speed_gain`, `brake_gain` | 0,5 / 0,35 | jak ostře reaguje plynem a brzdou |
 | `steer_gain`, `yaw_gain`, `yaw_integral_gain` | 1 / 2 / 1,5 | řízení: pure pursuit a dorovnání stáčení |
 
 Konstanty společné všem řidičům:
-- výhled řízení: `LOOK_TIME`, `MIN_LOOK`, `MAX_LOOK`;
+- výhled řízení: `LOOK_TIME`, při předjíždění `PASS_LOOK_TIME`, `MIN_LOOK`, `MAX_LOOK`;
 - reakce pedálů: `REACTION`, `MIN_REACTION`, `MIN_BRAKE_SHARE`;
 - smyk: `SLIDE_LIFT_DEG`, `SLIDE_OFF_DEG`;
 - kolona: `FOLLOW_GAP`, `FOLLOW_GAIN`, `FOLLOW_RANGE`, `FOLLOW_WIDTH`, `FOLLOW_SPREAD`;
-- objíždění: `PASS_MARGIN`, `PASS_RANGE`, `PASS_TIME`, `PASS_DIFF`, `PASS_RATE`, `PASS_CRAWL`, `EDGE_MARGIN`;
+- předjíždění: `PASS_MARGIN` (vedle stojícího auta), `PASS_MARGIN_MOVING` (vedle jedoucího), `PASS_RANGE`, `PASS_TIME`, `PASS_DIFF`, `PASS_AHEAD` (jak daleko za autem musí vystačit místo), `PASS_RATE`, `PASS_CRAWL`, `EDGE_MARGIN`, `MIN_OFFSET_FACTOR` (zpomalení na posunuté stopě uvnitř zatáčky);
+- auta před sebou: `OTHER_WINDOW`, `OTHER_OFF_LINE` (auto na jiné části trati se nepočítá);
 - vytlačení pod prahem poškození: `PUSH_SPEED`;
 - reset: `STUCK_SPEED`, `STUCK_TIME`, `OFF_ROAD`, `OFF_ROAD_TIME`, `UPSIDE_TIME`.
 
@@ -138,7 +140,9 @@ Logika:
 | Volant | `_steer()` |
 | Plyn a brzda | `_pedals()` |
 | Odstup za autem | `_follow_limit()` |
-| Objíždění a vytlačení | `_plan_pass()`, `_pass_side()`, `_edges()` |
+| Předjíždění a vytlačení: kdy (rychlost auta proti vlastnímu profilu), kde (místo `_room()`), na kterou stranu | `_plan_pass()`, `_pass_side()`, `_room()`, `_edges()` |
+| Rychlost na posunuté stopě | `_offset_factor()` |
+| Auto před sebou po silnici (vzdálenost a rychlost, ne vzdušnou čarou) | `_slice_ahead_of()`, `_along_road()` |
 
 ### Počet, rošt a cíl – `scripts/main.gd`
 
@@ -157,9 +161,20 @@ Logika:
 | Kolik řezů trasy může soupeři chybět, aby mu průjezd čárou platil | `FINISH_MARGIN` |
 | Odhadnutý čas soupeřů za hráčem, když hráč dojede | `_on_player_finished()` |
 
+### Gumička – `scripts/race_rubber_band.gd` (D-035)
+
+| Co | Kde |
+| --- | --- |
+| Pásmo bez zásahu a rozdíl s plným efektem (2 s, 5 s) | `DEAD_GAP`, `FULL_GAP` |
+| Rychlost změny efektu | `EFFORT_RATE`, `FADE_RATE` |
+| Limit přilnavosti a výkon soupeře za hráčem | `MAX_GRIP_USE`, `MAX_POWER` |
+| Nejnižší tempo a plyn soupeře před hráčem | `MIN_PACE`, `MIN_THROTTLE` |
+| Výpočet efektu z rozdílu | `next_effort()` |
+| Co efekt mění: `AIDriver.pace`, `AIDriver.throttle_share`, `Car.power_scale` | `_apply()` |
+
 ### Menu
-- `scripts/game_settings.gd`: výchozí hodnota přepínače, `"opponents": true` v `DEFAULT_OPTIONS`.
-- `scripts/menu.gd`: popisek „Soupeři“ v `OPTION_LABELS`.
+- `scripts/game_settings.gd`: výchozí hodnoty přepínačů, `"opponents"` a `"rubber_band"` v `DEFAULT_OPTIONS`.
+- `scripts/menu.gd`: popisky OPPONENTS a RUBBER BAND v `OPTION_LABELS`.
 
 ### Data
 - Stopy: `decomposed/GameData/Track/<trať>/<trať>_ai.json`. Vyrábí je `tools/ai_lines.py` z `.lsp` originálu.

@@ -78,15 +78,28 @@ func _physics_process(delta: float) -> void:
 		if (k + 1 < player_place and gap > 0.01) or (k + 1 > player_place and gap < -0.01):
 			sign_errors += 1
 	if t >= next_report:
-		next_report += REPORT_EVERY
+		var every: float = main._user_arg("report").to_float()
+		next_report += every if every > 0.0 else REPORT_EVERY
 		var row := PackedStringArray()
 		for e: RaceStandings.Entry in order:
-			row.append("%s %+.2f" % [e.name, standings.gap_to_player(e)] if e != standings.entries[0] else "You")
+			var d := e.car.get_node_or_null("AIDriver") as AIDriver
+			var state := ""
+			if d != null and main._user_arg("report") != "":
+				state = " [%.0f m/s, off %+.1f, f %s, p %s, dmg %.3f]" % [e.car.linear_velocity.length(), d.pass_offset,
+					_short(d.following), _short(d.passing), e.car.damage.total() if e.car.damage != null else 0.0]
+			row.append(("%s %+.2f" % [e.name, standings.gap_to_player(e)] if e != standings.entries[0] else "You") + state)
 		print("  %4.0f s P%d/%d: %s" % [t, player_place, order.size(), ", ".join(row)])
 	var done: bool = main.race.state == RaceTimer.State.FINISHED and crossed.size() == main.opponents.size() \
 		and crossed.values().all(func(c: Array) -> bool: return t - float(c[0]) >= STOP_TIME)
 	if done or t >= TIME_LIMIT:
 		_report()
+
+
+func _short(c: Car) -> String:
+	if c == null:
+		return "-"
+	var e := _entry(c)
+	return e.name.get_slice(" ", 0) if e != null else str(c.name)
 
 
 func _report() -> void:
@@ -98,6 +111,8 @@ func _report() -> void:
 		print("  %d. %-11s %s%s  %+.2f  progress %d/%d%s" % [k + 1, e.name, "~" if e.estimated else " ",
 			RaceTimer.format_time(e.finish_time) if e.finish_time >= 0.0 else "  racing", standings.gap_to_player(e),
 			e.progress, standings.route.size() * main.race.laps, ", stands" if e.car.held or e.car.linear_velocity.length() < 0.5 else ""])
+		var d := e.car.get_node_or_null("AIDriver") as AIDriver
+		print("     damage %.3f, resets %d %s" % [e.car.damage.total() if e.car.damage != null else 0.0, d.resets if d != null else 0, d.reset_reason if d != null else ""])
 	_expect(standings.all_finished(), "every car finished")
 	_expect(order_errors == 0, "order follows progress (%d ticks wrong)" % order_errors)
 	_expect(sign_errors == 0, "gaps negative ahead of the player, positive behind (%d wrong)" % sign_errors)

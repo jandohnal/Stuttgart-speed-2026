@@ -5,6 +5,7 @@ extends Node
 ##   godot --path game res://tests/water_test.tscn -- --shot=<folder>   (window: saves screenshots)
 ##   --emitter=<n>: stand still FACING slices before the n-th water emitter (fountains, other falls).
 ##   --at=<slice>: stand still on that slice (forest 1616: the waterfall in view).
+##   --look=x,y,z,tx,ty,tz: own camera at that point looking at the other (the foot of a fall).
 ##   --wet: keep the car soaked (to compare its look with a dry one).
 ## Forest by default: from slice START drive along the road through the spray of the waterfall by
 ## the bridge (slices 1630-1634) and on, printing wetness and the emitters running.
@@ -30,6 +31,8 @@ var dry_by := -1.0  ## s when it fell below 0.1 after that
 var max_active := 0
 var standing := false
 var soaked := false
+var look := PackedFloat64Array()
+var eye: Camera3D
 var shot_dir := ""
 var shot := 0
 var shot_times: Array = SHOT_TIMES
@@ -47,6 +50,8 @@ func _ready() -> void:
 			shot_dir = arg.trim_prefix("--shot=")
 		elif arg.begins_with("--emitter="):
 			emitter = arg.trim_prefix("--emitter=").to_int()
+		elif arg.begins_with("--look="):
+			look = arg.trim_prefix("--look=").split_floats(",")
 		elif arg == "--wet":
 			soaked = true
 		elif arg.begins_with("--at="):
@@ -107,20 +112,33 @@ func _physics_process(delta: float) -> void:
 	if int(t) != last_print:
 		last_print = int(t)
 		fps.append(Engine.get_frames_per_second())
-		print("t=%2d %5.0f km/h  slice %4d  wet %.2f  water %s" % [last_print, car.forward_speed * 3.6,
-			main.road.nearest(car.global_position), wet, c])
+		print("t=%2d %5.0f km/h  slice %4d  wet %.2f  %3d FPS  water %s" % [last_print, car.forward_speed * 3.6,
+			main.road.nearest(car.global_position), wet, Engine.get_frames_per_second(), c])
 	if t >= (STANDING_DURATION if standing else DURATION):
 		var ok: bool = water != null and int(c.get("emitters", 0)) > 0 and max_active > 0
 		if not standing:
 			ok = ok and int(c.get("flowing", 0)) > 0 and max_wet > 0.5 and (dry_by > 0.0 or wet < max_wet)
+			ok = ok and bool(c.get("waterfall_sound", false))  # forest: the Waterfall pilot
 		print("WATER: %s, active at most %d, wettest %.2f at %.1f s, dry (<0.1) at %.1f s, now %.2f" % [
 			c, max_active, max_wet, wet_at, dry_by, wet])
-		print("FPS %.1f" % Engine.get_frames_per_second())
+		var settled: Array = fps.slice(2)  # the first seconds still load
+		var total := 0.0
+		for f: float in settled:
+			total += f
+		print("FPS %.1f average, %.1f lowest" % [total / maxf(settled.size(), 1.0), settled.min() if not settled.is_empty() else 0.0])
 		print("RESULT: %s" % ("OK" if ok else "FAIL"))
 		get_tree().quit(0 if ok else 1)
 
 
 func _process(_delta: float) -> void:
+	if look.size() == 6:
+		if eye == null:
+			eye = Camera3D.new()
+			eye.fov = 60.0
+			add_child(eye)
+		eye.current = true  # the follow camera takes it back while it settles
+		eye.global_position = Vector3(look[0], look[1], look[2])
+		eye.look_at(Vector3(look[3], look[4], look[5]))
 	if shot_dir.is_empty() or shot >= shot_times.size() or t < shot_times[shot]:
 		return
 	var path := shot_dir.path_join("water_%d.png" % shot)

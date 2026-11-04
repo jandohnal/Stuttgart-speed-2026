@@ -70,6 +70,7 @@ Polohy a směry zdrojů jsou v `<trať>_lights.json` (`emitters`, s článkem). 
   - castle: `wfw1`, `wfw2`, `wfw4`,
   - canyon: `wfw2`, `wfw4`,
   - monaco1–4: `fnt1`–`fnt3`.
+- **Vodopád s vlastním shaderem:** forest `wfw2`, `wfw4` (`Waterfall`, D-033): tok podle propadlé výšky, kapky, závoj, cákance a zvuk. Ostatní vodopády zatím jen posouvají texturu.
 - **Báze zdroje:** zdroj má v `ef` dva řádky báze. První (`direction`) leží v rovině plochy, ze které částice vznikají. Druhý (`up`) je směr, kterým částice letí: u vodopádů ven přes hranu a dolů, u mlhy `WF08` vodorovně, u fontán nahoru. `tools/emitters.py` je zapisuje do `<trať>_emitters.json`.
 - **Prohlídka míst:** `--slice=` spustí hru bez závodu. Auto stojí asi 30 m před zdrojem.
 
@@ -85,6 +86,29 @@ Polohy a směry zdrojů jsou v `<trať>_lights.json` (`emitters`, s článkem). 
 ```
 ~/Downloads/Godot.app/Contents/MacOS/Godot --path game res://scenes/main.tscn -- --track=forest --slice=1616
 ```
+
+## Co v originále teklo
+
+Metoda materiálu v názvu (`wfw2 (UVAnimate)`) říká, které textury originál posouval:
+
+| Metoda | Textury a tratě |
+| --- | --- |
+| `UVAnimate` | `wfw1` (castle), `wfw2`, `wfw4` (castle, forest), `wtr1` (monaco1–5), `wtr3` (canyon, coastal), `muck`, `tred` (industrial) |
+| `FA_UVAnim` | `rvr2` (forest), `wfw2`, `wfw4` (canyon) |
+| `FA_UVAnMatState` | `stl5` (industrial) |
+| `S_UVAnimate` | `sh80` (canyon, stín) |
+
+Fontána `fnt*` a `rvr1` mezi nimi nejsou: originál je neposouval, `FLOWING` u `fnt*` je náš doplněk. Hladiny `wtr1` a `wtr3` originál posouval a zatím stojí.
+
+## Zvuky vody (`track.viv`)
+
+Banky okolí jsou převedené v `decomposed/GameData/Sounds/track/` (`tools/snd2wav.py`, [bnk.md](formats/bnk.md)), každá se smyčkou:
+
+- Vodopády: `waterfall huge`, `dense`, `med`, `med thick`, `med thin`, `small splatty` (u prvních dvou i varianta `hp`).
+- Řeky a potoky: `river 01`–`03`, `riverdistant`, `riverrumble2`, `rivertown`, `stream loop1`, `stream loop2`, `bridgestream1`–`3`, `cavestreamlp`.
+- Hladiny a kapky: `waterlapping1`–`5`, `wateratshore`, `lapping water`, `waterdripmetal*`.
+
+Hra zatím používá jen `waterfall huge`. Kam originál zvuky rozmisťuje, nevím. Banky `streambig`, `streamsmall` (a dalších 115) a `zzzwzzz/rain` jsou prázdné, zvuk deště v nich není.
 
 ## Možnosti Godotu (D-012: jen vestavěné prostředky)
 

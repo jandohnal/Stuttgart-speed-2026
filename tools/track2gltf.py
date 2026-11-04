@@ -33,6 +33,12 @@ GROUPS = [
     ("terrain", r"^(CNK|MESH|FARM|HILL|TOPOF|SECONDARY|CLIF)|.*SECONDARY"),  # WOBJ (1 FHILL..._SECONDARY), DIRTROAD01_SECONDARY
 ]
 PLACED_MIN_DISTANCE = 50.0  # m
+# Alpha cards of plants and light beams baked into terrain and object articles: bushes, tree cards,
+# grass, ferns, moss, branches, tree tops (cbb), sun beams (bem2). A card's triangles run to 60 m and
+# their clear part stands at the road (canyon slice 249: 4.5 m from its centre), so as collision they
+# are invisible walls. Real trunks (brk1), fences and barriers have their own textures and stay solid.
+PLANT_TEXTURES = {"shrb", "nbsh", "bsha", "bshb", "evra", "evrc", "evrs", "fhb1", "fhb2", "fhb3", "graz", "alfl",
+                  "fern", "moss", "trl3", "cbb1", "cbb2", "cbb3", "cbb4", "oakg", "bem2", "deca", "decb", "decc"}
 BASE_SHADOW = 0x0040  # Base flag of the shadow decals (Shadow#, Ltreeshade#: texture sh80, method S_*); no collision
 SIMD_SIZE = 80
 SEGMENT_LINK = 20.0  # m; a segment continues into the one that starts this close to its end (same direction)
@@ -288,6 +294,7 @@ def convert(src, out_path, level=0, library=False):
     drive_tags = {tag for tag, info in animdefs.items() if info["drivethrough"]}
     inherited = model_tags(d, arts)
     drivethrough = []
+    plant_parts = 0
     out_dir = os.path.dirname(os.path.abspath(out_path))
     os.makedirs(out_dir, exist_ok=True)
     stem = os.path.splitext(os.path.basename(out_path))[0]
@@ -380,6 +387,14 @@ def convert(src, out_path, level=0, library=False):
             width = max(xs) - min(xs) if xs else 1.0
             offset = (lib_x - min(xs, default=0.0), 0.0, -60.0)
             lib_x += width + 2.0
+        if group in ("terrain", "objects"):
+            cards = {k: v for k, v in prims.items() if mat_info.get(k, ("", ""))[0] in PLANT_TEXTURES}
+            if cards:
+                nodes.append({"name": name + " plants", "offset": offset, "prims": cards, "group": "drivethrough"})
+                plant_parts += 1
+                prims = {k: v for k, v in prims.items() if k not in cards}
+                if not prims:
+                    continue
         nodes.append({"name": name, "offset": offset, "prims": prims, "group": group})
 
     slices = road_slices(d, misc)
@@ -417,8 +432,9 @@ def convert(src, out_path, level=0, library=False):
                    "fields": "node = glTF node in group props; tag from Base 0x44 (tag_from_model: an untagged "
                              "copy takes the tag of its library model); collide (smackable | box | cylinder | none "
                              "| static), mass kg and drivethrough from animdefs.txt; drivethrough = parts in the "
-                             "glTF group drivethrough (bushes), no collision",
-                   "objects": props, "drivethrough": drivethrough}, fh, indent=1)
+                             "glTF group drivethrough (bushes), no collision; plant_parts = articles whose plant "
+                             "cards (PLANT_TEXTURES) moved to that group as <name> plants",
+                   "objects": props, "drivethrough": drivethrough, "plant_parts": plant_parts}, fh, indent=1)
 
     with open(os.path.join(out_dir, stem + "_lights.json"), "w") as fh:
         json.dump({"source": os.path.basename(src),

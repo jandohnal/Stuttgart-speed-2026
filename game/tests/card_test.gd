@@ -1,10 +1,12 @@
 extends Node
-## Temporary probe: drives at the triangles of given textures in the solid groups near the road.
-##   godot --headless --path game res://tests/bush_probe.tscn -- --track=coastal --textures=shrb,fhb1
+## Headless test against invisible walls: plant cards baked into terrain articles (PLANT_TEXTURES in
+## tools/track2gltf.py) must not collide. Their clear part stands at the road.
+##   godot --headless --path game res://tests/card_test.tscn [-- --track=forest --targets=x,y,z;x,y,z]
+## Drives from the road at each point where a card's clear part was at car height and must get past it
+## without an impact from the damage threshold up. Default: canyon, the first is the spot of the bug.
 
+const DEFAULT_TARGETS := "300.7,137.1,-1138.9;384.6,171.7,-477.2;538.9,151.7,-632.1;1496.0,55.7,-1479.1;1556.3,57.1,-1576.5"
 const RUN_UP := 25.0
-const MAX_ROAD := 16.0
-const MAX_TARGETS := 10
 
 var main: Node3D
 var car: Car
@@ -18,6 +20,7 @@ var hits: Array[String] = []
 var entry := -1.0
 var minv := INF
 var touched := {}
+var failed := false
 
 
 func _arg(key: String, default: String) -> String:
@@ -29,7 +32,7 @@ func _arg(key: String, default: String) -> String:
 
 func _ready() -> void:
 	main = preload("res://scenes/main.tscn").instantiate() as Node3D
-	main.track_name = _arg("track", "coastal")
+	main.track_name = _arg("track", "canyon")
 	add_child(main)
 	car = main.get_node("Car") as Car
 	car.digital_input = false
@@ -37,12 +40,13 @@ func _ready() -> void:
 	car.max_contacts_reported = 8
 	car.damage.impacted.connect(func(kmh: float, _p: Vector3, _i: float) -> void:
 		if index >= 0 and Vector2(car.global_position.x - target.x, car.global_position.z - target.z).length() < 5.0:
-			hits.append("%.0f (dv %.0f)" % [kmh, car.damage.last_impact_dv]))
-	for item in _arg("targets", "").split(";", false):
+			if car.damage.last_impact_dv >= car.damage.threshold_kmh:
+				hits.append("%.0f (dv %.0f) at %s" % [kmh, car.damage.last_impact_dv, car.to_global(_p).snapped(Vector3.ONE * 0.1)]))
+	for item in _arg("targets", DEFAULT_TARGETS).split(";", false):
 		var xyz := item.split(",")
 		targets.append(Vector3(float(xyz[0]), float(xyz[1]), float(xyz[2])))
 		labels.append(item)
-	print("PROBE %s: %d targets" % [main.track_name, targets.size()])
+	print("CARD TEST %s: %d targets" % [main.track_name, targets.size()])
 	_next()
 
 
@@ -69,7 +73,8 @@ func _next() -> void:
 	car.repair()
 	if index >= targets.size():
 		Input.action_release("accelerate")
-		get_tree().quit()
+		print("CARD TEST %s" % ("FAILED" if failed else "OK"))
+		get_tree().quit(1 if failed else 0)
 		return
 	target = targets[index]
 	var sl: Dictionary = main.road_slices[_nearest_slice(target)]
@@ -107,6 +112,8 @@ func _physics_process(delta: float) -> void:
 		if not path.contains("/road/"):
 			touched[path.get_slice("/", path.get_slice_count("/") - 2) + "/" + path.get_slice("/", path.get_slice_count("/") - 1)] = true
 	if t > 5.0 or (closest < 1.0 and flat > 6.0):
-		print("  %s: closest %.1f m, entry %.0f, min %.0f km/h, impacts %s, damage %.2f, touched %s" % [
-			labels[index], closest, entry, minv, hits, Array(car.damage.zone_damage).max(), touched.keys()])
+		var ok := hits.is_empty() and closest < 1.5
+		failed = failed or not ok
+		print("  %s %s: closest %.1f m, entry %.0f, min %.0f km/h, impacts %s, damage %.2f, touched %s" % [
+			"ok  " if ok else "FAIL", labels[index], closest, entry, minv, hits, Array(car.damage.zone_damage).max(), touched.keys()])
 		_next()

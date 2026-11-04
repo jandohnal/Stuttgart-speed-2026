@@ -147,6 +147,7 @@ var mu := 1.0  ## tyre friction coefficient at static load
 var peak_slip_angle := 0.12  ## rad, from the tyre aspect ratio (taller sidewall = larger)
 var engine_inertia := 0.09  ## kg m2; not in the .sim data (0x058 is the drivetrain efficiency)
 var torque_peak := 100.0
+var power_scale := 1.0  ## engine torque factor; only an opponent catching up the player has more (RaceRubberBand)
 var damage: CarDamage  ## null until setup_damage()
 var _model: Node3D
 
@@ -791,7 +792,7 @@ func _shift(to: int) -> void:
 func _engine_torque() -> float:
 	if rpm >= redline:
 		return 0.0  # rev limiter
-	return _torque_at(rpm) * engine_health() * boost_factor()
+	return _torque_at(rpm) * engine_health() * boost_factor() * power_scale
 
 
 ## Boost the turbo would build at this engine speed with full throttle (the .sim curve's state).

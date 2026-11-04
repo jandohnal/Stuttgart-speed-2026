@@ -13,6 +13,7 @@ extends Node3D
 ##   (CarEffects.wet); a moving car near the water carries an attractor that pushes the particles away.
 
 const CarEffects := preload("res://scripts/car_effects.gd")
+const Waterfall := preload("res://scripts/waterfall.gd")
 
 const PARTICLES := "GameData/Render/particles.json"
 const PARTICLE_DIR := "GameData/Render/particle"
@@ -24,7 +25,7 @@ const MIST_TEXTURES := ["sstk"]  ## drawn with the Kenney puffs (the original's 
 ## where it grows downwards (castle wfw1 and wfw2, the rapids, the casino fountain), so the water
 ## always runs down.
 const FLOWING := {
-	"forest": {"wfw2": 0.6, "wfw4": 0.45, "rvr2": -0.25},
+	"forest": {"rvr2": -0.25},
 	"castle": {"wfw1": -0.6, "wfw2": -0.6, "wfw4": 0.45},
 	"canyon": {"wfw2": 0.6, "wfw4": 0.45},
 	"monaco1": {"fnt1": -1.0, "fnt2": -1.0, "fnt3": -1.0},
@@ -33,16 +34,30 @@ const FLOWING := {
 	"monaco4": {"fnt1": -1.0, "fnt2": -1.0, "fnt3": -1.0},
 }
 
+## Track -> materials of a waterfall drawn by Waterfall (flow shader, droplets, splash, sound)
+## instead of a scrolling texture.
+const WATERFALLS := {"forest": ["wfw2", "wfw4"]}
+const FOOT_MIST := ["WF02", "WF06"]  ## the original's mist where a fall lands: the feet of a Waterfall
+
 const TICK := 1.0 / 30.0  ## s, unit of particle.ini speeds and lifetimes (fits: a fall's spray drops its 90 m height in its lifetime, the castle fountain rises about 1 m)
 const COUNT_SCALE := 2.0  ## times the original's count (spray)
-const MIST_COUNT_SCALE := 1.5  ## mist puffs: each layer near the camera costs a full-screen fill,
-const MIST_SIZE_SCALE := 0.6  ## so they are smaller and a few more (half the area: the bridge mist cost 13 of 31 FPS)
+const MIST_COUNT_SCALE := 1.5  ## mist puffs, a few more than the original's
+const MIST_COUNT_BY_TAG := {"WF08": 3.0}  ## the slow share of the spray over the forest bridge (the rest: Waterfall's blast)
+const MIST_SIZE_SCALE := 1.0  ## as the original (10 m): unlit they are affordable
+const MIST_SLOW := 2.0  ## slow motion on the same path: 1/x the speed, x times the life, 1/x² the gravity and drag
 const ACTIVE_RANGE := 350.0  ## m from the camera an emitter runs
 const MIST_FADE := 1.5  ## m of soft edge where a puff meets the ground or a car
 const WET_REACH := 40.0  ## m of an emitter's throw that wets a car at most
 ## Mist is drawn unlit (lighting the big overlapping puffs cost 11 of 31 FPS by the forest bridge),
 ## at this brightness of its colour by day and by night.
 const MIST_LIGHT := {"day": 0.8, "night": 0.15}
+## What particle.ini leaves out of the mist (weight 0 flew in a straight line at a steady speed):
+const MIST_SINK := 0.12  ## m/s² down when the system has no weight: WF08 crosses the road at about car height, then settles
+const MIST_DRAG := 0.25  ## m/s² of slowing in the air
+const MIST_SPEED_SPREAD := 0.35  ## share of the speed each puff differs by
+const MIST_MIN_SPREAD := 22.0  ## degrees
+const MIST_OPACITY := 2.0  ## times the original's alpha: the puffs spread out on the way
+const MIST_GROWTH := 0.7  ## share of its full size a puff starts at when the system keeps its size
 const STIR_RADIUS := 3.5  ## m
 const STIR_STRENGTH := 40.0  ## attractor strength at STIR_FULL
 const STIR_FULL := 20.0  ## m/s
@@ -56,6 +71,7 @@ var _cars: Array[Car] = []
 var _stirs := {}  ## car -> GPUParticlesAttractorSphere3D
 var _textures := {}
 var _mist_light := 0.8
+var _waterfall: Node3D
 
 
 func setup(track_name: String, track: Node3D, cars: Array[Car]) -> void:
@@ -74,6 +90,19 @@ func setup(track_name: String, track: Node3D, cars: Array[Car]) -> void:
 			if systems.has(e["id"]):
 				_add_emitter(e, systems[e["id"]])
 	_find_flowing(track, FLOWING.get(track_name, {}))
+	if WATERFALLS.has(track_name) and track != null and list is Dictionary:
+		var feet := []
+		for e: Dictionary in list["emitters"]:
+			if e["id"] in FOOT_MIST:
+				feet.append(_vec(e["position"]))
+		var w := Waterfall.new()
+		w.name = "Waterfall"
+		add_child(w)
+		if w.setup(track, WATERFALLS[track_name], feet, _mist_light, _original_texture("WFAL")):
+			_waterfall = w
+			_emitters.append_array(w.emitters)
+		else:
+			w.queue_free()
 	if not _emitters.is_empty():
 		for car in cars:
 			var a := GPUParticlesAttractorSphere3D.new()
@@ -91,7 +120,8 @@ func counts() -> Dictionary:
 	var active := 0
 	for e in _emitters:
 		active += 1 if e.emitting else 0
-	return {"emitters": _emitters.size(), "active": active, "flowing": _flowing.size()}
+	return {"emitters": _emitters.size(), "active": active, "flowing": _flowing.size(),
+		"waterfall_sound": _waterfall != null and _waterfall.sound_playing()}
 
 
 func _process(delta: float) -> void:
@@ -140,27 +170,48 @@ func _add_emitter(e: Dictionary, s: Dictionary) -> void:
 	var basis := Basis(x, up, x.cross(up))
 	var emit: Array = s["emit"]
 	var rnd: Array = s["emit_random"]
-	var speed := float(emit[1]) / TICK
-	var spread_speed := Vector2(float(rnd[0]), float(rnd[2])).length() / TICK
-	var lifetime := float(s["lifetime"]) * TICK
-	var size: Array = s["size"]
 	var mist: bool = s["texture"] in MIST_TEXTURES
+	var slow: float = MIST_SLOW if mist else 1.0
+	var speed := float(emit[1]) / TICK / slow
+	var spread_speed := Vector2(float(rnd[0]), float(rnd[2])).length() / TICK / slow
+	var lifetime := float(s["lifetime"]) * TICK * slow
+	var size: Array = s["size"]
 	var big := maxf(maxf(float(size[0]), float(size[1])), 0.05) * (MIST_SIZE_SCALE if mist else 1.0)
 	var g := 9.81 * float(s["weight"])
+	if mist and is_zero_approx(g):
+		g = MIST_SINK
+	g /= slow * slow
 	var p := ParticleProcessMaterial.new()
 	p.direction = Vector3.UP  # the emitter's up row
 	p.spread = rad_to_deg(atan2(spread_speed, maxf(speed, 0.01))) if speed > 0.0 else 180.0
-	p.initial_velocity_min = maxf(speed - float(rnd[1]) / TICK, 0.0)
-	p.initial_velocity_max = speed + float(rnd[1]) / TICK
+	p.initial_velocity_min = maxf(speed - float(rnd[1]) / TICK / slow, 0.0)
+	p.initial_velocity_max = speed + float(rnd[1]) / TICK / slow
 	p.gravity = Vector3(0, -g, 0)
 	p.angle_min = -180.0
 	p.angle_max = 180.0
 	var top := maxf(maxf(float(size[0]), float(size[1])), 0.05)
-	p.scale_curve = CarEffects._curve([Vector2(0, float(size[0]) / top), Vector2(1, float(size[1]) / top)])
+	var start := float(size[0]) / top
+	if mist:  # it spreads as it drifts, on air that slows and swirls it
+		start = minf(start, MIST_GROWTH)
+		p.spread = maxf(p.spread, MIST_MIN_SPREAD)
+		p.initial_velocity_min = minf(p.initial_velocity_min, speed * (1.0 - MIST_SPEED_SPREAD))
+		p.initial_velocity_max = maxf(p.initial_velocity_max, speed * (1.0 + MIST_SPEED_SPREAD))
+		p.damping_min = MIST_DRAG * 0.6 / (slow * slow)
+		p.damping_max = MIST_DRAG * 1.4 / (slow * slow)
+		p.turbulence_enabled = true
+		p.turbulence_noise_strength = 3.0
+		p.turbulence_noise_scale = 6.0
+		p.turbulence_noise_speed_random = 0.3
+		p.turbulence_influence_min = 0.005  # a share of the velocity replaced per frame: more stops it short of the road
+		p.turbulence_influence_max = 0.025
+	p.scale_curve = CarEffects._curve([Vector2(0, start), Vector2(1, float(size[1]) / top)])
 	var stops := []
 	var colors: Array = s["colors"]
 	for i in colors.size():
-		stops.append([float(i) / maxf(colors.size() - 1, 1.0), CarEffects._argb(colors[i])])
+		var color: Color = CarEffects._argb(colors[i])
+		if mist:
+			color.a = minf(color.a * MIST_OPACITY, 1.0)
+		stops.append([float(i) / maxf(colors.size() - 1, 1.0), color])
 	p.color_ramp = CarEffects._ramp(stops)
 	p.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
 	p.emission_box_extents = Vector3(float(emit[0]) * 0.5, 0.05, float(emit[2]) * 0.5)
@@ -172,7 +223,8 @@ func _add_emitter(e: Dictionary, s: Dictionary) -> void:
 	var em := GPUParticles3D.new()
 	em.process_material = p
 	em.draw_pass_1 = quad
-	em.amount = maxi(int(round(float(s["count"]) * (MIST_COUNT_SCALE if mist else COUNT_SCALE))), 1)
+	var scale: float = MIST_COUNT_BY_TAG.get(s["tag"], MIST_COUNT_SCALE) if mist else COUNT_SCALE
+	em.amount = maxi(int(round(float(s["count"]) * scale)), 1)
 	em.lifetime = lifetime
 	em.preprocess = lifetime  # running already when the camera gets there
 	em.local_coords = false

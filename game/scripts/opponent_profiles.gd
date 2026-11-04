@@ -8,14 +8,15 @@ class_name OpponentProfiles
 
 ## name, style (shown nowhere yet, for the docs and tests), color "#rrggbb", and the AIDriver
 ## settings: grip_use, brake_use (pace into and through corners), follow_time (s of gap kept
-## behind a car), pass_slow (share of the profile speed a car ahead must drop under to be passed).
+## behind a car), pass_speed_margin (m/s a car ahead must be slower than the driver could drive
+## there for it to try a pass: lower = more eager).
 const PROFILES: Array[Dictionary] = [
 	{"name": "Klaus Wendt", "style": "aggressive: late braking, short gaps, passes early",
-		"color": "#b01818", "grip_use": 0.84, "brake_use": 0.86, "follow_time": 0.3, "pass_slow": 0.85},
+		"color": "#b01818", "grip_use": 0.84, "brake_use": 0.86, "follow_time": 0.3, "pass_speed_margin": 1.0},
 	{"name": "Henri Duval", "style": "smooth: steady and precise",
-		"color": "#c8c8c8", "grip_use": 0.81, "brake_use": 0.8, "follow_time": 0.5, "pass_slow": 0.7},
+		"color": "#c8c8c8", "grip_use": 0.81, "brake_use": 0.8, "follow_time": 0.5, "pass_speed_margin": 2.0},
 	{"name": "Marco Bellini", "style": "careful: brakes early, keeps his distance",
-		"color": "#1c3270", "grip_use": 0.77, "brake_use": 0.74, "follow_time": 0.8, "pass_slow": 0.6},
+		"color": "#1c3270", "grip_use": 0.77, "brake_use": 0.74, "follow_time": 0.8, "pass_speed_margin": 3.5},
 ]
 
 
@@ -29,7 +30,7 @@ static func profile(k: int) -> Dictionary:
 
 ## Sets the driving style on `driver`; before AIDriver.setup, which builds the speed profile.
 static func apply(driver: AIDriver, p: Dictionary) -> void:
-	for key: String in ["grip_use", "brake_use", "follow_time", "pass_slow"]:
+	for key: String in ["grip_use", "brake_use", "follow_time", "pass_speed_margin"]:
 		driver.set(key, float(p[key]))
 
 

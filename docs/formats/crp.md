@@ -184,6 +184,8 @@ Jméno ale o kolizi nerozhoduje. **Keře** poznáme podle značky v `Base` 0x44:
 
 Některé kopie téhož modelu knihovny značku nemají (farmland 3 ze 4 `BUSHSMALL_RIGID2`, castle 36 `BUSHMED_RIGID`, foothills 7). Model je jméno v závorce bez čísla kopie a `_LOD#`. Pokud mají všechny označené kopie modelu stejnou značku a příznaky `Base` a neoznačená kopie stejné příznaky, převezme značku od nich (`tag_from_model`). Generická jména bez závorky (`MESH01`, `OBJECT01`) se nedědí, protože se pod nimi míchají keře s terénem. Keře beze značky i bez označeného souseda zůstávají pevné: coastal `Bush`, canyon `CUTELITTLEBUSH`, castle `BUSHY#`. Jestli originál neoznačené kopie srážel, neověřeno (Wine). Hlavička `animdefs.txt` říká, že popisuje jen označené objekty.
 
+**Karty rostlin** bývají i přímo v zemních článcích `CNK…` (0x0611, bez značky) jako díly s vlastní texturou, např. `shrb` v `CLIFFDROP2DEEP` na canyonu. Jejich trojúhelníky mají 15–60 m a průhledná část sahá až k silnici. `track2gltf.py` je podle textury (`PLANT_TEXTURES`) přesune do `<článek> plants` ve skupině `drivethrough` (D-034). **Bit 0x0040** v příznacích `Base` (0x0651) mají právě stíny: 94 článků na všech tratích, vždy textura `sh80` a render metoda `S_Normal` / `S_UVAnimate`. Jdou do skupiny `shadows`.
+
 Články s `tr` jsou **objekty** s vlastní maticí; vrcholy mají v lokálních souřadnicích. Odpovídají jim cesty v misc `Desc` (`I:\NFS5Tracks\ModelLibrary\Objects\Smackable\…`). Jsou dvojího druhu:
 
 - **Rozmístěné**: `tr` nese skutečnou polohu na trati (vodorovně dál než 50 m od počátku). Farmland 72: 66 dopravních značek (`OBJ0048R (1 curveleft_Rigid1_SGN)` …, značka SIGN), 4 ležící sloupy (`COLUMN_HORIZONTAL`, CLMH) a 2 animované „sweepery“ (SWEE, `Anim`/`Anqt`).

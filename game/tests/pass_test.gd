@@ -6,7 +6,9 @@ extends Node
 ## degrees the parked car is turned from the road's direction (90 = across the road),
 ## --opponents: how many come (default 3, they arrive in a queue). --lead=1: the car starts in front
 ## of the grid driven by AIDriver, the opponents queue behind it, and it brakes to a stop on the
-## slice (the player stopping in front of the field).
+## slice (the player stopping in front of the field). --pace=0.85 (with --lead=1): the car does not
+## stop, it drives the whole way at that share of its speed profile (a slower player); the opponents
+## must pass it in motion, where the road gives them room.
 ## Passes when every opponent is PAST_SLICES beyond the parked car within TIME_LIMIT without a reset
 ## and no car is damaged beyond MAX_DAMAGE: the opponents may touch or push the car (aggressive but
 ## careful), not ram it. Prints for each opponent how long it was held up near the parked car
@@ -23,6 +25,7 @@ var main: Node3D
 var parked: Car
 var park_slice := 150
 var lead: AIDriver  ## drives the car to its slice (--lead=1), null = parked from the start
+var pace := 0.0  ## share of the profile the lead car drives at without stopping (--pace), 0 = it stops
 var t := 0.0
 var opponents: Array[Car] = []
 var drivers: Array[AIDriver] = []
@@ -56,6 +59,13 @@ func _ready() -> void:
 		parked.reset_to(main.road.transform_at(front, drivers[0].line_offsets[front]))
 		lead = main.drive_by_ai(0)
 		lead.slice = front
+		pace = main._user_arg("pace").to_float()
+		if pace > 0.0:
+			for i in lead.speed_limit.size():
+				lead.speed_limit[i] *= pace
+			lead.pass_speed_margin = INF  # it only drives slowly, it does not pass
+			print("PASS TEST: %d opponents behind a car driving at %.0f %% of the profile" % [opponents.size(), pace * 100.0])
+			return
 		print("PASS TEST: %d opponents queue behind the car, it stops on slice %d" % [opponents.size(), park_slice])
 		return
 	var xf: Transform3D = main.road.transform_at(park_slice, drivers[0].line_offsets[park_slice] + park.to_float())
@@ -69,7 +79,7 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	t += delta
-	if lead != null and lead.enabled and lead.slice >= park_slice:
+	if lead != null and pace == 0.0 and lead.enabled and lead.slice >= park_slice:
 		lead.enabled = false
 		parked.auto_throttle = 0.0
 		parked.auto_steer = 0.0
@@ -79,10 +89,10 @@ func _physics_process(delta: float) -> void:
 		for k in opponents.size():
 			var d := drivers[k]
 			var dist := opponents[k].global_position.distance_to(parked.global_position)
-			if dist < NEAR and passed_at[k] < 0.0:
+			if dist < NEAR * 3.0 and passed_at[k] < 0.0:
 				var at: int = main.road.nearest(parked.global_position)
-				print("    %.2f %s %.1f m, %.1f m/s, offset %+.1f (parked at %+.1f, own %+.1f), following %s, passing %s, pushing %s, contacts %d" % [
-					t, opponents[k].name, dist, opponents[k].linear_velocity.length(), d.pass_offset,
+				print("    %.2f %s %.1f m, %.1f m/s (target %.1f, profile %.1f), offset %+.1f (parked at %+.1f, own %+.1f), following %s, passing %s, pushing %s, contacts %d" % [
+					t, opponents[k].name, dist, opponents[k].linear_velocity.length(), d.target_speed, d.speed_limit[d.slice], d.pass_offset,
 					d._lateral(parked.global_position, at), d._lateral(opponents[k].global_position, d.slice),
 					_name(d.following), _name(d.passing), _name(d.pushing), opponents[k].side_contacts])
 	for k in opponents.size():
@@ -91,7 +101,7 @@ func _physics_process(delta: float) -> void:
 			continue
 		var d := o.global_position.distance_to(parked.global_position)
 		var speed := o.linear_velocity.length()
-		if d < NEAR:
+		if d < NEAR and pace == 0.0:
 			if arrival_speed[k] < 0.0:
 				arrival_speed[k] = speed
 			if speed < arrival_speed[k] * 0.5:
@@ -99,7 +109,7 @@ func _physics_process(delta: float) -> void:
 		if o.side_contacts > 0 and o.get_colliding_bodies().has(parked):
 			contact[k] += delta
 		# Past: PAST_SLICES beyond the parked car's slice (it may have been pushed along).
-		var parked_slice: int = main.road.nearest(parked.global_position)
+		var parked_slice: int = lead.slice if pace > 0.0 else main.road.nearest(parked.global_position)
 		if drivers[k].slice >= parked_slice + PAST_SLICES and drivers[k].slice < parked_slice + 100:
 			passed_at[k] = t
 		else:

@@ -22,7 +22,7 @@ Zvuky originálu slouží jen jako lokální reference prototypu (D-011). Do hry
 | `sd1a16.viv` … | úsporné varianty stejných sad: 16 kHz, 8 bit |
 | `SND_coll.bnk`, `LilSND_coll.bnk` | nárazy, pneumatiky, povrchy, vítr (bez jmen) |
 | `fesfx.bnk`, `lilfesfx.bnk` | zvuky menu (část stereo) |
-| `track.viv` (593 bank), `zzzwzzz.viv` (65 bank) | okolí tratí (řeky …), déšť, průjezdy. Zatím nedávají zvuky, jiný tvar banky. |
+| `track.viv` (593 bank, 477 zvuků), `zzzwzzz.viv` (65 bank, 64 zvuků) | okolí tratí podle jména banky (vodopády, řeky, stroje …, [water.md](../water.md#zvuky-vody-trackviv)), průjezdy. Tabulka zvuků začíná na 0x14 místo 0x10 (na 0x10 je nula), zbytek jako ostatní banky. 117 bank je prázdných, i `rain`. |
 | `<auto>.spl` (52 B) | ladění zvuku auta, 13 × i32, viz níže |
 
 ## BIGF (`.viv`)
@@ -66,7 +66,7 @@ Více pozic může sdílet stejná data (stejný offset dat).
 
 Rámec 15 B = 28 vzorků: bajt hlavičky (horní nibble index koeficientů 0–3, dolní nibble posun − 8), 14 B nibblů (horní napřed). Koeficienty (/256): (0, 0), (240, 0), (460, −208), (392, −220). `s = ((nibble << 28) >> posun + c1·h1 + c2·h2 + 128) >> 8`, ořez na 16 bit. Rámec s hlavičkou 0xEE: dva vzorky historie a 28 vzorků PCM 16 bit BE (61 B). Ověřeno: velikosti dat sedí na 15 B / 28 vzorků, poměr energie rozdílů k energii signálu 0,002–0,25 (šum ≈ 2).
 
-Převod: `python3 tools/snd2wav.py sources/GameData/Sounds decomposed/GameData/Sounds` → `decomposed/GameData/Sounds/<archiv>/<banka>/<pozice>.wav` + `index.json` (frekvence, smyčka, značky). 46 souborů, 702 bank, 1 453 zvuků, vynecháno 20 stereo zvuků menu.
+Převod: `python3 tools/snd2wav.py sources/GameData/Sounds decomposed/GameData/Sounds` → `decomposed/GameData/Sounds/<archiv>/<banka>/<pozice>.wav` + `index.json` (frekvence, smyčka, značky). 46 souborů, 702 bank, 1 994 zvuků, vynecháno 20 stereo zvuků menu.
 
 ## Tabulky motoru (`CRDl`: `.ect`, `.elt`, `.cct`, `.clt`)
 
@@ -98,4 +98,4 @@ Výklad z obsahu (sd1a): `*lt` mají v obou skupinách 4 smyčky v celém rozsah
 
 ## Zbývá
 
-Mřížka `CRDl` (prolínání podle otáček a zátěže), převod noty na otáčky u ostatních sad, přiřazení aut k sadám, banky okolí (`track.viv`), stereo zvuky, význam ostatních zvuků v `SND_coll.bnk` (povrchy, další nárazy).
+Mřížka `CRDl` (prolínání podle otáček a zátěže), převod noty na otáčky u ostatních sad, přiřazení aut k sadám, kam se rozmisťují banky okolí (`track.viv`), stereo zvuky, význam ostatních zvuků v `SND_coll.bnk` (povrchy, další nárazy).

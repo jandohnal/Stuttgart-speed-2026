@@ -210,7 +210,7 @@ items:
     doc: docs/formats/bnk.md
     tool: tools/snd2wav.py
     output: "decomposed/GameData/Sounds/<archiv>/<banka>/<n>.wav + index.json"
-    notes: "BIGF archivy, EA banky BNKl v4 (PT hlavičky, EA-XA ADPCM, PCM 16/8 bit). 1 453 zvuků. Banky okolí (track.viv) zatím ne. Prototyp je používá lokálně (D-011), do vydání vlastní samply (D-007)"
+    notes: "BIGF archivy, EA banky BNKl v4 (PT hlavičky, EA-XA ADPCM, PCM 16/8 bit). 1 994 zvuků včetně bank okolí (track.viv, zzzwzzz.viv). Prototyp je používá lokálně (D-011), do vydání vlastní samply (D-007)"
 
   - id: engine_sound_params
     category: to_write

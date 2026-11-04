@@ -65,9 +65,14 @@ def read_bnk(data):
     if data[:4] != b"BNKl":
         raise ValueError("not a little-endian EA bank")
     version, count = struct.unpack_from("<HH", data, 4)
+    # The table starts at 0x10; the ambience banks (track.viv, zzzwzzz.viv) have a zero there and
+    # start it at 0x14.
+    table = 0x10
+    if count and not any(struct.unpack_from(f"<{count}I", data, 0x10)):
+        table = 0x14
     sounds = []
     for i in range(count):
-        entry = 0x10 + 4 * i
+        entry = table + 4 * i
         rel = struct.unpack_from("<I", data, entry)[0]
         if rel in (0, 0xFFFFFFFF):
             continue

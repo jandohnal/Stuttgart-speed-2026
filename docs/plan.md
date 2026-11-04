@@ -102,9 +102,12 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Efekty: tráva na zeleném terénu a listí na texturách se spadaným listím, listí padající z podzimních korun na zem, rozvířené projíždějícími auty (D-028)
 - [x] Rozbor vodních prvků originálu po tratích ([water.md](water.md))
 - [x] Voda: vodopády, peřeje a fontány podle zdrojů originálu, mokré auto, rozvíření mlhy (D-033)
+- [x] Voda: pilot realistického vodopádu na forest: shader, kapky, cákance, zvuk (D-033)
+- [ ] Voda: shader vodopádu na castle a canyon, zvuky řek a fontán z `track.viv`
 - [ ] Voda: hladiny (moře, řeky, jezera) s vlastním shaderem, hydranty po nárazu
 - [ ] Efekty: povrch z `df` článků CRP, jiskry jen od kovových a kamenných překážek
 - [x] Keře podél trati jsou průjezdné (D-031): poznají se podle značky BUSH (`drivethrough` v `animdefs.txt`), skupina glTF `drivethrough` bez kolize, `bush_test`
+- [x] Neviditelné stěny z karet rostlin a paprsků v terénu odstraněné (D-034): skupina `drivethrough`, `card_test`
 - [x] Okruhy s počítáním kol: Monte Carlo s vlastní čarou startu a cíle (D-025), `lap_test`
 - [ ] Mezičasy, zvuk odpočtu; ověřit ve Wine, kde originál v Monaku startuje
 - [ ] Rozhodnout definitivně o enginu (D-002)
@@ -132,8 +135,10 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [ ] Soupeři C3: měření FPS v okně s 1 / 3 / 7 soupeři
 - [x] Soupeři D1: objetí pomalého nebo stojícího auta (posun stopy na stranu s místem, těsně, dotyk dovolen; bez místa opatrné vytlačení pod prahem poškození); `pass_test` (zaparkované, šikmé a napříč stojící auto, zastavení před kolonou)
 - [x] Soupeři D2: 3 stálé profily soupeřů (jméno, jízdní styl, barva laku nejbližší z palety modelu) a přepínač Soupeři v menu (D-029)
+- [x] Soupeři D3: předjíždění podle vlastních schopností a místa na trati (auto před sebou pomalejší než vlastní profil o `pass_speed_margin`, místo vedle auta až za něj, kratší výhled při předjíždění, auto před sebou měřené po silnici); `pass_test --pace`
 - [ ] Soupeři D: racecraft (předjíždění v jízdě, obrana, prostor) a osobnosti z `prsonal`
-- [ ] Soupeři E: síla AI v menu, volitelná gumička
+- [x] Soupeři E2: gumička (D-035): časový rozdíl proti hráči řídí tempo soupeřů, za hráčem i výkon až +10 %; přepínač v menu; `rubber_test`
+- [ ] Soupeři E: síla AI v menu
 - [ ] Provoz, policie
 - [ ] Zvuky originálu pro všechny situace (soupeři, provoz, policie, prostředí)
 

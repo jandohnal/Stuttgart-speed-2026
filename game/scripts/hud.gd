@@ -1,22 +1,20 @@
 class_name Hud
 extends CanvasLayer
-## Rev counter and speedometer dials, a small telemetry readout and the race stopwatch. With
+## Rev counter and speedometer dials, the FPS top left and the race stopwatch. With
 ## RaceStandings: the player's place and every car's gap to the player under the stopwatch while
 ## racing, and the results (place, time, gap) under the finish banner once the player is in
 ## (the cars behind with an estimated time, marked ~).
 
 const Odometer := preload("res://scripts/odometer.gd")
-const GAUGE_SIZE := 210.0
+const RPM_GAUGE_SIZE := 180.0
+const SPEED_GAUGE_SIZE := 140.0
 const MARGIN := 16.0
 const GAUGE_OPACITY := 0.6
 const LAP_BANNER_TIME := 1.5  ## s the "LAP n/N" banner shows after crossing the line on a circuit
 
 @export var car_path: NodePath
-## Telemetry readout (g forces, steering, TC cut, boost, damage); set from the menu option.
-@export var diagnostics := true
 
 @onready var car := get_node_or_null(car_path) as Car
-@onready var label: Label = $Label
 
 var rpm_gauge := Gauge.new()
 var speed_gauge := Gauge.new()
@@ -29,6 +27,7 @@ var _order := GridContainer.new()  ## place, name, gap while racing
 var _results := GridContainer.new()  ## place, name, time, gap after the player's finish
 var _stopwatch := _big_label(40)
 var _banner := _big_label(96)  ## countdown, GO, finish
+var _fps := _big_label(18)
 
 
 func _ready() -> void:
@@ -39,8 +38,10 @@ func _ready() -> void:
 	add_child(group)
 	_gauge_box.add_theme_constant_override("separation", 12)
 	group.add_child(_gauge_box)
+	speed_gauge.custom_minimum_size = Vector2(SPEED_GAUGE_SIZE, SPEED_GAUGE_SIZE)
+	rpm_gauge.custom_minimum_size = Vector2(RPM_GAUGE_SIZE, RPM_GAUGE_SIZE)
 	for g: Gauge in [speed_gauge, rpm_gauge]:
-		g.custom_minimum_size = Vector2(GAUGE_SIZE, GAUGE_SIZE)
+		g.size_flags_vertical = Control.SIZE_SHRINK_END  # different sizes, same bottom edge
 		_gauge_box.add_child(g)
 	get_viewport().size_changed.connect(_place_gauges)
 	_place_gauges.call_deferred()
@@ -52,7 +53,9 @@ func _ready() -> void:
 	speed_gauge.band_from = 40.0
 	speed_gauge.band_to = 70.0
 	speed_gauge.odometer = true
-	# Top right: the help and diagnostics text runs along the top left.
+	_fps.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_fps.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT, Control.PRESET_MODE_MINSIZE, int(MARGIN))
+	add_child(_fps)
 	_stopwatch.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, int(MARGIN))
 	_stopwatch.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_stopwatch.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -64,13 +67,13 @@ func _ready() -> void:
 		add_child(l)
 	_place.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, int(MARGIN))
 	_place.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	_place.position.y += 120.0  # below the stopwatch and the help line
+	_place.position.y += 120.0  # below the stopwatch
 	_order.columns = 3
 	_order.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, int(MARGIN))
 	_order.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_order.position.y += 168.0
 	_results.columns = 4
-	# Top centre, below the help line: the finish banner is in the middle, the dials bottom right.
+	# Top centre: the finish banner is in the middle, the dials bottom right.
 	_results.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP, Control.PRESET_MODE_MINSIZE, 130)
 	_results.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	for c: Control in [_place, _order, _results]:
@@ -114,6 +117,7 @@ func _set_scales() -> void:
 
 
 func _process(_delta: float) -> void:
+	_fps.text = "%d FPS" % roundi(Engine.get_frames_per_second())
 	if car == null or car.telemetry.is_empty():
 		return
 	if not _scales_set:
@@ -124,13 +128,6 @@ func _process(_delta: float) -> void:
 	rpm_gauge.sub_text = "R" if int(t["gear"]) == -1 else str(t["gear"])
 	speed_gauge.odo_m = car.odometer_m
 	speed_gauge.odo_shake = clampf((car.rpm / car.redline - 0.75) / 0.25, 0.0, 1.0)
-	var text := ""
-	if diagnostics:
-		text = "lat %.2f g   long %.2f g   steer %.1f°%s\n" % [t["lat_g"], t["long_g"], t["steer_deg"],
-			"   TC -%d%%" % roundi(t["tc_cut"] * 100.0) if t["tc_cut"] > 0.02 else ""] \
-			+ ("boost %d%%\n" % roundi(t["boost"] * 100.0) if car.turbo else "") + _damage_text(t.get("damage", {}))
-	label.text = text + "W/S throttle/brake  A/D steer  Space handbrake  R reset  %sF2 telemetry  F5 repair  F11 full screen  Esc menu" \
-		% ("Backspace restart  " if race != null else "")
 	_update_race()
 
 
@@ -169,14 +166,6 @@ func _update_race() -> void:
 			return
 	_banner.add_theme_font_size_override("font_size", 96)
 	_update_standings(false)
-
-
-func _damage_text(d: Dictionary) -> String:
-	if d.is_empty():
-		return ""
-	return "damage  front %d%%  rear %d%%  left %d%%  right %d%%  roof %d%%   engine -%d%%   parts lost %d  loose %d\n" % [
-		roundi(d["front"] * 100.0), roundi(d["rear"] * 100.0), roundi(d["left"] * 100.0),
-		roundi(d["right"] * 100.0), roundi(d["roof"] * 100.0), roundi(d["engine"] * 100.0), int(d["lost"]), int(d["loose"])]
 
 
 ## Place and gaps while racing (`finished` false), the results table once the player is in.

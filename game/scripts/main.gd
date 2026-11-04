@@ -5,8 +5,8 @@ extends Node3D
 ## the model and engine sound). --slice=<n> starts on road slice n instead of the start line;
 ## --windowed=1 keeps a window. F2 records telemetry to user://telemetry_*.csv, F5 repairs the car,
 ## F11 full screen, Esc goes back to the menu (scenes/menu.tscn, which sets GameSettings.car_key /
-## track_name, time_of_day and the options: steering assist, ABS, traction control, sound,
-## diagnostics). Time of day: GameSettings.time_of_day, else --time=day|night or project setting
+## track_name, time_of_day and the options: steering assist, ABS, traction control, sound).
+## Time of day: GameSettings.time_of_day, else --time=day|night or project setting
 ## stuttgart/time (default day); the sky and sun come from SkyLighting, the car lamps from CarLights,
 ## the track's lamps and warning lights from TrackLights.
 ## Paint: GameSettings.car_color, else --color=<#rrggbb>; empty = the body texture untinted.
@@ -18,7 +18,8 @@ extends Node3D
 ## driver's name, style and colour (OpponentProfiles); the game itself starts with project setting
 ## stuttgart/opponents (default DEFAULT_OPPONENTS) when the menu's Opponents option is on, the
 ## tests with none unless they ask. They are held by the countdown
-## like the player and set back on the grid on restart.
+## like the player and set back on the grid on restart. Rubber band (RaceRubberBand, D-035): the
+## menu's option in the game, --rubber=0|1 else, off in the tests unless they ask.
 ## Laps: on Monte Carlo's circuits (start = finish line, "source": "lap") the race is --laps=<n>
 ## laps, in the game project setting stuttgart/laps (default DEFAULT_LAPS), in the tests one.
 
@@ -273,6 +274,7 @@ var opponents: Array[Car] = []  ## AI cars on the grid (their AIDriver is the ch
 var _opponent_grid: Array[Transform3D] = []
 var _stopping := false  ## past the finish: the car brakes along the road (_drive_to_stop)
 var standings: RaceStandings  ## order and gaps of all cars in the race, null without a race
+var rubber_band: RaceRubberBand  ## keeps the opponents near the player, null = off
 var _stopping_opponents: Array[Car] = []  ## opponents past the finish, braking along the road
 var _crossed := {}  ## opponent over the finish line, still racing on -> where it crossed it
 var _grid := Transform3D.IDENTITY  ## where the race starts (behind the start line)
@@ -476,6 +478,12 @@ func _add_opponents(road_data: Dictionary, cars: Variant, player_color: String) 
 	field.append_array(opponents)
 	for opponent in opponents:
 		(opponent.get_node("AIDriver") as AIDriver).others = field
+	var rubber := _user_arg("rubber")
+	if rubber == "1" or (rubber.is_empty() and _is_game() and GameSettings.options["rubber_band"]):
+		rubber_band = RaceRubberBand.new()
+		rubber_band.name = "RubberBand"
+		add_child(rubber_band)
+		rubber_band.setup(race, standings)
 	_grid = _grid_slot(road_data["start"], opponents.size())
 	_place_on_grid()
 	race.started.connect(func() -> void:
@@ -559,6 +567,7 @@ func drive_by_ai(line_index := 0) -> AIDriver:
 		car.add_child(ai_driver)
 	var ai_data: Variant = OriginalAssets.load_json("GameData/Track/%s/%s_ai.json" % [track_name, track_name])
 	ai_driver.setup(car, road, ai_data, line_index)
+	ai_driver.passes_waiting = true
 	ai_driver.others = opponents
 	return ai_driver
 
@@ -623,14 +632,13 @@ func _setup_lighting() -> void:
 	hdri_sky = SkyLighting.apply(world.environment, $Sun as DirectionalLight3D, track_name, time_of_day)
 
 
-## Options from the menu (GameSettings): driver aids, sound and the HUD diagnostics.
+## Options from the menu (GameSettings): driver aids and sound.
 func _apply_options() -> void:
 	var options: Dictionary = GameSettings.options
 	car.steering_assist = options["steering_assist"]
 	car.brake_assist = options["brake_assist"]
 	car.traction_control = options["traction_control"]
 	AudioServer.set_bus_mute(0, not options["sound"])
-	$HUD.diagnostics = options["diagnostics"]
 
 
 ## The game itself runs (not a test that loads this scene inside its own).
