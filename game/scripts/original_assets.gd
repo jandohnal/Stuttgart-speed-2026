@@ -25,7 +25,7 @@ static func exists(relative: String) -> bool:
 static func load_gltf(relative: String) -> Node3D:
 	var file := path(relative)
 	if not FileAccess.file_exists(file):
-		push_error("Missing %s - run the converters in tools/ first (see game/README.md)" % file)
+		push_error("Missing %s - run tools/build_data.py first (see docs/setup.md)" % file)
 		return null
 	var doc := GLTFDocument.new()
 	var state := GLTFState.new()
@@ -39,6 +39,6 @@ static func load_gltf(relative: String) -> Node3D:
 static func load_json(relative: String) -> Variant:
 	var file := path(relative)
 	if not FileAccess.file_exists(file):
-		push_error("Missing %s - run the converters in tools/ first (see game/README.md)" % file)
+		push_error("Missing %s - run tools/build_data.py first (see docs/setup.md)" % file)
 		return null
 	return JSON.parse_string(FileAccess.get_file_as_string(file))

@@ -265,7 +265,7 @@ def convert(path, out_dir):
                       f"first difference at {i}")
     data["verified_against_bin"] = status.startswith("OK, matches")
     os.makedirs(out_dir, exist_ok=True)
-    with open(os.path.join(out_dir, stem + ".json"), "w") as fh:
+    with open(os.path.join(out_dir, stem + ".json"), "w", encoding="utf-8") as fh:
         json.dump(data, fh, indent=2, ensure_ascii=False)
     return status
 

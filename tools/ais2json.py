@@ -84,13 +84,14 @@ def main():
         "profiles": profiles,
     }
     os.makedirs(os.path.join(dst, "AICarData"), exist_ok=True)
-    with open(os.path.join(dst, "AICarData", "ais.json"), "w") as f:
+    with open(os.path.join(dst, "AICarData", "ais.json"), "w", encoding="utf-8") as f:
         json.dump(out, f, indent=1)
     print(f"ais.json: {len(profiles)} profiles")
 
     cfg = read_trafcfg(find_file(find_file(src, "AI"), "TRAFCFG.DAT"))
     cfg = {"source": "AI/TRAFCFG.DAT", "names": "AI/TRAFCFG.DES", **cfg}
-    with open(os.path.join(dst, "AI", "trafcfg.json"), "w") as f:
+    os.makedirs(os.path.join(dst, "AI"), exist_ok=True)
+    with open(os.path.join(dst, "AI", "trafcfg.json"), "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=1)
     print("trafcfg.json:", json.dumps(cfg["in_control"]))
 

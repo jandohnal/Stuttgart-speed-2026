@@ -96,7 +96,7 @@ def main():
         sys.exit(__doc__)
     out = convert(open(sys.argv[1], "rb").read())
     os.makedirs(os.path.dirname(sys.argv[2]) or ".", exist_ok=True)
-    with open(sys.argv[2], "w") as f:
+    with open(sys.argv[2], "w", encoding="utf-8") as f:
         json.dump(out, f, indent=1, ensure_ascii=False)
     print("%d models, %d cars -> %s" % (len(out["models"]), len(out["cars"]), sys.argv[2]))
 

@@ -1,11 +1,12 @@
 class_name Hud
 extends CanvasLayer
-## Rev counter and speedometer dials, the FPS top left and the race stopwatch. With
+## Rev counter and speedometer dials, the road map bottom left, the FPS top left and the race stopwatch. With
 ## RaceStandings: the player's place and every car's gap to the player under the stopwatch while
 ## racing, and the results (place, time, gap) under the finish banner once the player is in
 ## (the cars behind with an estimated time, marked ~).
 
 const Odometer := preload("res://scripts/odometer.gd")
+const Minimap := preload("res://scripts/minimap.gd")
 const RPM_GAUGE_SIZE := 180.0
 const SPEED_GAUGE_SIZE := 140.0
 const MARGIN := 16.0
@@ -20,6 +21,7 @@ var rpm_gauge := Gauge.new()
 var speed_gauge := Gauge.new()
 var _scales_set := false
 var _gauge_box := HBoxContainer.new()
+var minimap := Minimap.new()  ## set up by main once the road and the car are there
 var race: RaceTimer  ## set by main on tracks with start / finish lines
 var standings: RaceStandings  ## set by main with the race
 var _place := _big_label(32)  ## "P2/4"
@@ -53,6 +55,9 @@ func _ready() -> void:
 	speed_gauge.band_from = 40.0
 	speed_gauge.band_to = 70.0
 	speed_gauge.odometer = true
+	minimap.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT, Control.PRESET_MODE_MINSIZE, int(MARGIN))
+	minimap.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	add_child(minimap)
 	_fps.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_fps.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT, Control.PRESET_MODE_MINSIZE, int(MARGIN))
 	add_child(_fps)

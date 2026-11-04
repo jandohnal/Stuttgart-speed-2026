@@ -77,7 +77,7 @@ def convert(src, track, road, out_path):
         "keys": keys,
     }
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    with open(out_path, "w") as f:
+    with open(out_path, "w", encoding="utf-8") as f:
         json.dump(out, f, separators=(",", ":"))
     print(f"{track}: {len(slices)} slices, " + ", ".join(report))
 
@@ -90,7 +90,7 @@ def main():
         road_path = os.path.join(dst, track, f"{track}_road.json")
         if not os.path.isfile(road_path) or not find_file(os.path.join(src, "racer", "work"), f"{track}0.lsp"):
             continue
-        road = json.load(open(road_path))
+        road = json.load(open(road_path, encoding="utf-8"))
         convert(src, track, road, os.path.join(dst, track, f"{track}_ai.json"))
 
 

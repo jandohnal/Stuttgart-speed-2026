@@ -163,7 +163,7 @@ def convert(src, out_dir):
         index["entries"].append(info)
     if problems:
         index["problems"] = problems
-    with open(os.path.join(out_dir, "index.json"), "w") as fh:
+    with open(os.path.join(out_dir, "index.json"), "w", encoding="utf-8") as fh:
         json.dump(index, fh, indent=2, ensure_ascii=False)
     return len(entries), problems
 
@@ -175,6 +175,10 @@ def main(src, dst):
         jobs = [(path, os.path.join(dst, rel)) for path, rel in source_files(src, [".fsh"])]
     total, bad = 0, 0
     for s, o in sorted(jobs):
+        if os.path.isdir(os.path.join(o, "original")):
+            # Textures improved by hand, the converted ones moved to original/: keep them.
+            print(f"skip {s}: {o} holds improved textures (original/)", file=sys.stderr)
+            continue
         try:
             n, problems = convert(s, o)
         except Exception as ex:  # keep going, report at the end

@@ -6,61 +6,13 @@ Godot 4.7 projekt pro milník fáze 2 (D-009): původní **356 A coupe 1.6** na 
 
 Projekt nic z originální hry neobsahuje ani neimportuje. Auto a trať se načítají **za běhu** (`GLTFDocument`, `JSON`) ze složky `../decomposed` (nastavení projektu `stuttgart/data_root`). Do gitu tak nemůže nic z originálu přijít (D-008).
 
-Potřebné soubory vytvoří nástroje z `tools/` (spouštět z kořene repozitáře):
+Potřebné soubory vytvoří `tools/build_data.py`, postup pro macOS, Windows a Linux je v [docs/setup.md](../docs/setup.md). Co který převodník dělá: [tools/README.md](../tools/README.md).
 
-```bash
-python3 tools/sim_dump.py sources/GameData/Simulation/CarData > decomposed/GameData/Simulation/cars.json
-```
-
-```bash
-python3 tools/crp2gltf.py sources/GameData/CarModel/356a.crp decomposed/GameData/CarModel/356a/356a.gltf
-```
-
-```bash
-python3 tools/track2gltf.py sources/GameData/Track/farmland.crp decomposed/GameData/Track/farmland/farmland.gltf
-```
-
-```bash
-python3 tools/track2gltf.py sources/GameData/Track/skidpad.crp decomposed/GameData/Track/skidpad/skidpad.gltf
-```
-
-Zvuk (zatím zvuky originálu, D-011):
-
-```bash
-python3 tools/snd2wav.py sources/GameData/Sounds decomposed/GameData/Sounds
-```
-
-Barvy laku pro menu (bez nich nabízí menu jen původní texturu):
-
-```bash
-python3 tools/car_colors.py sources/FEData/Data/nfs5.car decomposed/FEData/Data/car_colors.json
-```
-
-Díly aut pro přepínač Stock / Sport a volbu pneumatik (bez nich má menu jen Stock a sériové pneumatiky; potřebuje `cars.json` a `sources/Porsche.exe`):
-
-```bash
-python3 tools/parts.py sources/FEData decomposed/FEData/Data/parts.json
-```
-
-Druhé auto a trať pro srovnání (935 „Moby Dick“, Monte Carlo):
-
-```bash
-python3 tools/crp2gltf.py sources/GameData/CarModel/935.crp decomposed/GameData/CarModel/935/935.gltf
-```
-
-```bash
-python3 tools/track2gltf.py sources/GameData/Track/monaco1.crp decomposed/GameData/Track/monaco1/monaco1.gltf
-```
-
-Světla tratí (D-021): `track2gltf.py` zapíše i `<trať>_lights.json`. Vzhled září a jejich textury (`GameData/Render/common/*.png` z `fsh2png.py sources decomposed`):
-
-```bash
-python3 tools/flare.py sources/GameData/Render/flare.dat decomposed/GameData/Render/flares.json
-```
+Příkazy v tomto souboru používají cestu k Godotu na autorově Macu (`~/Downloads/Godot.app/Contents/MacOS/Godot`), jinde ji nahraďte cestou k vlastnímu souboru Godotu. Po čistém klonu je potřeba jednou spustit `Godot --headless --path game --import`, jinak skripty nenajdou své třídy (`Identifier "OriginalAssets" not declared`).
 
 ## Spuštění
 
-Otevřít `game/project.godot` v Godotu 4.7 a spustit (F5). Fyzika Jolt, 120 Hz, renderer Forward+ přes Metal.
+Otevřít `game/project.godot` v Godotu 4.7 a spustit (F5). Fyzika Jolt, 120 Hz, renderer Forward+ (macOS Metal, Windows Direct3D 12, Linux Vulkan).
 
 Hra začíná **hlavním menu** (`scenes/menu.tscn`, vzhled D-032: vlevo panel RACE SETUP, vpravo nahoře obrys zvolené trati z `FEData/TrackArt` (skidpad žádný nemá), uprostřed průzor s fotkou, pomalu se otáčejícím modelem vybraného auta ve zvolené barvě (360° za minutu) a jeho jménem, dole credits (okno s poctou originálu a statistikami vývoje z `ui/credits_stats.json`) a exit): výběr auta (všech 85 variant z `.sim`, např. '65 911 Coupé, '73 911 Carrera RS 2.7, '96 911 Turbo (993), plus policejní auta a provoz) a trati (14 tratí originálu a testovací polygon `skidpad`, kde auto startuje na řezu 0) a tlačítko Play. Seznamy jsou v `main.gd` (`CARS` s názvem pro menu, modelem a klíčem fyziky `physics`; `MODELS` se sadou zvuku motoru modelu; `TRACKS`), další trať stačí přidat do `TRACKS`. Názvy variant a jejich modely jsou z `FEData/Data/nfs5.car` (Carrera RS 2.7 má model `f901`, 996 Turbo `f996`, Boxster 2.5 `fboxster`). Policejní auta jezdí s fyzikou svého silničního auta, provoz (`eas`, `eden`, `postship`) nemá vlastní `.sim` a jezdí s `default`. Sady zvuku motoru jsou u 356 A a 935 vybrané poslechem, u ostatních zatím odhadnuté podle pořadí sad. Pod autem je přepínač **Stock / Sport** (CAR PROFILE) (D-024): Stock = sériové auto, Sport = nejlepší díly originálu, které auto může dostat (motor, brzdy, převodovka, podvozek, aerodynamika, lehčí karoserie). Nad tratí je volba **pneumatik** (TIRES): sériové, slick, do deště (na suchém asfaltu slicky drží víc, pneumatiky do deště méně). Volby, které auto nemá, jsou neaktivní; 959, 928, GT2 a GT3 díly v originále ignorují. Bez menu: `-- --tune=sport --tyres=slick`. Pod tratí je mřížka zaškrtávátek: noční jízda (NIGHT RACE), asistent řízení, ABS, kontrola trakce, zvuk a soupeři (zda na startu stojí soupeři, výchozí ano). Asistenti (řízení, ABS, kontrola trakce) jsou ve výchozím stavu vypnutí (od 19. 10. 2026, auta s hodnotami z dat se chovají věrně originálu i bez nich), zvuk je zapnutý. Vše se nastavuje jen v menu, při jízdě je změnit nejde. Položka, jejíž data v `decomposed/` chybí, je neaktivní s poznámkou „chybí data“. Výběr i přepínače předá autoload `GameSettings` (`scripts/game_settings.gd`) a uloží se do `user://settings.cfg`, příště jsou předvybrané. Testy spouštějí `main.tscn` přímo a dostanou výchozí hodnoty, uložené nastavení hráče je neovlivní. Ovládání menu: šipky / D-pad posouvají fokus, mezerník / A otevře seznam, Enter (kdekoli) nebo Start spustí hru, Esc (nebo exit) se zeptá a hru ukončí. Esc při jízdě vrátí do menu.
 
@@ -113,7 +65,7 @@ Souboje bok po boku a obrana jsou krok D.
 ~/Downloads/Godot.app/Contents/MacOS/Godot --path game res://scenes/main.tscn -- --windowed=1 --car=935race --track=monaco1 --ai=1
 ```
 
-Hra se spouští rovnou přes celou obrazovku (`display/window/size/mode` = fullscreen), i z editoru (F5): náhled hry v editoru celou obrazovku neumí, takže editor hru pustí ve vlastním okně. Okno si vynutí argument `-- --windowed=1` (macOS přepnutí během animace do celé obrazovky ignoruje, `GameSettings` ho opakuje, dokud neprojde, asi 1,5 s); Godotův přepínač `--windowed` na macOS nefunguje. HUD se škáluje se zvětšením okna (základ 1152 × 648). 3D obraz se kreslí nejvýš v 1 080 řádcích (Full HD, nastavení `stuttgart/render_height`, 0 = nativně) a MetalFX ho zvětší na celou obrazovku (D-030); na displeji 3 600 × 2 260 to je 52 FPS místo 26.
+Hra se spouští rovnou přes celou obrazovku (`display/window/size/mode` = fullscreen), i z editoru (F5): náhled hry v editoru celou obrazovku neumí, takže editor hru pustí ve vlastním okně. Okno si vynutí argument `-- --windowed=1` (macOS přepnutí během animace do celé obrazovky ignoruje, `GameSettings` ho opakuje, dokud neprojde, asi 1,5 s); Godotův přepínač `--windowed` na macOS nefunguje. HUD se škáluje se zvětšením okna (základ 1152 × 648). 3D obraz se kreslí nejvýš v 1 080 řádcích (Full HD, nastavení `stuttgart/render_height`, 0 = nativně) a na celou obrazovku ho zvětší MetalFX na macOS, jinde bilineární filtr (D-030); na displeji 3 600 × 2 260 to je 52 FPS místo 26.
 
 **Klávesnice** funguje jako v tehdejších arkádových hrách: klávesa je zapnuto/vypnuto, ale pedály a volant se pohybují postupně, dokud ji držíš. Plyn naběhne při rozjezdu na jedničku za 0,4 s, se stoupající rychlostí a stupněm rychleji (od 100 km/h nebo na nejvyšší stupeň 0,15 s), puštění 0,1 s, brzda za 0,6 s (0,15 s), takže ťuknutí jen lehce přibrzdí. Volant jde ze středu na doraz za 0,25 s v klidu až 0,8 s ve 150 km/h, zpět do středu za 0,2 s. Analogový vstup (`Car.digital_input = false`, testy fyziky, později gamepad) jde přímo.
 
@@ -160,7 +112,9 @@ Hra se spouští rovnou přes celou obrazovku (`display/window/size/mode` = full
 | `scripts/falling_leaves.gd` | listí padající z podzimních korun nad a kolem silnice před autem hráče (D-028): dopadne na zem, chvíli leží a projíždějící auta (hráč i soupeři) ho rozvíří; `--leaves=0` ho vypne |
 | `scripts/car_effects.gd` | efekty auta (D-028): stopy pneumatik na silnici při skluzu za vrcholem, prach a hroudy hlíny za koly na terénu v barvě textury pod kolem (textury Kenney Particle Pack, CC0, `assets/particles/kenney/`), stébla trávy na zeleném terénu a suché listí na texturách s listím (CC0, `assets/particles/foliage/`, `leaves/`), jiskry při nárazu a drhnutí karoserie (barvy ze `Sparks` v `particles.json`); `--effects=0` je vypne (srovnání FPS) |
 | `scripts/track_props.gd` | fyzika objektů kolem trati (skupina `props`, `<trať>_objects.json`): sražitelné jako `RigidBody3D` s původní hmotností, zmrazené, dokud se nepřiblíží pohyblivé těleso (1 m), ostatní statické; kolize z konvexního obalu, ploché jako kvádr 10 cm |
+| `scripts/track_lights.gd` | světla trati (D-021): záře `ef` z `<trať>_lights.json` se vzhledem z `flares.json`, blikání výstražných světel a šipek, tunelová a pouliční světla v noci, vlastní `OmniLight3D` u kamery |
 | `scripts/gauge.gd` | kulatý budík (otáčkoměr, rychloměr) kreslený v `_draw()`; stupnice nastaví `hud.gd` podle redline a převodů auta |
+| `scripts/minimap.gd` | výřez mapy vlevo dole (D-036): silnice ze `Road` otočená podle směru hráče, hráč uprostřed, soupeři jako tečky v barvě laku, mimo dosah 300 m na okraji |
 | `scripts/odometer.gd`, `scripts/odometer_logic.gd` | mechanické válečkové počitadlo v rychloměru (D-013); nájezd z poháněných kol, ukládaný pro každé auto do `user://odometer.cfg` (jen ve hře, ne v testech) |
 
 Auto: nastavení projektu `stuttgart/car` nebo argument `-- --car=<klíč v cars.json>` (výchozí `356Acoupe16`, ověřené i `935race`). Model auta je v `CARS`, zvuková sada modelu v `MODELS` v `main.gd` (přiřazení sady k autu je v originále v programu, ne v datech). Například 935 v Monaku:
@@ -357,6 +311,12 @@ Počitadlo kilometrů: bez okna ověří polohy válečků a přenos (např. 999
 ~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/odometer_test.tscn
 ```
 
+Mapa v HUD: bez okna ověří otočení (před autem je nahoře, vpravo od auta vpravo), oříznutí silnice na okraji výřezu, navázání úseků a uzavřené okruhy. Vypíše i výpočet na snímek na Farmlandu (4. 11. 2026: 58 µs).
+
+```bash
+~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/minimap_test.tscn
+```
+
 Den a noc: bez okna ověří hledání HDRI (monaco1–5 → monaco), náhradní procedurální oblohu bez HDRI, slunce nad obzorem ve směru nejjasnějšího místa HDRI a v noci dva reflektory se stíny a zadní světla, která zesílí při brzdění.
 
 ```bash
@@ -375,7 +335,7 @@ Hlavní menu: bez okna ověří, že seznamy odpovídají `CARS` a `TRACKS`, pol
 ~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/menu_test.tscn
 ```
 
-Díly (bez okna): díly z továrny nechají hodnoty `.sim` všech aut beze změny, Sport udělá 356 A 1600 lehčí, silnější, s lepšími brzdami a přilnavostí, slicky přidají a pneumatiky do deště uberou přilnavost na suchu, GT3 zůstane sériová a menu má Stock / Sport mezi autem a barvou a pneumatiky pod tratí. Srovnání v jízdě: `drive_test` s `-- --tune=sport` nebo `-- --tyres=slick` (356 A 1600 na skidpadu: 0–100 km/h 14,4 → 9,9 s, brzdná dráha 60 → 50 m).
+Díly (bez okna): díly z továrny nechají hodnoty `.sim` všech aut beze změny, Sport udělá 356 A 1600 lehčí, silnější, s lepšími brzdami a přilnavostí, slicky přidají a pneumatiky do deště uberou přilnavost na suchu, GT3 zůstane sériová a menu má Stock / Sport mezi autem a barvou a pneumatiky nad tratí. Srovnání v jízdě: `drive_test` s `-- --tune=sport` nebo `-- --tyres=slick` (356 A 1600 na skidpadu: 0–100 km/h 14,4 → 9,9 s, brzdná dráha 60 → 50 m).
 
 ```bash
 ~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/parts_test.tscn

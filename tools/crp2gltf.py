@@ -707,7 +707,7 @@ def write_styles(path, src, styles, default, nodes, slots, pngs, style_pngs, mat
                     "hide": hidden, "textures": textures})
         if top_up:
             out[-1]["top_up"] = top_up
-    with open(path, "w") as fh:
+    with open(path, "w", encoding="utf-8") as fh:
         json.dump({"source": os.path.basename(src), "default": styles[default]["index"],
                    "fields": "styles from the .tpg [styleN]: geometry slot -> part type (unlisted: 0), texture "
                              "slot -> type; hide: glTF nodes of other styles to remove (convertibles: and the rear "
@@ -825,7 +825,7 @@ def convert(src, out_path, level=1, include_all=False, tpg=None, cars=None):
     detachable = [{"group": g, "kind": e["kind"], "nodes": e["nodes"],
                    "zone": FIXED_ZONE.get(e["kind"], max(sorted(e["zones"]), key=lambda z: e["zones"][z]) if e["zones"] else -1),
                    "mass_kg": DETACH_MASS.get(e["kind"], 3.0)} for g, e in sorted(detach.items())]
-    with open(os.path.join(out_dir, stem + "_damage.json"), "w") as fh:
+    with open(os.path.join(out_dir, stem + "_damage.json"), "w", encoding="utf-8") as fh:
         json.dump({"source": os.path.basename(src),
                    "fields": "zones: id, name (as seen on the 356 A), blend shape on every part in it, centroid "
                              "of its vertices (glTF, m), max dent of a fully damaged car (m); detachable: group "

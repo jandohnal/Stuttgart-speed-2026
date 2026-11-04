@@ -156,7 +156,7 @@ def convert_bank(data, out_dir):
         if info["raw"]:
             entry["tags"] = info["raw"]
         entries.append(entry)
-    with open(os.path.join(out_dir, "index.json"), "w") as fh:
+    with open(os.path.join(out_dir, "index.json"), "w", encoding="utf-8") as fh:
         json.dump({"bank_version": version, "sounds": entries}, fh, indent=1)
     return len(entries), skipped
 
@@ -176,7 +176,7 @@ def table_slots(data):
 def describe_engine(set_dir, cylinders=4):
     """Write <set>/engine.json from the converted set (tables and index.json); returns it."""
     name = os.path.basename(os.path.normpath(set_dir))
-    index = {e["index"]: e for e in json.load(open(os.path.join(set_dir, name, "index.json")))["sounds"]}
+    index = {e["index"]: e for e in json.load(open(os.path.join(set_dir, name, "index.json"), encoding="utf-8"))["sounds"]}
     fires_per_turn = cylinders / 2.0
     out = {"set": name, "cylinders": cylinders, "view": "exterior", "groups": {}}
     for group, (exterior, _cockpit) in ENGINE_TABLES.items():
@@ -195,7 +195,7 @@ def describe_engine(set_dir, cylinders=4):
             if loops:
                 layers.append(sorted(loops, key=lambda x: x["rpm"]))
         out["groups"][group] = layers
-    with open(os.path.join(set_dir, "engine.json"), "w") as fh:
+    with open(os.path.join(set_dir, "engine.json"), "w", encoding="utf-8") as fh:
         json.dump(out, fh, indent=1)
     return out
 

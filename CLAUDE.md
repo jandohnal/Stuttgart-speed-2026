@@ -25,7 +25,8 @@ Duchovní nástupce NFS: Porsche 2000. Kontext: `README.md`, rozhodnutí: `docs/
 
 ## Nástroje
 
-- Přehled všech nástrojů a sdílených modulů: `tools/README.md`.
+- Přehled všech nástrojů a sdílených modulů: `tools/README.md`. Postup spuštění hry na macOS, Windows a Linuxu: `docs/setup.md`.
+- `python3 tools/build_data.py [--install <složka s instalací hry>]` – celý převod `sources/` → `decomposed/` a kontrola výstupu (na všech systémech).
 - `python3 tools/archives.py refpack sources/GameData/CarModel/356a.crp decomposed/GameData/CarModel/356a.bin` – rozbalí EA RefPack (`archives.py bigf` rozbalí archiv `.viv`).
 - `python3 tools/fsh2png.py sources decomposed` – všechny textury FSH do PNG (+ `index.json` pro každý archiv).
 - `python3 tools/crp2gltf.py sources/GameData/CarModel/356a.crp decomposed/GameData/CarModel/356a/356a.gltf` – model auta do glTF (+ atlasy textur).
@@ -33,19 +34,22 @@ Duchovní nástupce NFS: Porsche 2000. Kontext: `README.md`, rozhodnutí: `docs/
 - `python3 tools/track2gltf.py sources/GameData/Track/farmland.crp decomposed/GameData/Track/farmland/farmland.gltf` – trať do glTF + data silnice (`_road.json`: řezy, úseky, start/cíl) + objekty kolem trati (`_objects.json`). Farmland = Normandie. Společný parser CRP je v `tools/crp.py`.
 - `python3 tools/ai_lines.py sources/GameData/Track decomposed/GameData/Track` – ideální stopy soupeřů (`.lsp`) a klíče tratí (`.key`) do `<trať>_ai.json`; potřebuje `_road.json`.
 - `python3 tools/ais2json.py sources/GameData/Simulation decomposed/GameData/Simulation` – profily aut soupeřů (`.ais`) a řízení AI (`TRAFCFG.DAT`) do JSON.
-- `python3 tools/sim_dump.py sources/GameData/Simulation/CarData > decomposed/GameData/Simulation/cars.json` – fyzika aut do JSON.
+- `python3 tools/sim_dump.py sources/GameData/Simulation/CarData decomposed/GameData/Simulation/cars.json` – fyzika aut do JSON.
 - `python3 tools/car_colors.py sources/FEData/Data/nfs5.car decomposed/FEData/Data/car_colors.json` – palety barev laku aut do JSON (volba barvy v menu).
 - `python3 tools/parts.py sources/FEData decomposed/FEData/Data/parts.json [--report]` – díly aut (katalog `nfs5.prt`, seznamy v `nfs5.car`, konstanty z `Porsche.exe`) a sady Stock / Sport do JSON; potřebuje `cars.json`.
 - `python3 tools/particles.py sources/GameData/Render/particle.ini decomposed/GameData/Render/particles.json` – částicové systémy originálu do JSON (jiskry auta, voda).
 - `python3 tools/emitters.py sources/GameData/Track decomposed/GameData/Track` – zdroje částic tratí s celou bází do `<trať>_emitters.json` (vodopády, fontány); potřebuje převedené tratě.
 - `python3 tools/snd2wav.py sources/GameData/Sounds decomposed/GameData/Sounds` – zvukové banky do WAV (+ `index.json`) a sady motorů pro hru (`engine.json`).
+- `python3 tools/flare.py sources/GameData/Render/flare.dat decomposed/GameData/Render/flares.json` – záře světel do JSON.
+- `python3 tools/mesh_check.py decomposed/GameData/CarModel decomposed/GameData/Track` – kontrola hotových modelů aut a tratí.
+- `python3 tools/fetch_hdri.py` – oblohy z Poly Haven (CC0) do `assets/hdri/`, volitelné.
 - `python3 tools/credits_stats.py game/ui/credits_stats.json` – statistiky vývoje pro okno credits (git + logy Claude Code); spustit před commitem, ať jsou čísla aktuální.
 
 ## Hra
 
-- Godot projekt je v `game/` (popis a testy v `game/README.md`). Godot je zatím v `~/Downloads/Godot.app`. Jízdní test: `~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/drive_test.tscn`. Data originálu načítá **za běhu** z `../decomposed` (nastavení `stuttgart/data_root`), nikdy je neimportuje do `res://` ani nekopíruje do `game/`.
+- Godot projekt je v `game/` (popis a testy v `game/README.md`). Godot je na tomto Macu zatím v `~/Downloads/Godot.app` (příkazy v dokumentaci s touto cestou platí i jinde s cestou k vlastnímu Godotu). Po čistém klonu je potřeba jednou `Godot --headless --path game --import`. Jízdní test: `~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/drive_test.tscn`. Data originálu načítá **za běhu** z `../decomposed` (nastavení `stuttgart/data_root`), nikdy je neimportuje do `res://` ani nekopíruje do `game/`.
 
 ## Stack
 
-- Godot 4.7 (4.7.2), Jolt, Metal (macOS, Apple Silicon). Rozhodnutí D-002 se potvrdí po prototypu jízdy.
+- Godot 4.7 (4.7.2), Jolt; vývoj na Metalu (macOS, Apple Silicon), spouští se i na Windows a Linuxu (D-037). Rozhodnutí D-002 se potvrdí po prototypu jízdy.
 - Nástroje pro data: Python 3, jen standardní knihovna, pokud to jde.

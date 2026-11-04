@@ -428,6 +428,6 @@ def write_gltf(out_path, nodes_data, material_spec, generator, extras=None):
     for k in ("textures", "images"):
         if not gl[k]:
             del gl[k]
-    with open(out_path, "w") as fh:
+    with open(out_path, "w", encoding="utf-8") as fh:
         json.dump(gl, fh, indent=1)
     return gl

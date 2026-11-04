@@ -48,7 +48,7 @@ def main():
     src, out = sys.argv[1:]
     flares = parse(open(src, "rb").read())
     os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
-    with open(out, "w") as fh:
+    with open(out, "w", encoding="utf-8") as fh:
         json.dump({"source": os.path.basename(src),
                    "fields": "layers [2]: texture (common.fsh name or null), color RGBA 0-1, size; "
                              "blink: lit while (tick - phase) mod (on + off) < on, else steady",

@@ -4,7 +4,7 @@ extends Node
 ## Checks that the factory parts leave every car's .sim values as they are, that Sport makes the
 ## 356 A 1600 stronger, lighter and better braking, that slicks add grip and rain tyres lose it on
 ## dry asphalt, that the cars the original keeps stock (GT3) stay stock, and that the menu puts
-## Stock / Sport between the car and its colour and the tyres right below the track.
+## Stock / Sport between the car and its colour and the tyres above the track.
 
 const Main := preload("res://scripts/main.gd")
 const CarParts := preload("res://scripts/car_parts.gd")
@@ -50,9 +50,9 @@ func _ready() -> void:
 	_expect(CarParts.tyre_choices(CarParts.car_entry(parts, "996coupe34")) == ["stock", "slick", "rain"], "996 tyres")
 	var menu: Control = preload("res://scenes/menu.tscn").instantiate()
 	add_child(menu)
-	_expect(menu.tune_option.get_index() == menu.car_option.get_index() + 1
-		and menu.color_option.get_index() == menu.tune_option.get_index() + 1, "Stock / Sport between car and colour")
-	_expect(menu.tyre_option.get_index() == menu.track_option.get_index() + 2, "tyres below the track")
+	_expect(_row(menu.car_option) < _row(menu.tune_option) and _row(menu.tune_option) < _row(menu.color_option),
+		"Stock / Sport between car and colour")
+	_expect(_row(menu.tyre_option) < _row(menu.track_option), "tyres above the track")
 	menu.car_option.select(menu.car_keys.find("GT3race"))
 	menu._on_car_selected(menu.car_option.selected)
 	_expect(menu.tune_option.disabled and menu.tune_option.selected == 0, "menu: GT3 stock only")
@@ -82,6 +82,11 @@ func _same(a: Variant, b: Variant) -> bool:
 	if (a is float or a is int) and (b is float or b is int):
 		return absf(float(a) - float(b)) < 1e-3 * maxf(1.0, absf(float(b)))
 	return a == b
+
+
+## Position of the menu row holding `option` in the RACE SETUP panel.
+func _row(option: Control) -> int:
+	return option.get_parent().get_index()
 
 
 func _expect(ok: bool, what: String) -> void:

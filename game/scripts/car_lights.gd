@@ -69,10 +69,14 @@ func setup(car: Node3D, model: Node3D, is_night: bool) -> void:
 			_make_emissive(mi, HEAD_COLOR, _head_materials)
 		else:
 			_make_emissive(mi, TAIL_COLOR, _tail_materials)
+		# Head lamps: the front face of the box; tail lamps: its centre.
+		var at := Vector3(centre.x, centre.y, box.position.z) if kind == "head" else centre
 		if absf(centre.x) >= SIDE_MIN_X:
-			# Head lamps: the front face of the box; tail lamps: its centre.
-			var at := Vector3(centre.x, centre.y, box.position.z) if kind == "head" else centre
 			lamps[kind][1 if centre.x > 0.0 else -1].append(at)
+		elif box.size.x >= 2.0 * SIDE_MIN_X:
+			# One part across the car (tail lamps of the 356 A): a light towards each end.
+			for side: int in [-1, 1]:
+				lamps[kind][side].append(at + Vector3(side * box.size.x / 2.0, 0.0, 0.0))
 	for side: int in [-1, 1]:
 		var head: Array = lamps["head"][side]
 		if not head.is_empty():

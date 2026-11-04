@@ -308,3 +308,14 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
 - **Důvod:** Přání uživatele (4. 11. 2026): rychlého hráče mají soupeři dojet, pomalý hráč je má moci dojet. Tabulku `glue.json` (×1,25 až ×0,82 na ±600 m) nejde převzít: originál jel po stopě bez plné fyziky, u nás by to znamenalo nehodu. Násobič profilu `k` odpovídá `grip_use × k²` a `brake_use × k²`, takže se profil nemusí přepočítávat. Časový rozdíl platí stejně pro pomalá i rychlá auta.
 - **Důsledky:** Výkon +10 % je jediná výjimka ze stejné fyziky a uživatel ji schválil: stejné auto by jinak na rovince hráče dohnat nemohlo. Hráč s velkým náskokem může přesto ujet, soupeř nad limit přilnavosti nejede. Na havarovaného hráče soupeři nečekají, jen pojedou nejnižším tempem. Čekající skupina se nepředjíždí, takže se pořadí soupeřů mění méně než bez gumičky.
 
+## D-036 Mapa v HUD: výřez otočený podle směru hráče
+- **Stav:** accepted
+- **Rozhodnutí:** Vlevo dole je kulatý výřez mapy (`scripts/minimap.gd`). Hráč je šipka uprostřed mířící nahoru, silnice se kolem něj otáčí a posouvá. Dosah je 300 m od hráče k okraji. Soupeři jsou tečky v barvě svého laku s bílým obrysem, soupeř mimo dosah zůstává menší tečkou na okraji ve svém směru. Mapa se kreslí ze slices silnice (`Road`), všechny úseky včetně odboček, bez terénu a bez značky cíle.
+- **Důvod:** Přání uživatele (4. 11. 2026). Data silnice už hra má, takže mapa nepotřebuje textury ani další data. Silnice se ořezává výpočtem, ne maskou v dalším vykreslovacím průchodu; výpočet na Farmlandu trvá 58 µs na snímek.
+- **Důsledky:** Otočení podle směru auta znamená, že se mapa při smyku nebo hodinách točí stejně rychle jako auto. Trať bez `_road.json` mapu nemá.
+
+## D-037 Hra se spouští na macOS, Windows i Linuxu a data vytváří jeden příkaz
+- **Stav:** accepted
+- **Rozhodnutí:** Předpokladem je jen složka s instalací originálu. `tools/build_data.py --install <složka>` ji zkopíruje do `sources/` a převede do `decomposed/` stejně na všech systémech, hra se spouští z projektu přes Godot 4.7.2 ([setup.md](setup.md)). Vývoj a ladění výkonu zůstávají na Macu (D-002, D-030).
+- **Důvod:** Přání uživatele (4. 11. 2026). Dřívější postup byl seznam příkazů pro bash, na čistém klonu selhal (chybějící složky) a ve Windows by psal soubory ve špatném kódování.
+- **Důsledky:** Textové výstupy nástrojů jsou vždy v UTF-8. Na Windows a Linuxu zvětšuje 3D obraz bilineární filtr místo MetalFX. Ve Windows se zatím nic nespustilo a na Linuxu nic s oknem, viz [setup.md](setup.md#co-je-ověřené-4-11-2026).

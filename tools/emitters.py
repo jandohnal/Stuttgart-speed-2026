@@ -64,7 +64,7 @@ def main():
         out_dir = os.path.join(dst, stem)
         if not os.path.isdir(out_dir):
             continue  # track not converted (track2gltf.py)
-        with open(os.path.join(out_dir, stem + "_emitters.json"), "w") as f:
+        with open(os.path.join(out_dir, stem + "_emitters.json"), "w", encoding="utf-8") as f:
             json.dump({"source": os.path.join(src, name), "emitters": emitters}, f, indent=1)
         ids = {}
         for e in emitters:

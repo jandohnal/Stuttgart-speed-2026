@@ -96,7 +96,7 @@ def main():
             sys.exit("missing [system#%03d]" % i)
         systems.append(system(i, s))
     os.makedirs(os.path.dirname(dst) or ".", exist_ok=True)
-    with open(dst, "w") as f:
+    with open(dst, "w", encoding="utf-8") as f:
         json.dump({"source": src, "systems": systems}, f, indent=1)
     print("%d systems -> %s" % (len(systems), dst))
 

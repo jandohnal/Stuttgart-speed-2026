@@ -4,7 +4,8 @@ Field map: docs/formats/sim.md. Unknown fields are exported as raw values
 under "unknown" so they can be analysed later.
 
 Usage:
-    python3 tools/sim_dump.py sources/GameData/Simulation/CarData > decomposed/GameData/Simulation/cars.json
+    python3 tools/sim_dump.py sources/GameData/Simulation/CarData decomposed/GameData/Simulation/cars.json
+Without the second argument the JSON goes to standard output.
 """
 import json
 import os
@@ -57,14 +58,19 @@ def parse(d):
     }
 
 
-def main(folder):
+def main(folder, target=None):
     cars = {}
     for fn in sorted(os.listdir(folder)):
         if fn.lower().endswith(".sim"):
             with open(os.path.join(folder, fn), "rb") as fh:
                 cars[fn[:-4]] = parse(fh.read())
-    json.dump(cars, sys.stdout, indent=2, ensure_ascii=False)
+    if target is None:
+        json.dump(cars, sys.stdout, indent=2, ensure_ascii=False)
+        return
+    os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
+    with open(target, "w", encoding="utf-8") as fh:
+        json.dump(cars, fh, indent=2, ensure_ascii=False)
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    main(*sys.argv[1:3])

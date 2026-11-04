@@ -60,7 +60,7 @@ COMPONENTS = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4, "MAT4": 16}
 
 
 def load(path):
-    gl = json.load(open(path))
+    gl = json.load(open(path, encoding="utf-8"))
     buf = open(os.path.join(os.path.dirname(path), gl["buffers"][0]["uri"]), "rb").read()
 
     def accessor(i):
@@ -174,7 +174,7 @@ def check(path):
         if surface and down / surface > DOWN_MAX:
             status = "FAIL" if status == "FAIL" else "WARN"
             problems.append(f"down {100 * down / surface:.1f} %")
-        holes = road_holes(json.load(open(road_path)), ground)
+        holes = road_holes(json.load(open(road_path, encoding="utf-8")), ground)
         result.update(holes)
         if holes["road_void"]:
             status = "FAIL"
@@ -202,7 +202,7 @@ def check(path):
             status = "FAIL" if status == "FAIL" else "WARN"
             problems.append("overlapping parts in style " + ", ".join(str(st["style"]) for st in bad))
     result["status"] = status
-    with open(os.path.join(os.path.dirname(path), stem + "_check.json"), "w") as fh:
+    with open(os.path.join(os.path.dirname(path), stem + "_check.json"), "w", encoding="utf-8") as fh:
         json.dump(result, fh, indent=1)
     line = (f"{status:4} {stem:16} {tris:7} tris  flipped {flipped:5} ({100 * flipped / max(tris, 1):4.1f} %)"
             f"  dropped {dropped if dropped is not None else '-'}")
@@ -416,7 +416,7 @@ def check_styles(path, gl, accessor):
     """Per style: overlapping parts and open edge length (see the module doc)."""
     stem = os.path.splitext(os.path.basename(path))[0]
     styles_path = os.path.join(os.path.dirname(path), stem + "_styles.json")
-    styles = json.load(open(styles_path))["styles"] if os.path.exists(styles_path) else [{"style": 0, "name": "", "hide": []}]
+    styles = json.load(open(styles_path, encoding="utf-8"))["styles"] if os.path.exists(styles_path) else [{"style": 0, "name": "", "hide": []}]
     parts = car_triangles(gl, accessor)
     out = []
     for st in styles:

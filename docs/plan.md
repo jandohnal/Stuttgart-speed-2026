@@ -1,7 +1,7 @@
 ---
 type: plan
-updated: 2026-10-29
-current_phase: 1
+updated: 2026-11-04
+current_phase: 2
 phases:
   - id: 1
     name: "Data z originálu"
@@ -9,7 +9,7 @@ phases:
     gate: "Fyzika všech aut v JSON, textury v PNG, jedno auto v glTF jako vizuální reference"
   - id: 2
     name: "Prototyp jízdy"
-    status: todo
+    status: in_progress
     gate: "Jedno původní auto na jedné původní trati (D-009), jízdní pocit, kolize a poškození srovnatelné s originálem spuštěným přes Wine"
   - id: 3
     name: "Opravený původní obsah"
@@ -81,6 +81,7 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Raycast podvozek, model pneumatik, motor a převodovka z dat JSON (pneumatiky: skluz, rotace kol, setrvačnost motoru; 0–100 km/h 15,8 s proti reálným ~16 s)
 - [ ] Doladit pneumatiky a řízení proti originálu přes Wine (přilnavost 0x0F4 a setrvačnost 0x058 jsou hypotézy), asistent řízení pro klávesnici hotový; ABS naladěné podle ruční jízdy proti originálu, zadní přilnavost z 0x0F0 (D-027) (smyk zádí při brzdění v zatáčce); klávesy s náběhem pedálů a volantu jako v tehdejších hrách; kontrola trakce, spojka při rozjezdu, turbodíra a samosvor závodních aut (D-015); asistenti, zvuk a diagnostika se přepínají v menu (D-017)
 - [x] HUD: kulatý rychloměr (s počítadlem km) a otáčkoměr v klasickém stylu (kreslené procedurálně, stupnice z dat auta, ručička s tlumenou setrvačností); otáčky motoru při řazení klesají a stoupají plynule (spojka)
+- [x] HUD: výřez mapy vlevo dole s hráčem a soupeři (D-036, `minimap_test`)
 - [x] Mechanické válečkové počitadlo kilometrů (D-013): vzdálenost z poháněných kol, nájezd uložený pro každé auto, vzhled podle éry auta
 - [x] Díly aut z originálu (D-024): katalog `nfs5.prt`, seznamy dílů v `nfs5.car`, vzorce z exe; v menu Stock / Sport a pneumatiky sériové / slick / do deště ([formats/prt.md](formats/prt.md))
 - [x] Kolize s objekty kolem trati: sražitelné značky (dynamická tělesa s původní hmotností), ostatní statické
@@ -110,6 +111,8 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Neviditelné stěny z karet rostlin a paprsků v terénu odstraněné (D-034): skupina `drivethrough`, `card_test`
 - [x] Okruhy s počítáním kol: Monte Carlo s vlastní čarou startu a cíle (D-025), `lap_test`
 - [ ] Mezičasy, zvuk odpočtu; ověřit ve Wine, kde originál v Monaku startuje
+- [x] Postup spuštění z instalace originálu na macOS, Windows a Linuxu, převod jedním příkazem (D-037, [setup.md](setup.md))
+- [ ] Ověřit spuštění na Windows a s oknem na Linuxu ([co je ověřené](setup.md#co-je-ověřené-4-11-2026))
 - [ ] Rozhodnout definitivně o enginu (D-002)
 
 ## Fáze 3 – Opravený původní obsah

@@ -1,6 +1,6 @@
 ---
 type: inventory
-updated: 2026-10-15
+updated: 2026-11-04
 machine_readable: ../data/inventory.yaml
 ---
 
@@ -17,9 +17,9 @@ Nejcennější data jsou čitelná hned: fyzika 86 verzí aut a nastavení AI so
 | hned | Textové konfigurace | `.tpg`, `.clr`, `.map`, `.scn`, `animdefs.txt` | čitelné | Atmosféra, objekty |
 | rozbalit | Kontejner `.crp` | 44 aut, 15 tratí, 8 menu | komprese hotová ([crp.md](formats/crp.md)) | Krok k geometrii |
 | hotovo | Textury `.fsh` | 553 souborů, 10 425 obrázků | převedeno do PNG ([fsh.md](formats/fsh.md)) | Reference vzhledu |
-| rozbalit | Zvuky `.viv`/`.bnk` | 42 archivů | známý formát | Jen reference |
+| hotovo | Zvuky `.viv`/`.bnk` | 42 archivů | převedeno do WAV ([bnk.md](formats/bnk.md)) | Zvuky hry (D-011) |
 | rozbalit | Hudba, videa | 28 skladeb, 12 videí | známý formát | Nepoužije se |
-| hotovo | Geometrie aut | `.crp`, 44 | převedeno do glTF ([crp.md](formats/crp.md)) | Vizuální reference |
-| částečně | Geometrie tratí | `.crp`, 15 | skidpad převeden do glTF + data silnice ([crp.md](formats/crp.md)) | Reference stylu, předloha silnice |
+| hotovo | Geometrie aut | `.crp`, 44 | převedeno do glTF ([crp.md](formats/crp.md)) | Auta hry (D-009) |
+| hotovo | Geometrie tratí | `.crp`, 15 | všech 15 převedeno do glTF + data silnice ([crp.md](formats/crp.md)) | Tratě hry (D-009) |
 | dopsat | `.edg`, `.jnc`, `.rho`, `.cop`, `.spl` | trati, AI, zvuk | neznámé | Vzory pro AI a zvuk |
 | částečně | Stopy a profily AI | `Track/racer/work/*.lsp` 30, `Track/*.key` 28, `AICarData/*.ais` 22, `AI/TRAFCFG.DAT` | převedeno do JSON, stopy ověřené, význam `.key` a tabulek `.ais` je hypotéza ([lsp.md](formats/lsp.md), [ais.md](formats/ais.md)) | Soupeři (D-026) |

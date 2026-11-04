@@ -337,6 +337,8 @@ func _ready() -> void:
 	if _build_car(car, car_key, color, cars, true):
 		_load_mileage()
 	_reset_car(start_slice)
+	if road != null:
+		($HUD as Hud).minimap.setup(road, car)
 	if road_data is Dictionary and road_data.has("start") and road_data.has("finish") and _user_arg("slice").is_empty():
 		_setup_race(road_data)
 	if race != null and cars is Dictionary:
@@ -473,6 +475,7 @@ func _add_opponents(road_data: Dictionary, cars: Variant, player_color: String) 
 		driver.setup(opponent, road, ai_data, 0)
 		opponents.append(opponent)
 		standings.add_car(opponent, profile["name"])
+		($HUD as Hud).minimap.add_car(opponent, color)
 		_opponent_grid.append(_grid_slot(road_data["start"], k))
 	var field: Array[Car] = [car]
 	field.append_array(opponents)

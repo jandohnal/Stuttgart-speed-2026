@@ -48,7 +48,7 @@ def main():
     ap.add_argument("--out", default="assets/hdri")
     a = ap.parse_args()
 
-    cfg = json.load(open("data/hdri.json"))
+    cfg = json.load(open("data/hdri.json", encoding="utf-8"))
     ids = []
     for name, t in cfg["tracks"].items():
         if not a.track or name in a.track:

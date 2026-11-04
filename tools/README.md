@@ -1,6 +1,6 @@
 # Nástroje pro data originálu
 
-Python 3, jen standardní knihovna. Čtou ze `sources/`, zapisují do `decomposed/` se stejnou strukturou složek (CLAUDE.md, D-008). Spouštějí se z kořene repozitáře: `python3 tools/<nástroj>.py …`. Formáty jsou popsané v `docs/formats/`.
+Python 3, jen standardní knihovna. Čtou ze `sources/`, zapisují do `decomposed/` se stejnou strukturou složek (CLAUDE.md, D-008). Spouštějí se z kořene repozitáře: `python3 tools/<nástroj>.py …` (na Windows `py tools\<nástroj>.py …`). Celý převod najednou dělá `build_data.py`, postup pro všechny systémy je v [docs/setup.md](../docs/setup.md). Formáty jsou popsané v `docs/formats/`.
 
 ## Převodníky (spouštějí se)
 
@@ -13,7 +13,7 @@ Python 3, jen standardní knihovna. Čtou ze `sources/`, zapisují do `decompose
 | `snd2wav.py` | zvukové banky `.viv` / `.bnk` → WAV + `index.json`; u sad motoru `sd*.viv` i `engine.json` (smyčky pod plynem a bez plynu, otáčky) | [bnk.md](../docs/formats/bnk.md) |
 | `car_colors.py` | databáze aut menu `FEData/Data/nfs5.car` → `car_colors.json` (palety barev laku a interiéru podle modelu, tovární barva a styl modelu podle varianty) | [car.md](../docs/formats/car.md) |
 | `parts.py` | katalog dílů `FEData/Data/nfs5.prt` + seznamy dílů aut z `nfs5.car` + konstanty vzorců a tabulka pneumatik z `Porsche.exe` → `parts.json` (díly, sady Stock / Sport, pneumatiky pro každou variantu z `cars.json`); `--report` vypíše tabulku Sport | [prt.md](../docs/formats/prt.md) |
-| `sim_dump.py` | fyzika aut `.sim` → JSON na standardní výstup (`cars.json`) | [sim.md](../docs/formats/sim.md) |
+| `sim_dump.py` | fyzika aut `.sim` → `cars.json` (druhý argument; bez něj na standardní výstup) | [sim.md](../docs/formats/sim.md) |
 | `mesh_check.py` | hotový glTF → jeden řádek na model (OK / WARN / FAIL) + `<model>_check.json`: trojúhelníky obrácené proti normálám, zahozené při převodu, u aut pořadí vrcholů dílů kreslených jen z lícové strany a pro každý styl překryvy dílů v jedné rovině, vrstvené díly bez odsazení nebo zapuštěné a délka otevřených hran, u tratí plochy terénu mířící dolů a díry v silnici (paprsky přes řezy SimD) | [model-check.md](../docs/model-check.md) |
 | `flare.py` | záře světel `GameData/Render/flare.dat` → `flares.json` (vrstvy, barvy, velikosti, blikání) | [flare.md](../docs/formats/flare.md) |
 | `emitters.py` | tratě `.crp` → `<trať>_emitters.json`: zdroje částic (`ef` druhu 3) s oběma řádky báze (`direction`, `up` = směr, kterým částice letí); na rozmístěných objektech přepočtené do světa | [crp.md](../docs/formats/crp.md#efekty-ef-článku), [water.md](../docs/water.md) |
@@ -26,6 +26,8 @@ Python 3, jen standardní knihovna. Čtou ze `sources/`, zapisují do `decompose
 
 | Nástroj | Vstup → výstup |
 | --- | --- |
+| `build_data.py` | celý převod pro hru: volitelně zkopíruje instalaci do `sources/` (`--install <složka>`), spustí všechny převodníky (souběžně, `--jobs N`) a ověří, že vznikly soubory, které hra potřebuje. Na jakémkoli systému. |
+| `fetch_hdri.py` | stáhne oblohy podle `data/hdri.json` z Poly Haven (CC0) do `assets/hdri/<id>_<rozlišení>.hdr`; `--res`, `--track`, `--alternatives`. Volitelné, bez nich hra použije procedurální oblohu. |
 | `credits_stats.py` | historie gitu + logy sezení Claude Code tohoto projektu (`~/.claude/projects/<projekt>/`, i podagenti) → `game/ui/credits_stats.json` pro okno credits v menu: dny vývoje, commity, sezení, odpovědi, aktivní čas (mezery pod 30 min), tokeny (vstup, cache, výstup) a modely. Data originálu nečte. |
 
 ## Sdílené moduly (importují se)
@@ -41,22 +43,34 @@ Python 3, jen standardní knihovna. Čtou ze `sources/`, zapisují do `decompose
 
 ## Pořadí pro hru
 
+Všechno najednou, na všech systémech (první spuštění s `--install <složka s instalací hry>`):
+
 ```bash
-python3 tools/sim_dump.py sources/GameData/Simulation/CarData > decomposed/GameData/Simulation/cars.json
-python3 tools/crp2gltf.py sources/GameData/CarModel/356a.crp decomposed/GameData/CarModel/356a/356a.gltf
-python3 tools/track2gltf.py sources/GameData/Track/farmland.crp decomposed/GameData/Track/farmland/farmland.gltf
-python3 tools/snd2wav.py sources/GameData/Sounds decomposed/GameData/Sounds
-python3 tools/car_colors.py sources/FEData/Data/nfs5.car decomposed/FEData/Data/car_colors.json
-python3 tools/parts.py sources/FEData decomposed/FEData/Data/parts.json
-python3 tools/flare.py sources/GameData/Render/flare.dat decomposed/GameData/Render/flares.json
-python3 tools/ai_lines.py sources/GameData/Track decomposed/GameData/Track
-python3 tools/ais2json.py sources/GameData/Simulation decomposed/GameData/Simulation
+python3 tools/build_data.py
 ```
 
-Všechna auta a tratě najednou, potom kontrola:
+Co dělá, po krocích. Pořadí je důležité jen tam, kde to je uvedené:
 
 ```bash
-for f in sources/GameData/CarModel/*.crp; do c=$(basename $f .crp); python3 tools/crp2gltf.py $f decomposed/GameData/CarModel/$c/$c.gltf; done
-for t in skidpad farmland monaco1 monaco2 monaco3 monaco4 monaco5 alps autobahn canyon castle coastal foothills forest industrial; do python3 tools/track2gltf.py sources/GameData/Track/$t.crp decomposed/GameData/Track/$t/$t.gltf; done
+python3 tools/sim_dump.py sources/GameData/Simulation/CarData decomposed/GameData/Simulation/cars.json
+python3 tools/fsh2png.py sources decomposed
+python3 tools/snd2wav.py sources/GameData/Sounds decomposed/GameData/Sounds
+python3 tools/car_colors.py sources/FEData/Data/nfs5.car decomposed/FEData/Data/car_colors.json
+python3 tools/flare.py sources/GameData/Render/flare.dat decomposed/GameData/Render/flares.json
+python3 tools/particles.py sources/GameData/Render/particle.ini decomposed/GameData/Render/particles.json
+python3 tools/ais2json.py sources/GameData/Simulation decomposed/GameData/Simulation
+python3 tools/ai_csv2json.py sources/GameData/Simulation/AI decomposed/GameData/Simulation/AI
+python3 tools/crp2gltf.py sources/GameData/CarModel/356a.crp decomposed/GameData/CarModel/356a/356a.gltf   # každé auto
+python3 tools/track2gltf.py sources/GameData/Track/farmland.crp decomposed/GameData/Track/farmland/farmland.gltf   # každá trať
+python3 tools/parts.py sources/FEData decomposed/FEData/Data/parts.json   # po sim_dump
+python3 tools/ai_lines.py sources/GameData/Track decomposed/GameData/Track   # po track2gltf
+python3 tools/emitters.py sources/GameData/Track decomposed/GameData/Track   # po track2gltf
+```
+
+`fsh2png.py` přeskočí složku s podsložkou `original/`: to jsou ručně vylepšené textury (autorova kopie: farmland, skidpad) a převedené originály leží v `original/`.
+
+Kontrola modelů po převodu:
+
+```bash
 python3 tools/mesh_check.py decomposed/GameData/CarModel decomposed/GameData/Track
 ```

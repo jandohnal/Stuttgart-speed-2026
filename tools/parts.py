@@ -269,10 +269,10 @@ def main():
     fe, target = args
     exe_path = os.path.join(os.path.dirname(os.path.normpath(fe)), "Porsche.exe")
     sims_path = os.path.join(os.path.dirname(target), "..", "..", "GameData", "Simulation", "cars.json")
-    sims = json.load(open(sims_path))
+    sims = json.load(open(sims_path, encoding="utf-8"))
     out = convert(fe, exe_path, sims)
     os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
-    with open(target, "w") as f:
+    with open(target, "w", encoding="utf-8") as f:
         json.dump(out, f, indent=1, ensure_ascii=False)
     print("%d parts, %d cars -> %s" % (len(out["parts"]), len(out["cars"]), target), file=sys.stderr)
     if "--report" in sys.argv:

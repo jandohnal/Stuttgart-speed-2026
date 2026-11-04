@@ -174,6 +174,8 @@ func _place_background() -> void:
 ## First res://ui/photos/porthole_*.jpg|png (black-and-white archive photo with a clear licence,
 ## not in git), null when there is none.
 static func _photo() -> Texture2D:
+	if not DirAccess.dir_exists_absolute(PHOTO_DIR):
+		return null
 	var files := Array(DirAccess.get_files_at(PHOTO_DIR))
 	files.sort()
 	for file: String in files:
@@ -280,7 +282,7 @@ func _preselect(option: OptionButton, index: int) -> void:
 func _update_play() -> void:
 	var can_play := car_option.selected >= 0 and track_option.selected >= 0
 	play_button.disabled = not can_play
-	note.text = "" if can_play else "Data missing in decomposed/ – run the converters in tools/ (see game/README.md)."
+	note.text = "" if can_play else "Data missing in decomposed/ – run tools/build_data.py (see docs/setup.md)."
 	note.visible = not can_play
 
 

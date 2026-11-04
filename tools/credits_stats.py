@@ -30,8 +30,8 @@ IDLE = 30  # minutes
 
 
 def project_log_dir(repo):
-    """Claude Code keeps a project's logs under its path with / and . replaced by -."""
-    name = os.path.abspath(repo).replace("/", "-").replace(".", "-")
+    """Claude Code keeps a project's logs under its path with / \\ : and . replaced by -."""
+    name = os.path.abspath(repo).replace("/", "-").replace("\\", "-").replace(":", "-").replace(".", "-")
     return os.path.join(os.path.expanduser("~/.claude/projects"), name)
 
 

@@ -116,7 +116,7 @@ def texture_files(src, d, misc, out_dir):
             return {}
         fsh2png.convert(fsh, out_dir)
     files = {}
-    for e in json.load(open(index_path))["entries"]:
+    for e in json.load(open(index_path, encoding="utf-8"))["entries"]:
         if "file" in e:
             files.setdefault(e["name"], e["file"])
     return files
@@ -420,14 +420,14 @@ def convert(src, out_path, level=0, library=False):
     gates = race_gates(src, slices)
     if not gates and lap:
         gates = lap_gates(src, slices, segments, lap)
-    with open(os.path.join(out_dir, stem + "_road.json"), "w") as fh:
+    with open(os.path.join(out_dir, stem + "_road.json"), "w", encoding="utf-8") as fh:
         json.dump({"source": os.path.basename(src), "slice_count": len(slices), "length_m": round(length, 1),
                    "fields": "position, up, forward, right (unit vectors), flags [int0, int13..15], widths [4] m",
                    "segments": segments, "lap": lap, **gates,
                    "slices": [{k: [round(x, 4) if isinstance(x, float) else x for x in v] for k, v in s.items()}
                               for s in slices]}, fh)
 
-    with open(os.path.join(out_dir, stem + "_objects.json"), "w") as fh:
+    with open(os.path.join(out_dir, stem + "_objects.json"), "w", encoding="utf-8") as fh:
         json.dump({"source": os.path.basename(src),
                    "fields": "node = glTF node in group props; tag from Base 0x44 (tag_from_model: an untagged "
                              "copy takes the tag of its library model); collide (smackable | box | cylinder | none "
@@ -436,7 +436,7 @@ def convert(src, out_path, level=0, library=False):
                              "cards (PLANT_TEXTURES) moved to that group as <name> plants",
                    "objects": props, "drivethrough": drivethrough, "plant_parts": plant_parts}, fh, indent=1)
 
-    with open(os.path.join(out_dir, stem + "_lights.json"), "w") as fh:
+    with open(os.path.join(out_dir, stem + "_lights.json"), "w", encoding="utf-8") as fh:
         json.dump({"source": os.path.basename(src),
                    "fields": "id = flare in GameData/Render/flare.dat (flares.json) or emitter tag; position and "
                              "direction in glTF space: world, local to the prop node (props, keyed by node in "
