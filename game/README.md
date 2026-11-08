@@ -69,6 +69,8 @@ Hra se spouští rovnou přes celou obrazovku (`display/window/size/mode` = full
 
 **Klávesnice** funguje jako v tehdejších arkádových hrách: klávesa je zapnuto/vypnuto, ale pedály a volant se pohybují postupně, dokud ji držíš. Plyn naběhne při rozjezdu na jedničku za 0,4 s, se stoupající rychlostí a stupněm rychleji (od 100 km/h nebo na nejvyšší stupeň 0,15 s), puštění 0,1 s, brzda za 0,6 s (0,15 s), takže ťuknutí jen lehce přibrzdí. Volant jde ze středu na doraz za 0,25 s v klidu až 0,8 s ve 150 km/h, zpět do středu za 0,2 s. Analogový vstup (`Car.digital_input = false`, testy fyziky, později gamepad) jde přímo.
 
+**Volant** (D-038, `scripts/wheel_input.gd`, `scripts/wheel_setup.gd`) se nastaví v menu tlačítkem `wheel...`: výběr zařízení, volant na střed, doleva a doprava na doraz (podržet), plyn a brzda (sešlápnout a pustit), tlačítka pro ruční brzdu, reset auta, restart závodu, pauzu a návrat do menu (lze přeskočit). Na konci jsou živé ukazatele a posuvníky rozsahu (jaká část otočení volantu dá plný rejd) a křivky řízení; `adjust` k nim vede bez nové kalibrace. Uloží se až tlačítkem `save`, do `user://settings.cfg` podle GUID zařízení. Hodnoty z volantu jdou do auta bez náběhů klávesnice; držená jízdní klávesa má přednost a po odpojení volantu funguje klávesnice. Hra bez menu (`--car`, testy) volant nepoužije. Force feedback zatím není (IDEA-014). V menu Godot navíc bere osu 0 a 1 joypadu jako šipky, takže otáčení volantem může posouvat fokus. Se skutečným volantem to zatím není ověřené, výchozí rozsah a křivka jsou odhad.
+
 **Kontrola trakce** (přepínač v menu, D-015) bere poháněnému kolu moment, když jeho kombinovaný skluz (podélný a boční dohromady, 1 = vrchol síly pneumatiky) překročí 0,8. Při 1,05 už kolo nedostává nic. Kolo se tak drží kolem vrcholu přilnavosti i v zatáčce. Působí v každém podkroku kola a na každé kolo zvlášť (jako brzdová kontrola trakce), na brzdění motorem ne.
 
 **Rozjezd a pohon** (`Car`, skupina „Driver aids and drivetrain“):
@@ -333,6 +335,12 @@ Hlavní menu: bez okna ověří, že seznamy odpovídají `CARS` a `TRACKS`, pol
 
 ```bash
 ~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/menu_test.tscn
+```
+
+Volant (bez skutečného volantu, události jdou přes `Input.parse_input_event`): převody os, detektory kalibrace, hodnoty v autě bez náběhů, přednost klávesy, odpojení, tlačítka:
+
+```bash
+~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/wheel_input_test.tscn
 ```
 
 Díly (bez okna): díly z továrny nechají hodnoty `.sim` všech aut beze změny, Sport udělá 356 A 1600 lehčí, silnější, s lepšími brzdami a přilnavostí, slicky přidají a pneumatiky do deště uberou přilnavost na suchu, GT3 zůstane sériová a menu má Stock / Sport mezi autem a barvou a pneumatiky nad tratí. Srovnání v jízdě: `drive_test` s `-- --tune=sport` nebo `-- --tyres=slick` (356 A 1600 na skidpadu: 0–100 km/h 14,4 → 9,9 s, brzdná dráha 60 → 50 m).

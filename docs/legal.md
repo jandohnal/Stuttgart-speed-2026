@@ -8,7 +8,7 @@ disclaimer: "Orientační přehled, ne právní rada."
 
 ## Pravidla pro repozitář
 
-Repozitář je privátní. Data originální hry a licencované modely smí být jen lokálně ve složkách `sources/` (původní assety) a `decomposed/` (rozbalené). Obě jsou v `.gitignore`. Tabulka platí pro obsah, který se commituje, a pro případné budoucí zveřejnění.
+Repozitář je veřejný (D-039). Data originální hry a licencované modely smí být jen lokálně ve složkách `sources/` (původní assety) a `decomposed/` (rozbalené). Obě jsou v `.gitignore`. Tabulka platí pro obsah, který se commituje.
 
 | Obsah | Commit do gitu | Poznámka |
 | --- | --- | --- |

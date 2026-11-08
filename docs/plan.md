@@ -112,7 +112,8 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Okruhy s počítáním kol: Monte Carlo s vlastní čarou startu a cíle (D-025), `lap_test`
 - [ ] Mezičasy, zvuk odpočtu; ověřit ve Wine, kde originál v Monaku startuje
 - [x] Postup spuštění z instalace originálu na macOS, Windows a Linuxu, převod jedním příkazem (D-037, [setup.md](setup.md))
-- [ ] Ověřit spuštění na Windows a s oknem na Linuxu ([co je ověřené](setup.md#co-je-ověřené-4-11-2026))
+- [x] Ověřit spuštění na Windows (hlášení uživatele, 5. 11. 2026)
+- [ ] Ověřit spuštění s oknem na Linuxu ([co je ověřené](setup.md#co-je-ověřené-5-11-2026))
 - [ ] Rozhodnout definitivně o enginu (D-002)
 
 ## Fáze 3 – Opravený původní obsah
@@ -144,6 +145,8 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [ ] Soupeři E: síla AI v menu
 - [ ] Provoz, policie
 - [ ] Zvuky originálu pro všechny situace (soupeři, provoz, policie, prostředí)
+- [x] Ovládání volantem: kalibrace v menu, plyn, brzda, tlačítka, bez force feedbacku (D-038)
+- [ ] Ověřit volant na skutečném zařízení a doladit výchozí rozsah a křivku řízení
 
 ## Fáze 5 – Vylepšený a doplněný obsah
 

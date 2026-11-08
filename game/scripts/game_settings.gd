@@ -31,6 +31,8 @@ var car_tune := ""
 var tyres := ""
 ## Options toggled in the menu (not during the game), applied by main.gd when the game starts.
 var options := DEFAULT_OPTIONS.duplicate()
+## Calibrated wheel (WheelInput.to_dict, set in WheelSetup); empty = none. Loaded only by the menu.
+var wheel := {}
 
 
 ## Last choice saved by save_last(): {"car": key, "track": name, "time": day|night,
@@ -41,6 +43,7 @@ func load_last() -> Dictionary:
 	cfg.load(FILE)
 	for key: String in DEFAULT_OPTIONS:
 		options[key] = bool(cfg.get_value("options", key, DEFAULT_OPTIONS[key]))
+	wheel = cfg.get_value("wheel", "mapping", {})
 	return {"car": str(cfg.get_value("last", "car", "")), "track": str(cfg.get_value("last", "track", "")),
 		"time": str(cfg.get_value("last", "time", "")), "color": str(cfg.get_value("last", "color", "")),
 		"tune": str(cfg.get_value("last", "tune", "")), "tyres": str(cfg.get_value("last", "tyres", ""))}
@@ -57,6 +60,14 @@ func save_last() -> void:
 	cfg.set_value("last", "tyres", tyres)
 	for key: String in options:
 		cfg.set_value("options", key, options[key])
+	cfg.save(FILE)
+
+
+## The wheel is saved on its own, when its setup closes; an empty mapping removes the key.
+func save_wheel() -> void:
+	var cfg := ConfigFile.new()
+	cfg.load(FILE)
+	cfg.set_value("wheel", "mapping", wheel if not wheel.is_empty() else null)
 	cfg.save(FILE)
 
 

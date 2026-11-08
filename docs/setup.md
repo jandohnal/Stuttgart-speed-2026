@@ -1,6 +1,6 @@
 ---
 type: guide
-updated: 2026-11-04
+updated: 2026-11-05
 ---
 
 # Spuštění hry na macOS, Windows a Linuxu
@@ -105,11 +105,15 @@ Rychlá kontrola bez okna (na konci vypíše `all passed`), příkaz upravte pod
 - **Vylepšené textury:** autorova kopie `decomposed/` má u farmlandu a skidpadu navíc ručně vylepšené textury (`original/` s převedenými) a mapy `advanced/`. Nejsou v gitu a nástroje je nevytvoří, jinde se proto tyto tratě kreslí s původními texturami 128 px. Převod takto vylepšené textury nepřepisuje.
 - **Export:** hra se spouští jen z projektu přes Godot, hotový spustitelný soubor zatím neexistuje (data čte z `../decomposed` vůči projektu, viz [IDEA o distribuci](../ideas/distribution-bring-your-own-data.md)).
 
-## Co je ověřené (4. 11. 2026)
+## Volant
+
+Hra nic navíc nepotřebuje, volant musí vidět operační systém. Některé volanty potřebují ovladač výrobce nebo přepnutí režimu, nejméně spolehlivý bývá macOS. Volant se připojí před spuštěním nebo v menu a nastaví se tlačítkem `wheel...` (D-038). Se skutečným volantem to zatím není ověřené na žádném systému.
+
+## Co je ověřené (5. 11. 2026)
 
 | Systém | Ověřeno | Neověřeno |
 | --- | --- | --- |
 | macOS (Apple Silicon, Python 3.9, Godot 4.7.2) | celý postup z čistého klonu, 24 testů bez okna, snímky obrazovky s oknem | |
 | Linux ARM64 (kontejner Ubuntu 24.04, Python 3.12, Godot 4.7.2) | celý postup z čistého klonu, stejné výsledky převodu i testů bez okna | okno, grafika a zvuk (kontejner nemá GPU ani displej) |
 | Linux x64 | | nespuštěno; stejný kód, jiný soubor Godotu |
-| Windows | názvy souborů (žádné znaky ani jména zakázaná ve Windows), kódování (převod s jiným než UTF-8 výchozím kódováním dává stejný výstup) | nespuštěno, na ověření je potřeba počítač s Windows |
+| Windows | spuštěno na počítači uživatele podle tohoto postupu: funguje (hlášení uživatele, 5. 11. 2026) | testy bez okna a srovnání výstupu převodu s macOS |

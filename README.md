@@ -9,12 +9,12 @@ Cílem není kopie originálu, ale zachování toho, co ho dělalo výjimečným
 - **Engine:** Godot 4.7, fyzika Jolt, renderer Forward+ (vývoj na Metalu a Apple Silicon, jinde Direct3D 12 nebo Vulkan).
 - **Jízdní model:** vlastní raycast podvozek, model pneumatik, přenos hmotnosti, nastavitelné asistenty.
 - **Poškození:** zóny, deformace meshe, odpadávající díly a dopad na mechaniku.
-- **Obsah:** jen pro osobní použití, nešíří se. Původní auta, tratě a zvuky originálu, opravené a doplněné (i pomocí AI), bez hudby. Fiktivní auta a vlastní tratě jen pro případné veřejné vydání (D-004, D-005, D-009).
-- **Data originálu** existují jen lokálně. Leží ve složkách `sources/` (původní assety) a `decomposed/` (rozbalené), které se nikdy necommitují.
+- **Obsah:** repozitář obsahuje jen kód, nástroje a dokumentaci. Auta, tratě a zvuky si každý převede z vlastní kopie původní hry a hra je opravuje a doplňuje, bez hudby (D-009, D-039). Fiktivní auta a vlastní tratě jsou jen možnost pro samostatné vydání s vlastním obsahem (D-004, D-005).
+- **Data originálu** se nešíří a existují jen lokálně u každého hráče. Leží ve složkách `sources/` (původní assety) a `decomposed/` (rozbalené), které se nikdy necommitují.
 
 ## Spuštění
 
-Potřebuješ složku s instalací původní hry, Python 3 a Godot 4.7.2. Přesný postup pro macOS, Windows a Linux je v [docs/setup.md](docs/setup.md). Ve zkratce:
+Repozitář data původní hry neobsahuje a bez nich hra nepoběží. Potřebuješ složku s vlastní instalací původní hry, Python 3 a Godot 4.7.2. Přesný postup pro macOS, Windows a Linux je v [docs/setup.md](docs/setup.md). Ve zkratce:
 
 ```bash
 python3 tools/build_data.py --install "/cesta/k/instalaci"
@@ -51,6 +51,10 @@ Fáze 2: hratelný prototyp se všemi auty a tratěmi originálu, závodem se so
 | `sources/` | Assety z originální hry, jen lokálně (v `.gitignore`) |
 | `decomposed/` | Rozbalené a převedené assety, jen lokálně (v `.gitignore`) |
 
+## Licence
+
+Kód a dokumentace jsou pod licencí MIT, viz [LICENSE](LICENSE). Přiložené cizí assety mají vlastní licence uložené vedle nich: částice v `game/assets/particles/` jsou CC0 a písmo v `game/ui/fonts/` je pod SIL OFL 1.1. Licence se nevztahuje na data původní hry ani na názvy a značky jejich vlastníků.
+
 ## Právní upozornění
 
-Projekt není nijak spojen s Electronic Arts ani s Porsche AG. Repozitář je privátní a neobsahuje žádná data původní hry. Ta existují jen lokálně ve složkách `sources/` a `decomposed/`. Nástroje v `tools/` pracují jen s daty z kopie hry, kterou uživatel legálně vlastní.
+Projekt není nijak spojen s Electronic Arts ani s Porsche AG. Názvy her, vozů a značek patří jejich vlastníkům. Repozitář neobsahuje žádná data původní hry a neodkazuje na jejich stažení. Data vznikají jen lokálně ve složkách `sources/` a `decomposed/`. Nástroje v `tools/` pracují jen s daty z kopie hry, kterou uživatel legálně vlastní.

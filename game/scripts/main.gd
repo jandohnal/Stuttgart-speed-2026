@@ -293,6 +293,7 @@ func _ready() -> void:
 		_make_pausable(child)
 	child_entered_tree.connect(_make_pausable)
 	_setup_input()
+	_setup_wheel()
 	_setup_pause_label()
 	_apply_options()
 	# The HUD scales with the window: project setting display/window/stretch (canvas_items).
@@ -790,6 +791,16 @@ func _setup_input() -> void:
 			var event := InputEventKey.new()
 			event.physical_keycode = key as Key
 			InputMap.action_add_event(action, event)
+
+
+## The calibrated wheel from the menu, only in the game itself: a wheel left connected must not
+## change a test.
+func _setup_wheel() -> void:
+	if not _is_game():
+		return
+	WheelInput.install_buttons(GameSettings.wheel.get("buttons", {}))
+	if not GameSettings.wheel.is_empty():
+		car.wheel = WheelInput.from_dict(GameSettings.wheel)
 
 
 func _make_pausable(child: Node) -> void:

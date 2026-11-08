@@ -48,6 +48,7 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
 - **Stav:** accepted
 - **Rozhodnutí:** Repozitář je privátní. Veškeré assety z originální hry (a licencované modely) leží v `sources/`, vše rozbalené a převedené v `decomposed/`. Obě složky jsou v `.gitignore` a existují jen lokálně.
 - **Důsledky:** Do gitu jde jen kód, nástroje, dokumentace a vlastní obsah. Nástroje čtou ze `sources/` a zapisují do `decomposed/` se stejnou strukturou podsložek.
+- **Změna 8. 11. 2026:** Repozitář je veřejný (D-039). Pravidlo, že data originálu jsou jen lokálně, platí beze změny.
 
 ## D-009 Původní auta, tratě a zvuky jako obsah osobní verze
 - **Stav:** accepted
@@ -60,6 +61,7 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
   - D-001, D-004, D-005, D-007 a D-011 (vlastní obsah, bez názvů a tvarů Porsche) platí jen pro případné veřejné vydání. O něm se zatím nerozhodlo, viz [IDEA o distribuci](../ideas/distribution-bring-your-own-data.md).
   - Postup vylepšování: [IDEA-003](../ideas/asset-enhancement-ai-blender.md).
 - **Změna 29. 10. 2026:** Původně jen první krok: jedno původní auto na jedné původní trati v prototypu, potom fiktivní auta a vlastní tratě.
+- **Změna 8. 11. 2026:** Veřejný je kód, data originálu se dál nešíří (D-039).
 
 ## D-010 Poškození s následky a odpadajícími díly
 - **Stav:** accepted
@@ -318,4 +320,16 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
 - **Stav:** accepted
 - **Rozhodnutí:** Předpokladem je jen složka s instalací originálu. `tools/build_data.py --install <složka>` ji zkopíruje do `sources/` a převede do `decomposed/` stejně na všech systémech, hra se spouští z projektu přes Godot 4.7.2 ([setup.md](setup.md)). Vývoj a ladění výkonu zůstávají na Macu (D-002, D-030).
 - **Důvod:** Přání uživatele (4. 11. 2026). Dřívější postup byl seznam příkazů pro bash, na čistém klonu selhal (chybějící složky) a ve Windows by psal soubory ve špatném kódování.
-- **Důsledky:** Textové výstupy nástrojů jsou vždy v UTF-8. Na Windows a Linuxu zvětšuje 3D obraz bilineární filtr místo MetalFX. Ve Windows se zatím nic nespustilo a na Linuxu nic s oknem, viz [setup.md](setup.md#co-je-ověřené-4-11-2026).
+- **Důsledky:** Textové výstupy nástrojů jsou vždy v UTF-8. Na Windows a Linuxu zvětšuje 3D obraz bilineární filtr místo MetalFX. Na Windows hra běží (hlášení uživatele, 5. 11. 2026), na Linuxu se zatím nic nespustilo s oknem, viz [setup.md](setup.md#co-je-ověřené-5-11-2026).
+
+## D-038 Volant: obecná kalibrace os v menu, zatím bez force feedbacku
+- **Stav:** accepted
+- **Rozhodnutí:** Hra čte volant a pedály vestavěnými funkcemi Godotu (`Input.get_joy_axis`), bez doplňků a instalace. Místo profilů pro konkrétní modely hráč volant zkalibruje v menu (`wheel...`, `scripts/wheel_setup.gd`): průvodce změří osu volantu a jeho dorazy, osy pedálů a tlačítka. Mapování je uložené podle GUID zařízení v `user://settings.cfg` (`scripts/wheel_input.gd`). Force feedback se zatím nedělá (IDEA-014).
+- **Důvod:** Přání uživatele (5. 11. 2026). Volant zatím není určený a volanty nemají jednotné rozložení os: pedál může být v klidu na -1 i +1 a plyn s brzdou můžou sdílet osu. Godot 4.7 force feedback neumí, má jen vibrace; vlastní rozšíření nad SDL by vyžadovalo překlad pro každý systém a nešlo by ověřit bez volantu.
+- **Důsledky:** Funguje i s gamepadem s analogovými osami. Držená jízdní klávesa má přednost před volantem. Testy mapování nedostanou, připojený volant je neovlivní. Tlačítka platí pro kterýkoli joypad, protože čísla zařízení se mezi spuštěními mění. Výchozí rozsah a křivka řízení jsou odhad, se skutečným volantem zatím nebylo nic ověřeno.
+
+## D-039 Veřejný repozitář bez dat originálu
+- **Stav:** accepted
+- **Rozhodnutí:** Repozitář je veřejný, aby si hru mohl stáhnout a zahrát každý, kdo má vlastní kopii původní hry. Obsahuje kód, nástroje, dokumentaci a volně licencované assety. Kód a dokumentace jsou pod licencí MIT (`LICENSE`). Názvy aut v kódu (`CARS` v `main.gd`) zůstávají.
+- **Důvod:** Přání uživatele (8. 11. 2026). Stejný model používá OpenNFS. Hotový balíček a průvodce importem ([IDEA-011](../ideas/distribution-bring-your-own-data.md)) tím rozhodnuté nejsou.
+- **Důsledky:** D-008 platí dál a vztahuje se i na dokumentaci: výpisy dat originálu do repozitáře nepatří, stačí popis formátu, jednotlivé příklady a příkaz, který výpis vytvoří lokálně. Názvy Porsche v kódu jsou vědomé riziko (`docs/legal.md`). Commity používají adresu GitHub noreply místo osobního e-mailu.

@@ -80,6 +80,9 @@ const DAMAGE_REFERENCE_MPH := 100.0  ## 356 A 1.6, the car CarDamage's part spee
 ## Keys are on/off: like the arcade racers of the time, the pedals and the steering wheel move
 ## gradually while a key is held. Off for analog input (gamepad, wheel) and physics tests.
 @export var digital_input := true
+## Calibrated wheel (main.gd, only in the game itself); null = keyboard only. A held driving key
+## takes over from the wheel.
+var wheel: WheelInput = null
 @export var throttle_rise_time := 0.4  ## s from 0 to full throttle when starting off in first gear
 @export var throttle_rise_time_fast := 0.15  ## at throttle_fast_speed or in top gear
 @export var throttle_fast_speed := 27.8  ## m/s (100 km/h)
@@ -623,6 +626,16 @@ func _read_input(delta: float) -> void:
 	var accel_raw := Input.get_action_strength("accelerate")
 	var brk_raw := Input.get_action_strength("brake")
 	var steer_raw := Input.get_action_strength("steer_left") - Input.get_action_strength("steer_right")
+	var analog := false
+	if wheel != null and wheel.is_active() and accel_raw == 0.0 and brk_raw == 0.0 and steer_raw == 0.0:
+		accel_raw = wheel.throttle()
+		brk_raw = wheel.brake()
+		steer_raw = wheel.steer()
+		analog = true
+		# A key pressed later ramps on from where the pedal is.
+		_accel_key = accel_raw
+		_brake_key = brk_raw
+		_steer_key = steer_raw
 	if auto_drive:
 		accel_raw = auto_throttle
 		brk_raw = auto_brake
@@ -630,7 +643,7 @@ func _read_input(delta: float) -> void:
 	var accel := accel_raw
 	var brk := brk_raw
 	var steer_input := steer_raw
-	if digital_input and not auto_drive:
+	if digital_input and not auto_drive and not analog:
 		# In reverse the keys swap roles, so each key ramps as the pedal it currently drives.
 		var accel_is_brake := gear == -1
 		# Gentle off the line, quicker at speed and in the higher gears (less wheelspin to fear).

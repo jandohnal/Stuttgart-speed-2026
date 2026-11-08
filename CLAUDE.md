@@ -9,13 +9,13 @@ Duchovní nástupce NFS: Porsche 2000. Kontext: `README.md`, rozhodnutí: `docs/
 | `sources/` | Veškeré assety z originální hry v původní podobě (kopie instalace: `GameData/`, `FEData/` ...), případně licencované modely | ignorováno |
 | `decomposed/` | Vše rozbalené a převedené ze `sources/` (JSON, PNG, glTF, WAV ...) | ignorováno |
 
-- Obě složky jsou v `.gitignore` a **nikdy se necommitují**, i když je repozitář privátní. Existují jen lokálně.
+- Obě složky jsou v `.gitignore` a **nikdy se necommitují**, repozitář je veřejný (D-039). Existují jen lokálně.
 - Nástroje čtou ze `sources/` a zapisují do `decomposed/`. Struktura `decomposed/` kopíruje strukturu `sources/` (např. `sources/GameData/Track/alps.crp` → `decomposed/GameData/Track/alps.bin`).
 - Nic mimo tyto dvě složky nesmí obsahovat data originální hry.
 
 ## Pravidla
 
-- Hra je jen pro osobní použití a nešíří se: používá původní auta, tratě a zvuky z `decomposed/` a postupně je opravuje a doplňuje (D-009). Opravy se zapisují jako pravidla do nástrojů v `tools/` (nebo do `materials.gd`), ne ručními úpravami souborů v `decomposed/`. Tyto assety se nikdy necommitují. Fiktivní auta a vlastní tratě (D-004, D-005) jen pro případné veřejné vydání.
+- Repozitář je veřejný, data originálu se nešíří (D-039): hra používá původní auta, tratě a zvuky z `decomposed/`, který si každý vytvoří z vlastní kopie hry, a postupně je opravuje a doplňuje (D-009). Ani do dokumentace se nezapisují výpisy dat originálu, jen popis formátu a příklady. Opravy se zapisují jako pravidla do nástrojů v `tools/` (nebo do `materials.gd`), ne ručními úpravami souborů v `decomposed/`. Tyto assety se nikdy necommitují. Fiktivní auta a vlastní tratě (D-004, D-005) jen pro případné samostatné vydání s vlastním obsahem.
 - Při rozluštění dalšího formátu aktualizovat `docs/formats/<formát>.md` a `data/inventory.yaml`.
 - Nová rozhodnutí zapisovat do `docs/decisions.md` jako D-xxx, hotové úkoly odškrtávat v `docs/plan.md`.
 - Nápady, o kterých se zatím nerozhodlo, ukládat do `ideas/` jako samostatný soubor s hlavičkou `type: idea`, `id: IDEA-xxx`, `status`. Po přijetí nápadu z něj udělat rozhodnutí D-xxx a změnit `status` na `accepted`.

@@ -60,8 +60,7 @@ Alternativa jako OpenNFS: číst formáty originálu přímo za běhu bez převo
 
 ## 5. Právní a praktické náležitosti
 
-- Repozitář je teď privátní. Pro veřejné vydání: samostatný veřejný repozitář nebo veřejná větev jen s kódem a vlastním obsahem (D-008 zůstává: data originálu nikdy).
-- Licence vlastního kódu (např. MIT nebo GPL), soubor `LICENSE`.
+- Repozitář je veřejný a kód je pod licencí MIT (D-039). D-008 zůstává: data originálu nikdy.
 - Prohlášení jako u OpenNFS: projekt není spojen s EA ani s Porsche AG; vyžaduje legálně vlastněnou kopii hry. **Neodkazovat** na stránky se stažením originálu.
 - Názvy a zobrazení aut pocházejí z dat hráče; ve vlastním obsahu a propagaci (screenshoty, trailer) bez značek Porsche (D-001, `docs/legal.md`).
 - Kredity: OpenNFS / LibOpenNFS a komunita za rozluštění formátů, OpenStreetMap a další zdroje podle použití.

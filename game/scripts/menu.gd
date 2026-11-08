@@ -10,7 +10,7 @@ extends Control
 ## untinted. The options are set only here, not in game.
 ## Layout: 1920x1080 design pixels (root content scale while the menu is up), wider or taller
 ## windows grow the background and keep the panel left and the porthole bottom-centre.
-## Keyboard / gamepad: arrows or D-pad move the focus (dropdowns -> options -> PLAY -> credits ->
+## Keyboard / gamepad: arrows or D-pad move the focus (dropdowns -> options -> PLAY -> wheel -> credits ->
 ## exit -> back to the top), Space / A opens a list or toggles, Enter (anywhere) or Start plays,
 ## Esc asks to quit.
 
@@ -21,6 +21,7 @@ signal exit_requested
 const Main := preload("res://scripts/main.gd")
 const CarParts := preload("res://scripts/car_parts.gd")
 const MenuTheme := preload("res://ui/theme/menu_theme.gd")
+const WheelSetup := preload("res://scripts/wheel_setup.gd")
 const GAME_SCENE := "res://scenes/main.tscn"
 const DESIGN_SIZE := Vector2i(1920, 1080)
 const PHOTO_DIR := "res://ui/photos"
@@ -70,6 +71,7 @@ var colors: Array[String] = []  ## color_option items: "" (original) or "#rrggbb
 var car_colors: Variant  ## Main.CAR_COLORS, null when missing
 var parts: Variant  ## CarParts.FILE, null when missing
 var option_toggles := {}  ## key of OPTION_LABELS -> CheckBox
+var wheel_setup: WheelSetup
 var _scale_size := Vector2i.ZERO  ## root content scale before the menu
 var _caption_tween: Tween
 
@@ -127,11 +129,15 @@ func _ready() -> void:
 	play_button.button_up.connect(_shift_play.bind(0))
 	play_button.mouse_entered.connect(_glow.bind(play_button, true))
 	play_button.mouse_exited.connect(_glow.bind(play_button, false))
+	%WheelButton.pressed.connect(_on_wheel)
 	%CreditsButton.pressed.connect(_on_credits)
 	%ExitButton.pressed.connect(_ask_exit)
 	exit_dialog.theme = theme
 	exit_dialog.confirmed.connect(_exit)
 	credits_dialog.theme = theme
+	wheel_setup = WheelSetup.new()
+	wheel_setup.theme = theme
+	add_child(wheel_setup)
 	_fill_stats()
 	_link_focus()
 	_update_play()
@@ -186,13 +192,13 @@ static func _photo() -> Texture2D:
 	return null
 
 
-## D-pad / arrows top to bottom: 5 dropdowns -> option grid (2 columns) -> PLAY -> credits -> exit,
+## D-pad / arrows top to bottom: 5 dropdowns -> option grid (2 columns) -> PLAY -> wheel -> credits -> exit,
 ## wrapping to the first dropdown; Tab goes the same way.
 func _link_focus() -> void:
 	var toggles: Array = option_toggles.values()
 	var chain: Array[Control] = [car_option, tune_option, color_option, tyre_option, track_option]
 	chain.append_array(toggles)
-	chain.append_array([play_button, %CreditsButton, %ExitButton])
+	chain.append_array([play_button, %WheelButton, %CreditsButton, %ExitButton])
 	for i in chain.size():
 		var c: Control = chain[i]
 		c.focus_next = c.get_path_to(chain[(i + 1) % chain.size()])
@@ -207,6 +213,8 @@ func _link_focus() -> void:
 		t.focus_neighbor_left = t.get_path_to(other)
 		t.focus_neighbor_right = t.get_path_to(other)
 	play_button.focus_neighbor_top = play_button.get_path_to(toggles[toggles.size() - 1])
+	%WheelButton.focus_neighbor_right = %WheelButton.get_path_to(%CreditsButton)
+	%CreditsButton.focus_neighbor_left = %CreditsButton.get_path_to(%WheelButton)
 	%CreditsButton.focus_neighbor_right = %CreditsButton.get_path_to(%ExitButton)
 	%ExitButton.focus_neighbor_left = %ExitButton.get_path_to(%CreditsButton)
 
@@ -337,6 +345,10 @@ func _glow(button: Button, on: bool) -> void:
 	create_tween().tween_property(button, "modulate", Color(1.15, 1.15, 1.15) if lit else Color.WHITE, 0.12)
 
 
+func _on_wheel() -> void:
+	wheel_setup.open()
+
+
 func _on_credits() -> void:
 	_set_caption(CREDITS_CAPTION)
 	credits_requested.emit()
@@ -446,7 +458,7 @@ func _play() -> void:
 ## Enter plays even while the focus is on a dropdown (there Enter would open the list; Space or
 ## gamepad A still does). An open list or the exit dialog is a popup window and gets its keys first.
 func _input(event: InputEvent) -> void:
-	if exit_dialog.visible or credits_dialog.visible:
+	if exit_dialog.visible or credits_dialog.visible or wheel_setup.visible:
 		return
 	var key := event as InputEventKey
 	var joy := event as InputEventJoypadButton
