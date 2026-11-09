@@ -27,6 +27,7 @@ const DEFAULT_TRACK := "farmland"
 const TrackProps := preload("res://scripts/track_props.gd")
 const CarAudio := preload("res://scripts/car_audio.gd")
 const CarEffects := preload("res://scripts/car_effects.gd")
+const TrackBatcher := preload("res://scripts/track_batcher.gd")
 const FallingLeaves := preload("res://scripts/falling_leaves.gd")
 const TrackWater := preload("res://scripts/track_water.gd")
 const Materials := preload("res://scripts/materials.gd")
@@ -231,6 +232,7 @@ const TRACKS := {
 	"skidpad": "Test Track (skidpad)",
 }
 const MENU_SCENE := "res://scenes/menu.tscn"
+const WEB_SHADOW_DISTANCE := 200.0  ## m, sun shadows on the web
 ## Track glTF groups that get trimesh collision. Not "drivethrough" (bushes, animdefs.txt
 ## drivethrough=1: cars pass through them), "vegetation" (trees by name) and the helpers.
 const SOLID_GROUPS := ["road", "terrain", "objects"]
@@ -303,6 +305,9 @@ func _ready() -> void:
 	if time_of_day.is_empty():
 		time_of_day = GameSettings.time_of_day if not GameSettings.time_of_day.is_empty() else _time_from_args()
 	_setup_lighting()
+	if GameSettings.is_web_profile():  # every shadow pass draws the scene again
+		($Sun as DirectionalLight3D).directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+		($Sun as DirectionalLight3D).directional_shadow_max_distance = WEB_SHADOW_DISTANCE
 	var folder := "GameData/Track/%s/" % track_name
 	var track := OriginalAssets.load_gltf(folder + track_name + ".gltf")
 	if track != null:
@@ -368,6 +373,8 @@ func _ready() -> void:
 			var lift := line.basis.y * RESET_HEIGHT
 			line.position = _on_ground(Transform3D(line.basis, line.position + lift)).origin - lift
 			track.add_child(line)
+	if track != null and GameSettings.is_web_profile():
+		TrackBatcher.merge(track)
 
 
 ## Countdown, clock and best time between the original's start and finish lines. The tests load
@@ -420,7 +427,8 @@ func _build_car(target: Car, key: String, color: String, cars: Variant, player: 
 	if player:
 		car_style = style
 		lights = car_lights
-		Materials.add_car_reflections(target)
+		if not GameSettings.is_web_profile():
+			Materials.add_car_reflections(target)
 	var damage: Variant = OriginalAssets.load_json(model_path.get_basename() + "_damage.json")
 	if damage is Dictionary:
 		target.setup_damage(damage)
@@ -431,7 +439,8 @@ func _build_car(target: Car, key: String, color: String, cars: Variant, player: 
 		target.add_child(audio)
 		audio.rpm_scale = 4.0 / float(info["cylinders"])  # engine.json assumes a four
 		audio.setup(target, engine, engine_sound, SFX_BANK)
-	if _user_arg("effects") != "0":  # --effects=0: without tyre marks, dust and sparks (FPS comparison)
+	# --effects=0: without tyre marks, dust and sparks (FPS comparison); on the web only the player has them
+	if _user_arg("effects") != "0" and (player or not GameSettings.is_web_profile()):
 		var effects := CarEffects.new()
 		effects.name = "Effects"
 		target.add_child(effects)
@@ -746,11 +755,17 @@ static func car_model_path(key: String) -> String:
 
 ## True when decomposed/ holds the car's model and physics (cars.json, already parsed).
 static func car_available(key: String, cars: Variant) -> bool:
-	return cars is Dictionary and cars.has(car_physics_key(key)) and OriginalAssets.exists(car_model_path(key))
+	return cars is Dictionary and cars.has(car_physics_key(key)) and OriginalAssets.available(car_model_path(key))
 
 
 static func track_available(name: String) -> bool:
-	return OriginalAssets.exists("GameData/Track/%s/%s.gltf" % [name, name])
+	return OriginalAssets.available("GameData/Track/%s/%s.gltf" % [name, name])
+
+
+## Data packs a race on `track` in car `key` needs on the web (DataPacks, tools/pack_web.py).
+## The opponents drive the player's car, so one car and one engine set are enough.
+static func race_packs(key: String, track: String) -> Array:
+	return ["track-" + track, DataPacks.pack_for(car_model_path(key)), "engine-" + str(car_info(key)["engine_sound"]), "sfx"]
 
 
 ## Back to the menu, only when this scene is the game itself (not inside a test scene). Freeing
@@ -887,6 +902,8 @@ func _set_paused(on: bool) -> void:
 
 
 func _toggle_log() -> void:
+	if OS.has_feature("web"):
+		return  # the player could not reach the file
 	if _log != null:
 		_log.close()
 		_log = null

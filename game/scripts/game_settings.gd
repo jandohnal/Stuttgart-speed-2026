@@ -71,6 +71,11 @@ func save_wheel() -> void:
 	cfg.save(FILE)
 
 
+## The web build's reduced quality: fewer lights and particles, no decals (Compatibility renderer).
+func is_web_profile() -> bool:
+	return OS.has_feature("web")
+
+
 func _ready() -> void:
 	get_tree().root.size_changed.connect(_apply_render_height)
 	_apply_render_height()
@@ -91,8 +96,8 @@ func _apply_render_height() -> void:
 ## tests); -- --windowed=1 keeps a window. The project starts full screen already
 ## (display/window/size/mode, which also makes the editor run the game in its own window).
 func go_fullscreen() -> void:
-	if DisplayServer.get_name() == "headless" or Engine.is_embedded_in_editor():
-		return
+	if DisplayServer.get_name() == "headless" or Engine.is_embedded_in_editor() or OS.has_feature("web"):
+		return  # a browser allows full screen only from a key press or click (the fullscreen action)
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--windowed="):
 			_go_windowed()

@@ -23,6 +23,7 @@ const SIZE_SCALE := 0.1  ## m per flare.dat size unit (sawhorse glow 0.6 / 0.9 m
 const NIGHT_ENERGY := 3.0  ## sprite colour multiplier; above the glow threshold so flares bloom
 const DAY_ENERGY := 1.0
 const LIGHT_POOL := 12  ## OmniLight3D at night
+const WEB_LIGHT_POOL := 4  ## the Compatibility renderer lights an object with 8 lights at most
 ## Pool lights (warning lights, flashers, tunnel lamps) are small lamps: at 14 m and energy 1.6 a
 ## sawhorse flooded the whole street orange.
 const LIGHT_RANGE := 7.0  ## m
@@ -114,7 +115,7 @@ func setup(track: Node3D, data: Dictionary, track_entry: String, is_night: bool)
 	if props != null:
 		_add_props(props, data.get("props", {}))
 	if night:
-		for i in LIGHT_POOL:
+		for i in (WEB_LIGHT_POOL if GameSettings.is_web_profile() else LIGHT_POOL):
 			var light := OmniLight3D.new()
 			light.omni_range = LIGHT_RANGE
 			light.omni_attenuation = LIGHT_ATTENUATION

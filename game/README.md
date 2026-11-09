@@ -501,3 +501,7 @@ Hluboká paralaxa se zezadu od jednoduché nedá rozeznat. Načtení map farmlan
 | monaco1, HDRI noc | 48 | 43 |
 
 HDRI obloha FPS nemění, noc stojí 2–8 FPS (stíny reflektorů). Načtení HDRI 4k trvá ≈ 0,2 s. Snímky v `decomposed/screenshots/hdri_before|hdri_after`. (První měření monaco1 před změnou ukázalo 126 FPS za autem, opakované jen 51, šlo o odlehlou hodnotu.)
+
+## Web
+
+Webový export (D-040) popisuje `docs/web.md`. Preset je v `export_presets.cfg`, data stahuje autoload `DataPacks` (`scripts/data_packs.gd`), snížená kvalita se řídí přes `GameSettings.is_web_profile()`.

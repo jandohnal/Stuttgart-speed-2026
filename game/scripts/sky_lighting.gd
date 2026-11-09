@@ -70,6 +70,8 @@ static func entry(track: String) -> String:
 
 ## HDRI file for the track and time ("day" / "night"), or "" when there is none.
 static func hdri_path(track: String, time: String) -> String:
+	if OS.has_feature("web"):
+		return ""  # 20-28 MB per sky and about 100 MB of memory: the procedural sky instead
 	var own := root().path_join("%s_%s.hdr" % [entry(track), time])
 	if FileAccess.file_exists(own):
 		return own

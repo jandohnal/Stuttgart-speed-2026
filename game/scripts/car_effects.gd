@@ -125,7 +125,8 @@ func setup(car: Car) -> void:
 		var debris := _make_debris()
 		add_child(debris)
 		_debris.append(debris)
-		for list: Array in [[_grass, _make_grass()], [_leaves, _make_leaves()]]:
+		var web := GameSettings.is_web_profile()
+		for list: Array in [[_grass, null if web else _make_grass()], [_leaves, null if web else _make_leaves()]]:
 			if list[1] != null:
 				add_child(list[1])
 			list[0].append(list[1])
@@ -598,6 +599,12 @@ func _make_sparks() -> GPUParticles3D:
 	m.vertex_color_use_as_albedo = true
 	m.use_particle_trails = true
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	if GameSettings.is_web_profile():  # the Compatibility renderer has no trails: plain dots
+		m.use_particle_trails = false
+		m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		var dots := _emitter(p, m, SPARK_WIDTH * 2.0, count * SPARK_COUNT_SCALE, SPARK_LIFETIME)
+		dots.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		return dots
 	var ribbon := RibbonTrailMesh.new()
 	ribbon.shape = RibbonTrailMesh.SHAPE_CROSS
 	ribbon.size = SPARK_WIDTH

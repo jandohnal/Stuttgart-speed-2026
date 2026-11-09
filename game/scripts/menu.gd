@@ -132,6 +132,7 @@ func _ready() -> void:
 	%WheelButton.pressed.connect(_on_wheel)
 	%CreditsButton.pressed.connect(_on_credits)
 	%ExitButton.pressed.connect(_ask_exit)
+	%ExitButton.visible = not OS.has_feature("web")  # a page cannot close itself
 	exit_dialog.theme = theme
 	exit_dialog.confirmed.connect(_exit)
 	credits_dialog.theme = theme
@@ -452,7 +453,7 @@ func _play() -> void:
 	# Let the caption show before the game scene loads (which blocks).
 	await get_tree().process_frame
 	await get_tree().process_frame
-	get_tree().change_scene_to_file(GAME_SCENE)
+	DataPacks.go(GAME_SCENE, Main.race_packs(config["car"], config["track"]))
 
 
 ## Enter plays even while the focus is on a dropdown (there Enter would open the list; Space or

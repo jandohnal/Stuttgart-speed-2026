@@ -5,9 +5,12 @@ extends RefCounted
 ## project or in git (D-008). Location: project setting stuttgart/data_root.
 
 const DEFAULT_ROOT := "../decomposed"
+const WEB_ROOT := "res://decomposed"  ## where the web build's data packs mount (DataPacks)
 
 
 static func data_root() -> String:
+	if OS.has_feature("web"):
+		return WEB_ROOT
 	var root: String = ProjectSettings.get_setting("stuttgart/data_root", DEFAULT_ROOT)
 	if root.is_relative_path():
 		root = ProjectSettings.globalize_path("res://").path_join(root).simplify_path()
@@ -20,6 +23,13 @@ static func path(relative: String) -> String:
 
 static func exists(relative: String) -> bool:
 	return FileAccess.file_exists(path(relative))
+
+
+## True when a car or track file can be had: on the web its pack may not be downloaded yet.
+static func available(relative: String) -> bool:
+	if OS.has_feature("web"):
+		return DataPacks.offers(relative)
+	return exists(relative)
 
 
 static func load_gltf(relative: String) -> Node3D:

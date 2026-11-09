@@ -10,7 +10,6 @@ CLAUDE.local.md
 # Godot
 .godot/
 *.import
-export_presets.cfg
 
 # Python
 __pycache__/
@@ -22,3 +21,6 @@ __pycache__/
 
 # Stažené HDRI oblohy (CC0, stahuje tools/fetch_hdri.py)
 /assets/hdri/
+
+# Webový build a balíčky dat (obsahují data originálu, nikdy do gitu)
+/build/

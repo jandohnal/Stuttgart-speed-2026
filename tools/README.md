@@ -29,6 +29,8 @@ Python 3, jen standardní knihovna. Čtou ze `sources/`, zapisují do `decompose
 | `build_data.py` | celý převod pro hru: volitelně zkopíruje instalaci do `sources/` (`--install <složka>`), spustí všechny převodníky (souběžně, `--jobs N`) a ověří, že vznikly soubory, které hra potřebuje. Na jakémkoli systému. |
 | `fetch_hdri.py` | stáhne oblohy podle `data/hdri.json` z Poly Haven (CC0) do `assets/hdri/<id>_<rozlišení>.hdr`; `--res`, `--track`, `--alternatives`. Volitelné, bez nich hra použije procedurální oblohu. |
 | `credits_stats.py` | historie gitu + logy sezení Claude Code tohoto projektu (`~/.claude/projects/<projekt>/`, i podagenti) → `game/ui/credits_stats.json` pro okno credits v menu: dny vývoje, commity, sezení, odpovědi, aktivní čas (mezery pod 30 min), tokeny (vstup, cache, výstup) a modely. Data originálu nečte. |
+| `pack_web.py` | `decomposed/` → balíčky pro hru v prohlížeči v `build/web/data/` (zipy po autech, tratích a zvucích + `manifest.json`), kontroluje soubory, na které odkazují glTF. Balíčky se nešíří (D-039), viz [web.md](../docs/web.md) |
+| `serve_web.py` | webový export z `build/web/` přes HTTP se správnými hlavičkami; `--port`, `--bind` (výchozí jen tento počítač) |
 
 ## Sdílené moduly (importují se)
 

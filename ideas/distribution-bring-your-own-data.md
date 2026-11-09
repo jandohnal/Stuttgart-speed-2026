@@ -80,3 +80,7 @@ Alternativa jako OpenNFS: číst formáty originálu přímo za běhu bez převo
 - [ ] Export preset pro macOS + první testovací `.dmg`
 - [ ] CI pro sestavení a GitHub Releases
 - [ ] Zapsat jako rozhodnutí do `docs/decisions.md`
+
+## Webová varianta (9. 11. 2026)
+
+Webový export a balíčky dat už existují (D-040, `docs/web.md`), zatím jen pro vlastní hosting. Veřejná stránka by obsahovala jen engine a kód. Hráč by si balíčky z `tools/pack_web.py` vytvořil sám a vybral je v prohlížeči (výběr souborů v HTML, uložení v soukromém úložišti prohlížeče, `DataPacks` beze změny formátu). Převod přímo z instalace hry v prohlížeči (nástroje přes Pyodide) je zatím jen nápad.

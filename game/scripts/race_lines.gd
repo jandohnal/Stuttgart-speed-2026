@@ -14,11 +14,14 @@ const START_LINE_COLOR := Color(0.95, 0.95, 0.92)
 const CHEQUER_ROWS := 2  ## squares along the road on a circuit's start / finish line
 const CHEQUER_SQUARE := 0.5  ## m
 const CHEQUER_DARK := Color(0.08, 0.08, 0.08)
+const QUAD_LIFT := 0.03  ## m above the road, where the renderer has no decals
 const CHEQUER_PIXELS := 8  ## texture pixels per square, so the decal's linear filter keeps the edges sharp
 
 
 ## Turns the meshes of the track's "gates" group into decals; returns how many.
 static func gate_decals(track: Node3D) -> int:
+	if GameSettings.is_web_profile():
+		return 0  # the Compatibility renderer has no decals: the original's tiles stay as they are
 	var group := track.find_child("gates", true, false) as Node3D
 	if group == null:
 		return 0
@@ -40,7 +43,7 @@ static func gate_decals(track: Node3D) -> int:
 ## White stripe across the road at the start trigger (`chequered`: a chequer, the start / finish
 ## line of a circuit); `slice` is the road slice nearest to it (its right vector and half widths
 ## give the road across).
-static func start_line(start: Dictionary, slice: Dictionary, chequered := false) -> Decal:
+static func start_line(start: Dictionary, slice: Dictionary, chequered := false) -> Node3D:
 	var widths: Array = slice["widths"]
 	var half := maxf(float(widths[0]), float(widths[1]))
 	var depth := START_LINE_DEPTH
@@ -64,7 +67,9 @@ static func start_line(start: Dictionary, slice: Dictionary, chequered := false)
 	return decal
 
 
-static func _decal(texture: Texture2D, size: Vector3) -> Decal:
+static func _decal(texture: Texture2D, size: Vector3) -> Node3D:
+	if GameSettings.is_web_profile():
+		return _quad(texture, size)
 	var decal := Decal.new()
 	decal.texture_albedo = texture
 	decal.size = size
@@ -72,6 +77,21 @@ static func _decal(texture: Texture2D, size: Vector3) -> Decal:
 	decal.upper_fade = 0.0
 	decal.lower_fade = 0.0
 	return decal
+
+
+## Stand-in for a decal where the renderer has none: a flat quad just above the road.
+static func _quad(texture: Texture2D, size: Vector3) -> MeshInstance3D:
+	var mesh := PlaneMesh.new()
+	mesh.size = Vector2(size.x, size.z)
+	mesh.center_offset = Vector3(0.0, QUAD_LIFT, 0.0)
+	var material := StandardMaterial3D.new()
+	material.albedo_texture = texture
+	material.roughness = 1.0
+	mesh.material = material
+	var quad := MeshInstance3D.new()
+	quad.mesh = mesh
+	quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return quad
 
 
 static func _vec(a: Array) -> Vector3:

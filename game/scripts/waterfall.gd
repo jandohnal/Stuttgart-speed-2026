@@ -261,6 +261,15 @@ func _ribbons(p: ParticleProcessMaterial, amount: int, lifetime: float) -> GPUPa
 	m.use_particle_trails = true
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED
 	m.albedo_color = Color(_light, _light, _light)
+	if GameSettings.is_web_profile():  # the Compatibility renderer has no trails: plain drops
+		m.use_particle_trails = false
+		m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		var quad := QuadMesh.new()
+		quad.size = Vector2.ONE * DROPLET_WIDTH * 2.0
+		quad.material = m
+		var drops := _emitter(p, amount, lifetime)
+		drops.draw_pass_1 = quad
+		return drops
 	var ribbon := RibbonTrailMesh.new()
 	ribbon.shape = RibbonTrailMesh.SHAPE_CROSS
 	ribbon.size = DROPLET_WIDTH

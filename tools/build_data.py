@@ -121,6 +121,7 @@ def main():
     ap.add_argument("--sources", default="sources")
     ap.add_argument("--out", default="decomposed")
     ap.add_argument("--jobs", type=int, default=os.cpu_count() or 1)
+    ap.add_argument("--web", action="store_true", help="also pack the data for the web build (tools/pack_web.py)")
     a = ap.parse_args()
 
     if a.install:
@@ -148,6 +149,8 @@ def main():
     if failed or absent:
         sys.exit("Failed: %d converters, %d files missing" % (len(failed), len(absent)))
     print("Done, data in %s" % a.out)
+    if a.web:
+        subprocess.run([sys.executable, "tools/pack_web.py", a.out, "build/web/data"], env=env, check=True)
 
 
 if __name__ == "__main__":

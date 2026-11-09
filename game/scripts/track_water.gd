@@ -103,7 +103,7 @@ func setup(track_name: String, track: Node3D, cars: Array[Car]) -> void:
 			_emitters.append_array(w.emitters)
 		else:
 			w.queue_free()
-	if not _emitters.is_empty():
+	if not _emitters.is_empty() and not GameSettings.is_web_profile():
 		for car in cars:
 			var a := GPUParticlesAttractorSphere3D.new()
 			a.radius = STIR_RADIUS
@@ -198,7 +198,7 @@ func _add_emitter(e: Dictionary, s: Dictionary) -> void:
 		p.initial_velocity_max = maxf(p.initial_velocity_max, speed * (1.0 + MIST_SPEED_SPREAD))
 		p.damping_min = MIST_DRAG * 0.6 / (slow * slow)
 		p.damping_max = MIST_DRAG * 1.4 / (slow * slow)
-		p.turbulence_enabled = true
+		p.turbulence_enabled = not GameSettings.is_web_profile()
 		p.turbulence_noise_strength = 3.0
 		p.turbulence_noise_scale = 6.0
 		p.turbulence_noise_speed_random = 0.3

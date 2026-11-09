@@ -44,6 +44,8 @@ Duchovní nástupce NFS: Porsche 2000. Kontext: `README.md`, rozhodnutí: `docs/
 - `python3 tools/mesh_check.py decomposed/GameData/CarModel decomposed/GameData/Track` – kontrola hotových modelů aut a tratí.
 - `python3 tools/fetch_hdri.py` – oblohy z Poly Haven (CC0) do `assets/hdri/`, volitelné.
 - `python3 tools/credits_stats.py game/ui/credits_stats.json` – statistiky vývoje pro okno credits (git + logy Claude Code); spustit před commitem, ať jsou čísla aktuální.
+- `python3 tools/pack_web.py decomposed build/web/data` – balíčky dat pro hru v prohlížeči (D-040, `docs/web.md`); nikdy se nešíří.
+- `python3 tools/serve_web.py build/web` – místní server webového exportu.
 
 ## Hra
 

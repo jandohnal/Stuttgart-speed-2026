@@ -62,9 +62,12 @@ func show_car(key: String, color: String, car_colors: Variant) -> void:
 	if _model != null:
 		_model.queue_free()
 		_model = null
-	if key.is_empty() or not OriginalAssets.exists(Main.car_model_path(key)):
+	if key.is_empty() or not OriginalAssets.available(Main.car_model_path(key)):
 		return
 	var model_path := Main.car_model_path(key)
+	var wanted := _shown
+	if not await DataPacks.ensure([DataPacks.pack_for(model_path)]) or _shown != wanted:
+		return  # the pack failed, or another car was picked during the download
 	_model = OriginalAssets.load_gltf(model_path)
 	if _model == null:
 		return

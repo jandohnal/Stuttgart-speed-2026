@@ -87,6 +87,10 @@ Rychlá kontrola bez okna (na konci vypíše `all passed`), příkaz upravte pod
 ~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/menu_test.tscn
 ```
 
+## Hra v prohlížeči
+
+Postup je v [web.md](web.md).
+
 ## Když něco nefunguje
 
 | Příznak | Příčina a řešení |

@@ -168,6 +168,19 @@ Jen pokud se o vydání rozhodne ([IDEA o distribuci](../ideas/distribution-brin
 - [ ] Vlastní zvuky motorů ze samplů (D-007)
 - [ ] Veřejné vydání bez obsahu originálu
 
+## Webová verze (D-040)
+
+Mimo pořadí fází, spouští rozpracovanou hru v prohlížeči. Postup: [web.md](web.md).
+
+- [x] Prototyp: Jolt ve webové šabloně, glTF a WAV ze zipu připojeného za běhu, zvuk motoru
+- [x] Balíčky dat (`tools/pack_web.py`) a stahování za běhu (`DataPacks`, obrazovka načítání)
+- [x] Export pro web, chování prohlížeče (celá obrazovka, tlačítko Konec, telemetrie)
+- [x] Snížená kvalita na webu (`GameSettings.is_web_profile()`)
+- [x] Sloučení statické geometrie tratě a méně stínových průchodů (Farmland plynule i v prohlížeči)
+- [ ] Změřit FPS a paměť na všech tratích, ve dne i v noci, s 0, 3 a 7 soupeři
+- [ ] Doladit osvětlení bez HDRI (Farmland je tmavý)
+- [ ] Vyzkoušet Firefox a gamepad
+
 ## Rizika
 
 | ID | Riziko | Pravděpodobnost | Dopad | Záložní plán |

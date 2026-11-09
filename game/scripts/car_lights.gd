@@ -98,7 +98,7 @@ func _headlight(at: Vector3) -> SpotLight3D:
 	light.spot_angle_attenuation = 3.0  # nearly flat across the cone: the projector shapes the beam (low values dim the axis)
 	light.light_projector = beam_texture()
 	light.spot_attenuation = HEAD_DECAY
-	light.shadow_enabled = true
+	light.shadow_enabled = not GameSettings.is_web_profile()
 	light.shadow_bias = HEAD_SHADOW_BIAS
 	light.shadow_normal_bias = HEAD_SHADOW_NORMAL_BIAS
 	light.light_size = HEAD_LIGHT_SIZE
