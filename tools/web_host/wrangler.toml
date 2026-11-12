@@ -1,0 +1,9 @@
+# Private web build on Cloudflare (D-041, docs/web.md). The password is a Worker secret, never here.
+name = "stuttgart-speed-web"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "stuttgart-speed-web"

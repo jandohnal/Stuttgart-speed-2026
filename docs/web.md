@@ -28,6 +28,40 @@ python3 tools/serve_web.py build/web
 
 Pak otevřít `http://127.0.0.1:8000`. Server poslouchá jen na tomto počítači. Balíčky jdou vytvořit i rovnou s převodem dat: `python3 tools/build_data.py --web`.
 
+## Soukromý hosting za heslem (D-041)
+
+Jen pro autora a kamarády na testování, ne pro veřejné šíření. Běží na Cloudflare: soubory jsou v privátním bucketu R2 (10 GB a přenos zdarma), každý požadavek prochází Workerem s heslem. Potřebuješ Node.js a účet Cloudflare, aktivace R2 může chtít platební kartu.
+
+Jednorázově se přihlásit, vytvořit bucket a nahrát Worker:
+
+```bash
+npx --yes wrangler@4 login
+```
+
+```bash
+npx --yes wrangler@4 r2 bucket create stuttgart-speed-web
+```
+
+```bash
+npx --yes wrangler@4 deploy --config tools/web_host/wrangler.toml
+```
+
+Nastavit heslo (zadává se ručně, do repozitáře nepatří; bez něj Worker odmítá všechny):
+
+```bash
+npx --yes wrangler@4 secret put GAME_PASSWORD --config tools/web_host/wrangler.toml
+```
+
+Nahrát build, i po každé nové verzi (nezměněné soubory přeskočí):
+
+```bash
+python3 tools/deploy_web.py build/web
+```
+
+Hra pak běží na adrese `https://stuttgart-speed-web.<účet>.workers.dev`, kterou vypíše `deploy`. Prohlížeč se zeptá na jméno (může být libovolné) a heslo. U bucketu nikdy nezapínat veřejný přístup (`r2.dev` ani vlastní doménu), obešlo by to heslo.
+
+Lokální zkouška bez účtu: `deploy_web.py --local --persist-to <složka>` naplní simulátor a `wrangler dev --persist-to <složka> --var GAME_PASSWORD:<heslo>` ho spustí.
+
 ## Jak to funguje
 
 - `tools/pack_web.py` vytvoří v `build/web/data/` balíčky a `manifest.json` s jejich velikostmi. Na každé auto `car-<model>.zip`, na trať `track-<trať>.zip`, na sadu motoru `engine-<sada>.zip`, zvuky nárazů a vodopádu `sfx.zip` a společná data `core.zip`. V `core.zip` jsou i naše ikony, písma a textury částic, protože je hra čte jako soubory a export obsahuje jen jejich importovanou podobu.

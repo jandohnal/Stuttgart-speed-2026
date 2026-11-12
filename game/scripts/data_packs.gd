@@ -126,6 +126,9 @@ func _fetch(relative: String) -> PackedByteArray:
 	var base: String = JavaScriptBridge.eval("window.location.href.replace(/[^/]*$/, '')")
 	_http = HTTPRequest.new()
 	_http.download_chunk_size = DOWNLOAD_CHUNK
+	# The browser already decoded a compressed response but keeps its Content-Encoding header,
+	# so HTTPRequest would try to decompress plain data and fail (hosts like Cloudflare gzip JSON).
+	_http.accept_gzip = false
 	add_child(_http)
 	if _http.request(base + relative) != OK:
 		_http.queue_free()

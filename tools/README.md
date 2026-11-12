@@ -31,6 +31,7 @@ Python 3, jen standardní knihovna. Čtou ze `sources/`, zapisují do `decompose
 | `credits_stats.py` | historie gitu + logy sezení Claude Code tohoto projektu (`~/.claude/projects/<projekt>/`, i podagenti) → `game/ui/credits_stats.json` pro okno credits v menu: dny vývoje, commity, sezení, odpovědi, aktivní čas (mezery pod 30 min), tokeny (vstup, cache, výstup) a modely. Data originálu nečte. |
 | `pack_web.py` | `decomposed/` → balíčky pro hru v prohlížeči v `build/web/data/` (zipy po autech, tratích a zvucích + `manifest.json`), kontroluje soubory, na které odkazují glTF. Balíčky se nešíří (D-039), viz [web.md](../docs/web.md) |
 | `serve_web.py` | webový export z `build/web/` přes HTTP se správnými hlavičkami; `--port`, `--bind` (výchozí jen tento počítač) |
+| `deploy_web.py` | nahraje `build/web/` do privátního bucketu R2 za Worker s heslem (`web_host/`, D-041), nezměněné soubory přeskočí; `--local` plní lokální simulátor, viz [web.md](../docs/web.md) |
 
 ## Sdílené moduly (importují se)
 

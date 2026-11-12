@@ -1,0 +1,34 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "tools/serve_web.py",
+        "build/web",
+        "--port",
+        "8765"
+      ],
+      "port": 8765
+    },
+    {
+      "name": "web-private",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "wrangler@4",
+        "dev",
+        "--config",
+        "tools/web_host/wrangler.toml",
+        "--port",
+        "8787",
+        "--persist-to",
+        "/private/tmp/claude-501/-Users-honzadohnal--claude-spares-spare-Vw7C95/0efc9ef1-238d-49ea-871e-05a40cf13c9b/scratchpad/r2state",
+        "--var",
+        "GAME_PASSWORD:local-test-only"
+      ],
+      "port": 8787
+    }
+  ]
+}

@@ -24,3 +24,6 @@ __pycache__/
 
 # Webový build a balíčky dat (obsahují data originálu, nikdy do gitu)
 /build/
+
+# Lokální stav nástroje wrangler (soukromý hosting, D-041)
+.wrangler/
