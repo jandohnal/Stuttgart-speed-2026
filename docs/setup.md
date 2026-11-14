@@ -1,9 +1,11 @@
 ---
 type: guide
-updated: 2026-11-05
+updated: 2026-11-14
 ---
 
-# Spuštění hry na macOS, Windows a Linuxu
+# Převod dat a spuštění projektu na macOS, Windows a Linuxu
+
+Hráči hrají webovou verzi ([web.md](web.md), D-042). Tento postup vytvoří data a spustí projekt v Godotu, což je potřeba pro webový build, vývoj a testy. Desktopová hra se vyvíjí v samostatném repozitáři.
 
 Předpoklad: máte složku s instalací původní hry *Need for Speed: Porsche 2000* (obsahuje `Porsche.exe`, `GameData` a `FEData`). Hra samotná v repozitáři žádná data originálu nemá, vytvoří si je z této složky (D-008, D-037).
 

@@ -1,6 +1,6 @@
 # Stuttgart Speed – instrukce pro Claude Code
 
-Duchovní nástupce NFS: Porsche 2000. Kontext: `README.md`, rozhodnutí: `docs/decisions.md`, plán a aktuální fáze: `docs/plan.md`.
+Duchovní nástupce NFS: Porsche 2000. Tento veřejný repozitář je webová verze hry, hostovaná na Cloudflare za heslem (D-041, `docs/web.md`). Hra spouštěná přímo v Godotu na desktopu se vyvíjí v samostatném repozitáři (D-042). Kontext: `README.md`, rozhodnutí: `docs/decisions.md`, plán a aktuální fáze: `docs/plan.md`.
 
 ## Složky s daty originální hry
 
@@ -9,7 +9,7 @@ Duchovní nástupce NFS: Porsche 2000. Kontext: `README.md`, rozhodnutí: `docs/
 | `sources/` | Veškeré assety z originální hry v původní podobě (kopie instalace: `GameData/`, `FEData/` ...), případně licencované modely | ignorováno |
 | `decomposed/` | Vše rozbalené a převedené ze `sources/` (JSON, PNG, glTF, WAV ...) | ignorováno |
 
-- Obě složky jsou v `.gitignore` a **nikdy se necommitují**, repozitář je veřejný (D-039). Existují jen lokálně.
+- Obě složky jsou v `.gitignore` a **nikdy se necommitují**, repozitář je veřejný (D-039). Existují jen lokálně. Totéž platí pro webový export a balíčky dat v `build/` a pro heslo Workeru (D-041).
 - Nástroje čtou ze `sources/` a zapisují do `decomposed/`. Struktura `decomposed/` kopíruje strukturu `sources/` (např. `sources/GameData/Track/alps.crp` → `decomposed/GameData/Track/alps.bin`).
 - Nic mimo tyto dvě složky nesmí obsahovat data originální hry.
 
@@ -25,7 +25,7 @@ Duchovní nástupce NFS: Porsche 2000. Kontext: `README.md`, rozhodnutí: `docs/
 
 ## Nástroje
 
-- Přehled všech nástrojů a sdílených modulů: `tools/README.md`. Postup spuštění hry na macOS, Windows a Linuxu: `docs/setup.md`.
+- Přehled všech nástrojů a sdílených modulů: `tools/README.md`. Převod dat a spuštění projektu na macOS, Windows a Linuxu: `docs/setup.md`, webový build a hosting: `docs/web.md`.
 - `python3 tools/build_data.py [--install <složka s instalací hry>]` – celý převod `sources/` → `decomposed/` a kontrola výstupu (na všech systémech).
 - `python3 tools/archives.py refpack sources/GameData/CarModel/356a.crp decomposed/GameData/CarModel/356a.bin` – rozbalí EA RefPack (`archives.py bigf` rozbalí archiv `.viv`).
 - `python3 tools/fsh2png.py sources decomposed` – všechny textury FSH do PNG (+ `index.json` pro každý archiv).
@@ -47,12 +47,13 @@ Duchovní nástupce NFS: Porsche 2000. Kontext: `README.md`, rozhodnutí: `docs/
 - `python3 tools/pack_web.py decomposed build/web/data` – balíčky dat pro hru v prohlížeči (D-040, `docs/web.md`); nikdy se nešíří.
 - `python3 tools/serve_web.py build/web` – místní server webového exportu.
 - `python3 tools/deploy_web.py build/web` – nahrání webového buildu do privátního R2 za Worker s heslem (D-041, `docs/web.md`).
+- `python3 tools/package_web.py build/web` – složka `build/cloudflare/` pro ruční nahrání v dashboardu Cloudflare (soubory, `worker.js`, `NAVOD.md`).
 
 ## Hra
 
-- Godot projekt je v `game/` (popis a testy v `game/README.md`). Godot je na tomto Macu zatím v `~/Downloads/Godot.app` (příkazy v dokumentaci s touto cestou platí i jinde s cestou k vlastnímu Godotu). Po čistém klonu je potřeba jednou `Godot --headless --path game --import`. Jízdní test: `~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/drive_test.tscn`. Data originálu načítá **za běhu** z `../decomposed` (nastavení `stuttgart/data_root`), nikdy je neimportuje do `res://` ani nekopíruje do `game/`.
+- Godot projekt je v `game/` (popis a testy v `game/README.md`). Hráči ho dostanou jako webový export (`docs/web.md`), spouštění v editoru a bez okna slouží k vývoji a testům. Godot je na tomto Macu zatím v `~/Downloads/Godot.app` (příkazy v dokumentaci s touto cestou platí i jinde s cestou k vlastnímu Godotu). Po čistém klonu je potřeba jednou `Godot --headless --path game --import`. Jízdní test: `~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/drive_test.tscn`. Data originálu načítá **za běhu** z `../decomposed` (nastavení `stuttgart/data_root`), nikdy je neimportuje do `res://` ani nekopíruje do `game/`.
 
 ## Stack
 
-- Godot 4.7 (4.7.2), Jolt; vývoj na Metalu (macOS, Apple Silicon), spouští se i na Windows a Linuxu (D-037). Rozhodnutí D-002 se potvrdí po prototypu jízdy.
+- Godot 4.7 (4.7.2), Jolt; výstup je export pro web (Compatibility, WebGL2, D-040), hosting Cloudflare R2 + Worker (D-041). Vývoj na Metalu (macOS, Apple Silicon), projekt se spouští i na Windows a Linuxu (D-037). Rozhodnutí D-002 se potvrdí po prototypu jízdy.
 - Nástroje pro data: Python 3, jen standardní knihovna, pokud to jde.

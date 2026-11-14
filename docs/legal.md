@@ -1,6 +1,6 @@
 ---
 type: legal-notes
-updated: 2026-10-15
+updated: 2026-11-14
 disclaimer: "Orientační přehled, ne právní rada."
 ---
 
@@ -8,7 +8,7 @@ disclaimer: "Orientační přehled, ne právní rada."
 
 ## Pravidla pro repozitář
 
-Repozitář je veřejný (D-039). Data originální hry a licencované modely smí být jen lokálně ve složkách `sources/` (původní assety) a `decomposed/` (rozbalené). Obě jsou v `.gitignore`. Tabulka platí pro obsah, který se commituje.
+Repozitář je veřejný (D-039) a obsahuje webovou verzi hry (D-042). Data originální hry a licencované modely smí být jen lokálně ve složkách `sources/` (původní assety) a `decomposed/` (rozbalené). Obě jsou v `.gitignore`. Tabulka platí pro obsah, který se commituje.
 
 | Obsah | Commit do gitu | Poznámka |
 | --- | --- | --- |
@@ -19,6 +19,8 @@ Repozitář je veřejný (D-039). Data originální hry a licencované modely sm
 | Modely, textury, tratě, zvuky a hudba z originálu, i upravené | **ne**, jen `sources/` a `decomposed/` | Autorské dílo EA, šíření porušuje práva (riziko DMCA) |
 | Licencované nebo rozpoznatelné modely vozů Porsche | **ne**, jen `sources/` | Porsche si nárokuje i tvary vozů a názvy (911, Carrera, Boxster...) |
 | Věrně obtažená geometrie trati originálu | **ne** | Odvozené dílo |
+| Webový export a balíčky dat (`build/`) | **ne** | Jen v privátním bucketu R2 za heslem, bez veřejného přístupu (D-041) |
+| Heslo k webové verzi | **ne** | Tajný údaj Workeru, sdílí se jen soukromě (D-041) |
 | Číselné parametry z originálu převzaté do vlastních aut | s rozmyslem | Používat jako referenci pro realistické hodnoty éry, ne kopírovat tabulky |
 
 ## Kdo vlastní co

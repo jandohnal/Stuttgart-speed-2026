@@ -4,11 +4,11 @@ type: guide
 
 # Hra v prohlížeči
 
-Export Godotu pro web (D-040). Data originálu jsou v balíčcích, které si každý vytvoří ze své kopie hry a **nikdy se nezveřejňují** (D-039).
+Webová verze je hlavní výstup tohoto repozitáře (D-042), desktopová hra se vyvíjí v samostatném repozitáři. Je to export Godotu pro web (D-040). Data originálu jsou v balíčcích, které si každý vytvoří ze své kopie hry a **nikdy se nezveřejňují** (D-039).
 
 ## Co je potřeba
 
-- Hotový `decomposed/` (`docs/setup.md`).
+- Hotový `decomposed/` ([setup.md](setup.md)).
 - Godot 4.7.2 a webové šablony exportu ve verzi 4.7.2 (v editoru *Editor > Manage Export Templates*).
 - Python 3 a prohlížeč s WebGL2 (ověřeno v Chromiu).
 
@@ -61,6 +61,14 @@ python3 tools/deploy_web.py build/web
 Hra pak běží na adrese `https://stuttgart-speed-web.<účet>.workers.dev`, kterou vypíše `deploy`. Prohlížeč se zeptá na jméno (může být libovolné) a heslo. U bucketu nikdy nezapínat veřejný přístup (`r2.dev` ani vlastní doménu), obešlo by to heslo.
 
 Lokální zkouška bez účtu: `deploy_web.py --local --persist-to <složka>` naplní simulátor a `wrangler dev --persist-to <složka> --var GAME_PASSWORD:<heslo>` ho spustí.
+
+Ruční nahrání přes dashboard, bez Node.js a bez napojení na repozitář:
+
+```bash
+python3 tools/package_web.py build/web
+```
+
+Vytvoří `build/cloudflare/` se soubory pro bucket (`bucket/`), kódem Workeru a návodem `NAVOD.md` (zdroj je `tools/web_host/NAVOD.md`). Do bucketu se nahrají soubory z `bucket/` a obsah `bucket/data/` do složky `data`, Worker se vloží v editoru, binding R2 se jmenuje `BUCKET` a tajná proměnná `GAME_PASSWORD`.
 
 ## Jak to funguje
 

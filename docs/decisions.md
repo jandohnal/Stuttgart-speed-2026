@@ -321,6 +321,7 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
 - **Rozhodnutí:** Předpokladem je jen složka s instalací originálu. `tools/build_data.py --install <složka>` ji zkopíruje do `sources/` a převede do `decomposed/` stejně na všech systémech, hra se spouští z projektu přes Godot 4.7.2 ([setup.md](setup.md)). Vývoj a ladění výkonu zůstávají na Macu (D-002, D-030).
 - **Důvod:** Přání uživatele (4. 11. 2026). Dřívější postup byl seznam příkazů pro bash, na čistém klonu selhal (chybějící složky) a ve Windows by psal soubory ve špatném kódování.
 - **Důsledky:** Textové výstupy nástrojů jsou vždy v UTF-8. Na Windows a Linuxu zvětšuje 3D obraz bilineární filtr místo MetalFX. Na Windows hra běží (hlášení uživatele, 5. 11. 2026), na Linuxu se zatím nic nespustilo s oknem, viz [setup.md](setup.md#co-je-ověřené-5-11-2026).
+- **Změna 14. 11. 2026:** Desktopová hra se vyvíjí v samostatném repozitáři (D-042). Tady postup slouží k vytvoření dat, k vývoji a k webovému exportu.
 
 ## D-038 Volant: obecná kalibrace os v menu, zatím bez force feedbacku
 - **Stav:** accepted
@@ -333,15 +334,23 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
 - **Rozhodnutí:** Repozitář je veřejný, aby si hru mohl stáhnout a zahrát každý, kdo má vlastní kopii původní hry. Obsahuje kód, nástroje, dokumentaci a volně licencované assety. Kód a dokumentace jsou pod licencí MIT (`LICENSE`). Názvy aut v kódu (`CARS` v `main.gd`) zůstávají.
 - **Důvod:** Přání uživatele (8. 11. 2026). Stejný model používá OpenNFS. Hotový balíček a průvodce importem ([IDEA-011](../ideas/distribution-bring-your-own-data.md)) tím rozhodnuté nejsou.
 - **Důsledky:** D-008 platí dál a vztahuje se i na dokumentaci: výpisy dat originálu do repozitáře nepatří, stačí popis formátu, jednotlivé příklady a příkaz, který výpis vytvoří lokálně. Názvy Porsche v kódu jsou vědomé riziko (`docs/legal.md`). Commity používají adresu GitHub noreply místo osobního e-mailu.
+- **Změna 14. 11. 2026:** Repozitář je webová verze hry, desktopová hra je v samostatném repozitáři (D-042).
 
 ## D-040 Webová verze: Compatibility renderer a balíčky dat
 - **Stav:** accepted
 - **Rozhodnutí:** Aktuální hra se dá spustit i v prohlížeči, jako export Godotu pro web (WebAssembly, WebGL2, jedno vlákno). Na webu platí renderer Compatibility a snížená kvalita (`GameSettings.is_web_profile()`), desktop zůstává beze změny (Forward+, D-002, D-014). Data originálu se balí nástrojem `tools/pack_web.py` do zipů po autech, tratích a sadách zvuků. Hra je stahuje až ve chvíli, kdy je potřebuje, a připojuje do `res://decomposed` (`DataPacks`). Nejdřív jen vlastní hosting (`tools/serve_web.py` poslouchá jen na tomto počítači), balíčky se nikdy nezveřejňují.
 - **Důvod:** Přání uživatele (9. 11. 2026): hrát rozpracovanou verzi v prohlížeči podobně jako nfsu2.xyz, ne stavět přesnou kopii originálu. Prototyp ověřil, že v oficiální šabloně 4.7.2 je Jolt a že soubory glTF, PNG a WAV jdou číst přímo ze zipu připojeného za běhu, takže kód načítání zůstal stejný.
 - **Důsledky:** D-008, D-009 a D-039 platí dál: `build/` je v `.gitignore`. Na webu není SSAO, stíny světlometů, odraz okolí na autě, HDRI obloha (procedurální místo ní), mapy `advanced/` a stopy částic; soupeři nemají efekty kol. Čára startu je plochý čtverec místo decalu. Statická geometrie tratě se na webu slučuje do velkých meshů (`track_batcher.gd`), protože výkon ve WebGL omezuje počet volání kreslení. Veřejná stránka s vlastními daty hráče je zatím jen nápad ([IDEA-011](../ideas/distribution-bring-your-own-data.md)).
+- **Změna 14. 11. 2026:** Webová verze je hlavní výstup tohoto repozitáře (D-042).
 
 ## D-041 Soukromý hosting webové verze za heslem
 - **Stav:** accepted
 - **Rozhodnutí:** Webová verze včetně balíčků dat může běžet na Cloudflare, jen pro autora a okruh kamarádů na testování. Soubory leží v privátním bucketu R2 bez veřejného přístupu a servíruje je Worker `tools/web_host/worker.js`, který u každého požadavku ověří společné heslo (HTTP Basic přes HTTPS). Heslo je tajný údaj Workeru, nikdy není v repozitáři. Soubory nahrává `tools/deploy_web.py`.
 - **Důvod:** Přání uživatele (9. 11. 2026): hra chráněná heslem, jen pro osobní použití a kamarády, bez veřejného šíření. GitHub Pages heslo neumí a na Vercel Hobby je strop 100 MB na upload přes CLI a ochrana heslem je placená. R2 má 10 GB zdarma a neúčtuje přenos.
 - **Důsledky:** Upřesňuje D-040: balíčky se dál nezveřejňují, ale mohou ležet za heslem. D-008 a D-039 platí pro repozitář beze změny: `build/` se necommituje. Předání dat lidem bez vlastní kopie hry je vědomé riziko autora. U bucketu se nesmí zapnout veřejný přístup a heslo se sdílí jen soukromě.
+
+## D-042 Veřejný repozitář je webová verze, desktopová hra je v jiném repozitáři
+- **Stav:** accepted
+- **Rozhodnutí:** Tento veřejný repozitář je verze hratelná v prohlížeči (D-040). Hraje se na Cloudflare za heslem (D-041), sestavení i nahrání popisuje [web.md](web.md). Hra spouštěná přímo v Godotu na desktopu se dál vyvíjí v samostatném repozitáři. Godot projekt v `game/` se tu otevírá a spouští dál, protože z něj vzniká webový export a běží v něm testy (`game/README.md`).
+- **Důvod:** Přání uživatele (14. 11. 2026).
+- **Důsledky:** Upřesňuje D-039: repozitář se zveřejňuje kvůli webové verzi, ne jako desktopová hra ke stažení. D-008, D-039 a D-041 platí beze změny: data originálu, balíčky v `build/` ani heslo do repozitáře nepatří. Postup v [setup.md](setup.md) je první krok k webovému buildu a k vývoji. Změny desktopové verze se do tohoto repozitáře přenášejí ručně.

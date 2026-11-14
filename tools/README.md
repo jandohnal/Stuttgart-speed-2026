@@ -32,6 +32,7 @@ Python 3, jen standardní knihovna. Čtou ze `sources/`, zapisují do `decompose
 | `pack_web.py` | `decomposed/` → balíčky pro hru v prohlížeči v `build/web/data/` (zipy po autech, tratích a zvucích + `manifest.json`), kontroluje soubory, na které odkazují glTF. Balíčky se nešíří (D-039), viz [web.md](../docs/web.md) |
 | `serve_web.py` | webový export z `build/web/` přes HTTP se správnými hlavičkami; `--port`, `--bind` (výchozí jen tento počítač) |
 | `deploy_web.py` | nahraje `build/web/` do privátního bucketu R2 za Worker s heslem (`web_host/`, D-041), nezměněné soubory přeskočí; `--local` plní lokální simulátor, viz [web.md](../docs/web.md) |
+| `package_web.py` | složka `build/cloudflare/` pro ruční nahrání v dashboardu Cloudflare: soubory pro bucket R2, `worker.js` a návod `NAVOD.md` (D-041, [web.md](../docs/web.md)) |
 
 ## Sdílené moduly (importují se)
 

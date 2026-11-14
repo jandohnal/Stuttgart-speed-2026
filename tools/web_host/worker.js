@@ -63,7 +63,8 @@ export default {
     }
     let key;
     try {
-      key = decodeURIComponent(new URL(request.url).pathname.slice(1)) || "index.html";
+      // Optional PREFIX variable: files uploaded inside a folder of the bucket, e.g. "bucket/".
+      key = (env.PREFIX ?? "") + (decodeURIComponent(new URL(request.url).pathname.slice(1)) || "index.html");
     } catch {
       return new Response("Not found", { status: 404 });
     }

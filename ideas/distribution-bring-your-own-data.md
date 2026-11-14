@@ -4,11 +4,13 @@ id: IDEA-011
 title: "Distribuce hry: instalační balíček + vlastní data originálu (model OpenNFS)"
 status: idea            # idea | accepted | rejected | done
 created: 2026-10-18
-related: [D-001, D-002, D-008, D-009, D-012, "docs/legal.md"]
+related: [D-001, D-002, D-008, D-009, D-012, D-040, D-041, D-042, "docs/legal.md"]
 tags: [distribution, packaging, export, import-wizard, macos, signing, legal]
 ---
 
 # Distribuce: balíček hry + vlastní data originálu
+
+> **14. 11. 2026:** Tento repozitář je webová verze (D-042). Desktopové balíčky (oddíly o `.dmg`, `.exe`, podpisu a CI) se týkají desktopové hry v samostatném repozitáři, tady platí jen webová varianta na konci.
 
 Hra se šíří **bez jakýchkoli dat originálu**. Hráč si při prvním spuštění vybere svou instalaci NFS: Porsche 2000 / Porsche Unleashed, hra data převede a uloží do svého datového adresáře. Stejný model používá [OpenNFS](https://github.com/OpenNFS/OpenNFS): „OpenNFS does not bundle any EA intellectual property. A copy of the original games must be provided.“
 
@@ -83,4 +85,4 @@ Alternativa jako OpenNFS: číst formáty originálu přímo za běhu bez převo
 
 ## Webová varianta (9. 11. 2026)
 
-Webový export a balíčky dat už existují (D-040, `docs/web.md`), zatím jen pro vlastní hosting. Veřejná stránka by obsahovala jen engine a kód. Hráč by si balíčky z `tools/pack_web.py` vytvořil sám a vybral je v prohlížeči (výběr souborů v HTML, uložení v soukromém úložišti prohlížeče, `DataPacks` beze změny formátu). Převod přímo z instalace hry v prohlížeči (nástroje přes Pyodide) je zatím jen nápad.
+Webový export a balíčky dat už existují (D-040, `docs/web.md`), zatím jen pro soukromý hosting za heslem (D-041). Veřejná stránka by obsahovala jen engine a kód. Hráč by si balíčky z `tools/pack_web.py` vytvořil sám a vybral je v prohlížeči (výběr souborů v HTML, uložení v soukromém úložišti prohlížeče, `DataPacks` beze změny formátu). Převod přímo z instalace hry v prohlížeči (nástroje přes Pyodide) je zatím jen nápad.

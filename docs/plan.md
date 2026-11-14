@@ -1,6 +1,6 @@
 ---
 type: plan
-updated: 2026-11-04
+updated: 2026-11-14
 current_phase: 2
 phases:
   - id: 1
@@ -18,7 +18,7 @@ phases:
   - id: 4
     name: "Hra a atmosféra"
     status: todo
-    gate: "Hratelná verze na Macu: rychlý závod, mise, kariéra, soupeři, provoz, policie"
+    gate: "Hratelná webová verze (D-042): rychlý závod, mise, kariéra, soupeři, provoz, policie"
   - id: 5
     name: "Vylepšený a doplněný obsah"
     status: todo
@@ -168,15 +168,17 @@ Jen pokud se o vydání rozhodne ([IDEA o distribuci](../ideas/distribution-brin
 - [ ] Vlastní zvuky motorů ze samplů (D-007)
 - [ ] Veřejné vydání bez obsahu originálu
 
-## Webová verze (D-040)
+## Webová verze (D-040, D-042)
 
-Mimo pořadí fází, spouští rozpracovanou hru v prohlížeči. Postup: [web.md](web.md).
+Mimo pořadí fází. Webová verze je výstup tohoto repozitáře, desktopová hra se vyvíjí v samostatném repozitáři. Postup: [web.md](web.md).
 
 - [x] Prototyp: Jolt ve webové šabloně, glTF a WAV ze zipu připojeného za běhu, zvuk motoru
 - [x] Balíčky dat (`tools/pack_web.py`) a stahování za běhu (`DataPacks`, obrazovka načítání)
 - [x] Export pro web, chování prohlížeče (celá obrazovka, tlačítko Konec, telemetrie)
 - [x] Snížená kvalita na webu (`GameSettings.is_web_profile()`)
 - [x] Sloučení statické geometrie tratě a méně stínových průchodů (Farmland plynule i v prohlížeči)
+- [x] Hosting na Cloudflare za heslem: R2 a Worker, nahrání skriptem i ručně přes dashboard (D-041)
+- [x] Veřejný repozitář jako webová verze, desktopová hra v samostatném repozitáři (D-042)
 - [ ] Změřit FPS a paměť na všech tratích, ve dne i v noci, s 0, 3 a 7 soupeři
 - [ ] Doladit osvětlení bez HDRI (Farmland je tmavý)
 - [ ] Vyzkoušet Firefox a gamepad
