@@ -30,6 +30,8 @@ var _results := GridContainer.new()  ## place, name, time, gap after the player'
 var _stopwatch := _big_label(40)
 var _banner := _big_label(96)  ## countdown, GO, finish
 var _fps := _big_label(18)
+var _diag := _big_label(12)  ## quality, 3D resolution and graphics card under the FPS
+var _diag_timer := 0.0
 
 
 func _ready() -> void:
@@ -61,6 +63,10 @@ func _ready() -> void:
 	_fps.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_fps.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT, Control.PRESET_MODE_MINSIZE, int(MARGIN))
 	add_child(_fps)
+	_diag.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_diag.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT, Control.PRESET_MODE_MINSIZE, int(MARGIN))
+	_diag.position.y += 28.0
+	add_child(_diag)
 	_stopwatch.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, int(MARGIN))
 	_stopwatch.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_stopwatch.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -87,6 +93,34 @@ func _ready() -> void:
 	for g: GridContainer in [_order, _results]:
 		g.add_theme_constant_override("h_separation", 18)
 		g.add_theme_constant_override("v_separation", 2)
+
+
+## One line for finding what limits a slow computer: quality, the 3D resolution actually rendered
+## out of the window's (on the web the canvas in device pixels, larger than the page on a scaled
+## display) and the graphics card the renderer got.
+func diagnostics() -> String:
+	var window := DisplayServer.window_get_size()
+	var scale := get_tree().root.scaling_3d_scale
+	return "%s · 3D %d×%d / %d×%d · %s" % ["LOW" if GameSettings.is_low_quality() else "FULL",
+		roundi(window.x * scale), roundi(window.y * scale), window.x, window.y, _adapter_name()]
+
+
+## The browser reports "WebKit WebGL" as the renderer; the real card is behind the
+## WEBGL_debug_renderer_info extension (Chrome and Edge give it, Firefox and Safari may not).
+static func _adapter_name() -> String:
+	if not OS.has_feature("web"):
+		return RenderingServer.get_video_adapter_name()
+	if _web_adapter.is_empty():
+		var js := "(function(){try{var gl=document.createElement('canvas').getContext('webgl2');" \
+			+ "var e=gl&&gl.getExtension('WEBGL_debug_renderer_info');" \
+			+ "return e?gl.getParameter(e.UNMASKED_RENDERER_WEBGL):''}catch(x){return ''}})()"
+		_web_adapter = str(JavaScriptBridge.eval(js, true))
+		if _web_adapter.is_empty():
+			_web_adapter = RenderingServer.get_video_adapter_name()
+	return _web_adapter
+
+
+static var _web_adapter := ""
 
 
 static func _big_label(font_size: int) -> Label:
@@ -121,8 +155,13 @@ func _set_scales() -> void:
 	_scales_set = true
 
 
-func _process(_delta: float) -> void:
-	_fps.text = "%d FPS" % roundi(Engine.get_frames_per_second())
+func _process(delta: float) -> void:
+	_fps.text = "%d FPS · %d draws" % [roundi(Engine.get_frames_per_second()),
+		Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)]
+	_diag_timer -= delta
+	if _diag_timer <= 0.0:
+		_diag_timer = 0.5
+		_diag.text = diagnostics()
 	if car == null or car.telemetry.is_empty():
 		return
 	if not _scales_set:

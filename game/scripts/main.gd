@@ -262,9 +262,12 @@ var track_name := ""
 var car_key := ""
 ## "day" or "night"; empty = --time argument or project setting stuttgart/time.
 var time_of_day := ""
-var hdri_sky := false  ## the sky is an HDRI (false: procedural fallback)
+var hdri_sky := false  ## the sky is an HDRI (sky_source == "hdri")
+var sky_source := ""  ## "original", "hdri" or "procedural" (SkyLighting.apply, D-045)
+var original_sky: OriginalSky  ## follows the camera for the weather regions, null without the original's sky
 var lights: Node3D  ## CarLights
 var track_lights: Node3D  ## TrackLights
+var light_decals: LightDecals  ## the original's light decals on the cars (D-044), null = none
 var road := Road.new()
 var road_slices: Array = []  ## road.slices (the tests read them)
 var start_slice := 0
@@ -305,7 +308,10 @@ func _ready() -> void:
 	if time_of_day.is_empty():
 		time_of_day = GameSettings.time_of_day if not GameSettings.time_of_day.is_empty() else _time_from_args()
 	_setup_lighting()
-	if GameSettings.is_web_profile():  # every shadow pass draws the scene again
+	_set_shadow_atlas(GameSettings.is_low_quality())
+	if GameSettings.is_low_quality():
+		_apply_low_quality()
+	elif GameSettings.is_web_profile():  # every shadow pass draws the scene again
 		($Sun as DirectionalLight3D).directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 		($Sun as DirectionalLight3D).directional_shadow_max_distance = WEB_SHADOW_DISTANCE
 	var folder := "GameData/Track/%s/" % track_name
@@ -334,6 +340,11 @@ func _ready() -> void:
 		var arg := _user_arg("slice")
 		if arg.is_valid_int():
 			start_slice = clampi(arg.to_int(), 0, road_slices.size() - 1)
+		if _user_arg("decals") != "0":  # --decals=0: no light decals on the cars
+			light_decals = LightDecals.load_track(track_name, road)
+			if light_decals != null:
+				add_child(light_decals)
+		_follow_original_sky()
 	if car_key.is_empty():
 		car_key = GameSettings.car_key
 	if car_key.is_empty():
@@ -421,13 +432,15 @@ func _build_car(target: Car, key: String, color: String, cars: Variant, player: 
 	var style := CarStyle.apply(model, model_path, car_style_of(key, car_colors))
 	Materials.setup_car(model, Color.from_string(color, Color(0, 0, 0, 0)) if not color.is_empty() else Color(0, 0, 0, 0))
 	target.setup(model, _fitted_parts(cars[physics], physics))
+	if light_decals != null:
+		light_decals.add_car(target, model)
 	var car_lights := CarLights.new()
 	target.add_child(car_lights)
 	car_lights.setup(target, model, time_of_day == "night")
 	if player:
 		car_style = style
 		lights = car_lights
-		if not GameSettings.is_web_profile():
+		if not GameSettings.is_web_profile() and not GameSettings.is_low_quality():
 			Materials.add_car_reflections(target)
 	var damage: Variant = OriginalAssets.load_json(model_path.get_basename() + "_damage.json")
 	if damage is Dictionary:
@@ -440,7 +453,7 @@ func _build_car(target: Car, key: String, color: String, cars: Variant, player: 
 		audio.rpm_scale = 4.0 / float(info["cylinders"])  # engine.json assumes a four
 		audio.setup(target, engine, engine_sound, SFX_BANK)
 	# --effects=0: without tyre marks, dust and sparks (FPS comparison); on the web only the player has them
-	if _user_arg("effects") != "0" and (player or not GameSettings.is_web_profile()):
+	if _user_arg("effects") != "0" and (player or not (GameSettings.is_web_profile() or GameSettings.is_low_quality())):
 		var effects := CarEffects.new()
 		effects.name = "Effects"
 		target.add_child(effects)
@@ -459,6 +472,8 @@ func _add_opponents(road_data: Dictionary, cars: Variant, player_color: String) 
 			count = arg.to_int()
 		elif _is_game() and GameSettings.options["opponents"]:
 			count = int(ProjectSettings.get_setting("stuttgart/opponents", DEFAULT_OPPONENTS))
+			if GameSettings.is_low_quality():
+				count = mini(count, GameSettings.LOW_OPPONENTS)
 		else:
 			count = 0
 	count = clampi(count, 0, MAX_OPPONENTS)
@@ -642,7 +657,29 @@ func _restart_race() -> void:
 func _setup_lighting() -> void:
 	var world := $WorldEnvironment as WorldEnvironment
 	world.environment = world.environment.duplicate(true) as Environment
-	hdri_sky = SkyLighting.apply(world.environment, $Sun as DirectionalLight3D, track_name, time_of_day)
+	sky_source = SkyLighting.apply(world.environment, $Sun as DirectionalLight3D, track_name, time_of_day, _chosen_sky())
+	hdri_sky = sky_source == "hdri"
+
+
+## Sky the player chose: --sky=original|hdri, else the menu option (D-045). Without an HDRI file
+## SkyLighting.apply falls back to the original's sky.
+func _chosen_sky() -> String:
+	var arg := _user_arg("sky")
+	if arg == "original" or arg == "hdri":
+		return arg
+	return "original" if GameSettings.options.get("original_sky", true) else "hdri"
+
+
+## The original's sky blends its weather regions by the camera's road slice.
+func _follow_original_sky() -> void:
+	var env := ($WorldEnvironment as WorldEnvironment).environment
+	if sky_source != "original" or env.sky == null or not env.sky.sky_material is ShaderMaterial:
+		return
+	original_sky = OriginalSky.new()
+	original_sky.name = "OriginalSky"
+	original_sky.material = env.sky.sky_material as ShaderMaterial
+	add_child(original_sky)
+	original_sky.setup(OriginalSky.load_data(track_name), road, $Camera as Camera3D, GameSettings.is_low_quality())
 
 
 ## Options from the menu (GameSettings): driver aids and sound.
@@ -652,6 +689,38 @@ func _apply_options() -> void:
 	car.brake_assist = options["brake_assist"]
 	car.traction_control = options["traction_control"]
 	AudioServer.set_bus_mute(0, not options["sound"])
+	GameSettings.apply_render_height()
+
+
+## Low quality (GameSettings.is_low_quality) for weak computers: every shadow pass draws the scene
+## again and the draw calls limit the web build, so the sun's shadows are cheap (one split over
+## LOW_SHADOW_DISTANCE, hard edges, small map; _set_shadow_atlas) and the view shorter (the fog
+## thickens to hide its edge); glow and SSAO are full-screen passes. Without any shadows the sun
+## lit one side of the trunks under the canopies and the other stayed near black.
+## Lighting the walls and trees by the sky only (the sun on the ground and cars) looked wrong: the
+## road under the canopies sunlit, the trees dark and an opponent's car a white spot.
+func _apply_low_quality() -> void:
+	var sun := $Sun as DirectionalLight3D
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+	sun.directional_shadow_max_distance = GameSettings.LOW_SHADOW_DISTANCE
+	var env := ($WorldEnvironment as WorldEnvironment).environment
+	env.glow_enabled = false
+	env.ssao_enabled = false
+	env.fog_density = maxf(env.fog_density, GameSettings.LOW_FOG_DENSITY)
+	($Camera as Camera3D).far = GameSettings.LOW_VIEW_DISTANCE
+
+
+## Shadow map size and edge filtering are global (RenderingServer), so they are set on every start:
+## low quality LOW_SHADOW_ATLAS with hard edges, else the project settings.
+func _set_shadow_atlas(low: bool) -> void:
+	var size := int(ProjectSettings.get_setting_with_override("rendering/lights_and_shadows/directional_shadow/size"))
+	var quality := int(ProjectSettings.get_setting_with_override(
+		"rendering/lights_and_shadows/directional_shadow/soft_shadow_filter_quality"))
+	if low:
+		size = mini(size, GameSettings.LOW_SHADOW_ATLAS)
+		quality = RenderingServer.SHADOW_QUALITY_HARD
+	RenderingServer.directional_shadow_atlas_set_size(size, true)
+	RenderingServer.directional_soft_shadow_filter_set_quality(quality)
 
 
 ## The game itself runs (not a test that loads this scene inside its own).

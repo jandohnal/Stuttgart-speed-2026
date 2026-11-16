@@ -45,5 +45,5 @@ Význam podle nositelů: `wrna`/`wrnb` výstražná oranžová světla (kozy `SA
 
 ## Související
 
-- `<trať>.map` (text): hlavička `[header]` s `tint`, `ambient`, `interior`, `lightdecal` (4 čísla, první vždy 1,0). Monaco má `ambient` 0,30 a `tint` 1,80 (noc), farmland 0,70 a 0,73. Sekce `[sectionN]` se `startslice` / `endslice` a texturami `textureN.open` / `.covered` (4CC jako číslo, např. `TMS1`): nejspíš světelné obtisky na silnici zvlášť pod širým nebem a pod střechou. Zatím nerozluštěno.
+- `<trať>.map` (text): hlavička `[header]` s `tint`, `ambient`, `interior`, `interiordiffuse`, `lightdecal` (4 čísla, první vždy 1,0). Monaco má `ambient` 0,30 a `tint` 1,80 (noc), farmland 0,70 a 0,73. Sekce jsou světelné obtisky na autech (lampy v tunelech, stín stromů) z `<trať>.env`, viz [map.md](map.md).
 - `GameData/Render/particle.ini`, `particle.dat`: zdroje částic (`ef` druhu 3), zatím nerozluštěno.

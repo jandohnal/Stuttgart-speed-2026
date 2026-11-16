@@ -28,7 +28,9 @@ Duchovní nástupce NFS: Porsche 2000. Tento veřejný repozitář je webová ve
 - Přehled všech nástrojů a sdílených modulů: `tools/README.md`. Převod dat a spuštění projektu na macOS, Windows a Linuxu: `docs/setup.md`, webový build a hosting: `docs/web.md`.
 - `python3 tools/build_data.py [--install <složka s instalací hry>]` – celý převod `sources/` → `decomposed/` a kontrola výstupu (na všech systémech).
 - `python3 tools/archives.py refpack sources/GameData/CarModel/356a.crp decomposed/GameData/CarModel/356a.bin` – rozbalí EA RefPack (`archives.py bigf` rozbalí archiv `.viv`).
-- `python3 tools/fsh2png.py sources decomposed` – všechny textury FSH do PNG (+ `index.json` pro každý archiv).
+- `python3 tools/fsh2png.py sources decomposed` – všechny textury FSH a světelné obtisky tratí `.env` (do `<trať>/env/`) do PNG (+ `index.json` pro každý archiv).
+- `python3 tools/light_decals.py sources/GameData/Track decomposed/GameData/Track` – světelné obtisky na autech (`.map`: lampy v tunelech, stín stromů) do `<trať>_decals.json`; potřebuje `env/` z `fsh2png`.
+- `python3 tools/sky.py sources/GameData/Track decomposed/GameData/Track` – obloha a horizont originálu (`Sky/<Trať>.txt`, `.bin`) do `<trať>_sky.json`; potřebuje textury z `fsh2png` a převedené tratě.
 - `python3 tools/crp2gltf.py sources/GameData/CarModel/356a.crp decomposed/GameData/CarModel/356a/356a.gltf` – model auta do glTF (+ atlasy textur).
 - `python3 tools/ai_csv2json.py sources/GameData/Simulation/AI decomposed/GameData/Simulation/AI` – nastavení AI do JSON, ověřené proti `.bin`.
 - `python3 tools/track2gltf.py sources/GameData/Track/farmland.crp decomposed/GameData/Track/farmland/farmland.gltf` – trať do glTF + data silnice (`_road.json`: řezy, úseky, start/cíl) + objekty kolem trati (`_objects.json`). Farmland = Normandie. Společný parser CRP je v `tools/crp.py`.
@@ -45,7 +47,7 @@ Duchovní nástupce NFS: Porsche 2000. Tento veřejný repozitář je webová ve
 - `python3 tools/fetch_hdri.py` – oblohy z Poly Haven (CC0) do `assets/hdri/`, volitelné.
 - `python3 tools/credits_stats.py game/ui/credits_stats.json` – statistiky vývoje pro okno credits (git + logy Claude Code); spustit před commitem, ať jsou čísla aktuální.
 - `python3 tools/pack_web.py decomposed build/web/data` – balíčky dat pro hru v prohlížeči (D-040, `docs/web.md`); nikdy se nešíří.
-- `python3 tools/serve_web.py build/web` – místní server webového exportu.
+- `python3 tools/serve_web.py build/web` – místní server webového exportu (`--bind 0.0.0.0 --https` pro test z jiného počítače v síti).
 - `python3 tools/deploy_web.py build/web` – nahrání webového buildu do privátního R2 za Worker s heslem (D-041, `docs/web.md`).
 - `python3 tools/package_web.py build/web` – složka `build/cloudflare/` pro ruční nahrání v dashboardu Cloudflare (soubory, `worker.js`, `NAVOD.md`).
 

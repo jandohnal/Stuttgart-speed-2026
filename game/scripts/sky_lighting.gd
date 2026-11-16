@@ -1,6 +1,7 @@
 extends RefCounted
-## Day / night lighting per track from HDRI skies (D-019, IDEA-009). The sky is a
-## PanoramaSkyMaterial on the HDRI and also gives the ambient and reflected light; the sun (or
+## Day / night lighting per track (D-019, IDEA-009). The sky is the original's (OriginalSky, D-045)
+## or, as an option, an HDRI drawn by the same sky shader with the original's horizon ring in front
+## (PanoramaSkyMaterial without sky data); it also gives the ambient and reflected light; the sun (or
 ## moon) is the scene's DirectionalLight3D, pointed along the brightest direction of the HDRI so
 ## shadows match the sun seen in the sky.
 ##
@@ -8,6 +9,8 @@ extends RefCounted
 ## digits (monaco1..5 -> monaco), else the Poly Haven sky named for the entry in data/hdri.json
 ## (tools/fetch_hdri.py, <id>_<res>.hdr). Root: project setting stuttgart/hdri_root (default
 ## ../assets/hdri, ignored by git). No file: the scene's procedural sky stays and the log says so.
+## Web: the track's pack holds the skies shrunk to 1024 px (tools/pack_web.py) as WEB_SKY in the
+## data root; the full ones are 20-28 MB each and take about 100 MB of memory.
 ##
 ## Sun: the peak is found once per file on a 256 px wide copy, refined in the full image and
 ## cached in user://hdri_sun.cfg (keyed by file size and time). The sun disc of these HDRIs is
@@ -18,6 +21,7 @@ extends RefCounted
 
 const DEFAULT_ROOT := "../assets/hdri"
 const CATALOG := "../data/hdri.json"
+const WEB_SKY := "sky/%s_%s.hdr"  ## entry, time; relative to the data root (OriginalAssets)
 const CACHE := "user://hdri_sun.cfg"
 ## Strength of the sun's highlights. Godot's default 0.5 halves them; 1.0 is physically correct, so
 ## the low sun glints on the road and the paint.
@@ -50,6 +54,8 @@ const NIGHT := {
 ## Moon from the HDRI only above this elevation (else city lights on the horizon would be the
 ## "moon"); otherwise this fixed direction (pitch, yaw in degrees).
 const MOON_MIN_ELEVATION_DEG := 8.0
+## The original's horizon ring in front of a night HDRI (its land is painted by day).
+const NIGHT_SCALE_RING := 0.06
 const MOON_FALLBACK := Vector2(-40.0, 30.0)
 
 
@@ -71,7 +77,8 @@ static func entry(track: String) -> String:
 ## HDRI file for the track and time ("day" / "night"), or "" when there is none.
 static func hdri_path(track: String, time: String) -> String:
 	if OS.has_feature("web"):
-		return ""  # 20-28 MB per sky and about 100 MB of memory: the procedural sky instead
+		var small := OriginalAssets.path(WEB_SKY % [entry(track), time])
+		return small if FileAccess.file_exists(small) else ""
 	var own := root().path_join("%s_%s.hdr" % [entry(track), time])
 	if FileAccess.file_exists(own):
 		return own
@@ -87,9 +94,46 @@ static func hdri_path(track: String, time: String) -> String:
 	return ""
 
 
-## Sets up the environment and the sun for the track and time of day. Returns true when an HDRI
-## sky was used, false for the procedural fallback.
-static func apply(env: Environment, sun: DirectionalLight3D, track: String, time: String) -> bool:
+## Sets up the environment and the sun for the track and time of day. `source` is the sky the
+## player chose (D-045): "original" (the original's dome and horizon, OriginalSky) or "hdri" (the
+## HDRI with the original's horizon ring in front of it). Returns the sky used: "original", "hdri",
+## or "procedural" when neither has data. A missing HDRI falls back to the original's sky.
+static func apply(env: Environment, sun: DirectionalLight3D, track: String, time: String, source := "original") -> String:
+	var data := OriginalSky.load_data(track)
+	if source == "hdri" and _apply_hdri(env, sun, track, time, data):
+		return "hdri"
+	_apply_common(env, sun, time)
+	if data.is_empty():
+		var night := time == "night"
+		print("No sky data for %s - using the procedural sky" % track)
+		if night and env.sky != null and env.sky.sky_material is PhysicalSkyMaterial:
+			(env.sky.sky_material as PhysicalSkyMaterial).energy_multiplier *= NIGHT["procedural_sky_energy"]
+		return "procedural"
+	var low := GameSettings.is_low_quality()
+	var material := OriginalSky.make_material(data, low)
+	var night := time == "night"
+	var night_sky := OriginalSky.is_night_sky(data)
+	var scale := OriginalSky.DAY_ENERGY
+	if night and not night_sky:
+		scale *= OriginalSky.NIGHT_SCALE
+	elif not night and night_sky:
+		scale *= OriginalSky.DAY_SCALE
+	material.set_shader_parameter("energy", scale)
+	material.set_shader_parameter("horizon_energy", scale)
+	var sky := Sky.new()
+	sky.sky_material = material
+	env.background_mode = Environment.BG_SKY
+	env.sky = sky
+	if not night and not night_sky:  # a brightened night horizon made a grey haze (Monaco by day)
+		var fog := OriginalSky.horizon_color(data)
+		if fog.a > 0.0:
+			env.fog_light_color = fog.srgb_to_linear() * scale
+	print("Original sky %s: %s, x%.2f" % [track, data.get("folder", ""), scale])
+	return "original"
+
+
+## Exposure, glow, fog and the sun or moon for the time of day (all skies).
+static func _apply_common(env: Environment, sun: DirectionalLight3D, time: String) -> void:
 	var night := time == "night"
 	var p: Dictionary = NIGHT if night else DAY
 	env.tonemap_exposure = p["exposure"]
@@ -102,24 +146,44 @@ static func apply(env: Environment, sun: DirectionalLight3D, track: String, time
 	if night:
 		sun.light_color = NIGHT["sun_color"]
 		sun.rotation_degrees = Vector3(MOON_FALLBACK.x, MOON_FALLBACK.y, 0.0)
+
+
+## The HDRI sky (D-019) with the original's horizon ring when `data` has one. False without a file.
+static func _apply_hdri(env: Environment, sun: DirectionalLight3D, track: String, time: String, data: Dictionary) -> bool:
+	var night := time == "night"
 	var file := hdri_path(track, time)
 	var img := Image.load_from_file(file) if not file.is_empty() else null
 	if img == null or img.is_empty():
-		print("HDRI sky for %s (%s) not found in %s - using the procedural sky" % [track, time, root()])
-		if night and env.sky != null and env.sky.sky_material is PhysicalSkyMaterial:
-			(env.sky.sky_material as PhysicalSkyMaterial).energy_multiplier *= NIGHT["procedural_sky_energy"]
+		print("HDRI sky for %s (%s) not found in %s - using the original's sky" % [track, time, root()])
 		return false
+	_apply_common(env, sun, time)
 	if img.is_compressed():
 		img.decompress()
 	img.convert(Image.FORMAT_RGBF)
 	var info := sky_info(file, img)
 	_clamp_peak(img, info)
 	img.convert(Image.FORMAT_RGBH)  # half the memory, plenty for a sky
-	var sky_material := PanoramaSkyMaterial.new()
-	sky_material.panorama = ImageTexture.create_from_image(img)
+	var panorama := ImageTexture.create_from_image(img)
 	var sky_irradiance: float = maxf(float(info["sky_irradiance"]), 1e-4)
 	var target: float = NIGHT["sky_irradiance"] if night else float(DAY["sun_energy"]) / float(DAY["sun_to_sky"])
-	sky_material.energy_multiplier = target / sky_irradiance
+	var energy := target / sky_irradiance
+	var sky_material: Material
+	var ring := OriginalSky.make_material(data, GameSettings.is_low_quality(), panorama, energy)
+	if ring != null:
+		# The ring's land is lit like the HDRI's horizon: its mean brightness there.
+		var night_land := OriginalSky.is_night_sky(data)
+		var land := 1.0
+		if night and not night_land:
+			land = NIGHT_SCALE_RING
+		elif not night and night_land:
+			land = OriginalSky.DAY_SCALE
+		ring.set_shader_parameter("horizon_energy", land)
+		sky_material = ring
+	else:
+		var pano := PanoramaSkyMaterial.new()
+		pano.panorama = panorama
+		pano.energy_multiplier = energy
+		sky_material = pano
 	var sky := Sky.new()
 	sky.sky_material = sky_material
 	env.background_mode = Environment.BG_SKY
@@ -131,7 +195,7 @@ static func apply(env: Environment, sun: DirectionalLight3D, track: String, time
 		_point_light(sun, direction)
 	elif elevation >= MOON_MIN_ELEVATION_DEG:
 		_point_light(sun, direction)
-	print("HDRI sky %s: peak at elevation %.1f deg, sky x%.3f, light %.2f" % [file.get_file(), elevation, sky_material.energy_multiplier, sun.light_energy])
+	print("HDRI sky %s: peak at elevation %.1f deg, sky x%.3f, light %.2f, horizon ring %s" % [file.get_file(), elevation, energy, sun.light_energy, ring != null])
 	return true
 
 

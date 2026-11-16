@@ -37,6 +37,8 @@ EXPECTED = [
     "GameData/Track/farmland/farmland_lights.json",
     "GameData/Track/farmland/farmland_ai.json",
     "GameData/Track/farmland/farmland_emitters.json",
+    "GameData/Track/farmland/farmland_decals.json",
+    "GameData/Track/farmland/farmland_sky.json",
     "GameData/Render/flares.json",
     "GameData/Render/particles.json",
     "GameData/Render/common/index.json",
@@ -104,6 +106,8 @@ def stages(src, dst):
         ["parts", fe, os.path.join(out_fe, "Data", "parts.json")],  # needs cars.json
         ["ai_lines", tracks, out_tracks],  # needs _road.json
         ["emitters", tracks, out_tracks],  # needs the converted tracks
+        ["light_decals", tracks, out_tracks],  # needs the env maps from fsh2png
+        ["sky", tracks, out_tracks],  # needs the sky textures from fsh2png and the converted tracks
     ]
     return [first, models, last]
 

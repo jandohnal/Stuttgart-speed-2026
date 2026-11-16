@@ -72,7 +72,7 @@ Vytvoří `build/cloudflare/` se soubory pro bucket (`bucket/`), kódem Workeru 
 
 ## Jak to funguje
 
-- `tools/pack_web.py` vytvoří v `build/web/data/` balíčky a `manifest.json` s jejich velikostmi. Na každé auto `car-<model>.zip`, na trať `track-<trať>.zip`, na sadu motoru `engine-<sada>.zip`, zvuky nárazů a vodopádu `sfx.zip` a společná data `core.zip`. V `core.zip` jsou i naše ikony, písma a textury částic, protože je hra čte jako soubory a export obsahuje jen jejich importovanou podobu.
+- `tools/pack_web.py` vytvoří v `build/web/data/` balíčky a `manifest.json` s jejich velikostmi. Na každé auto `car-<model>.zip`, na trať `track-<trať>.zip`, na sadu motoru `engine-<sada>.zip`, zvuky nárazů a vodopádu `sfx.zip` a společná data `core.zip`. Balíček trati obsahuje i její denní a noční oblohu z `assets/hdri/` zmenšenou na 1024 × 512 px (D-043). Balíček trati obsahuje i textury oblohy originálu `Sky/<Trať>/` podle `<trať>_sky.json` (výchozí obloha, D-045). Bez stažených HDRI (`tools/fetch_hdri.py`) se volba HDRI nahradí oblohou originálu. V `core.zip` jsou i naše ikony, písma a textury částic, protože je hra čte jako soubory a export obsahuje jen jejich importovanou podobu.
 - Autoload `DataPacks` balíček stáhne a připojí do `res://decomposed`. Kód načítání je stejný jako na desktopu. Na desktopu `DataPacks` nedělá nic.
 - `scenes/loading.tscn` je první scéna webového buildu a ukazuje postup stahování před menu a před každým závodem.
 - Balíčky jsou v paměti prohlížeče (`/tmp`), při další návštěvě je vrátí HTTP cache. Stažené tratě nad 512 MB se uvolňují od nejdéle nepoužité.
@@ -86,7 +86,7 @@ Vytvoří `build/cloudflare/` se soubory pro bucket (`bucket/`), kódem Workeru 
 | --- | --- |
 | Renderer | Compatibility (WebGL2), bez SSAO a decalů |
 | Stíny | atlas 4096, měkkost 2, slunce ve 2 pásmech do 200 m, světlomety bez stínů |
-| Obloha | procedurální, HDRI se nestahují |
+| Obloha | výchozí obloha a horizont originálu (`Sky/<Trať>/` v balíčku trati, D-045), s volbou HDRI trati zmenšené na 1024 × 512 px (`sky/<trať>_<day\|night>.hdr`, asi 1,5 MB) |
 | Auta | bez odrazu okolí, soupeři bez efektů kol |
 | Částice | jiskry a kapky bez stop, bez trávy a listí od kol, mlha bez atraktorů a turbulence |
 | Tratě | bez map `advanced/` |
@@ -94,6 +94,18 @@ Vytvoří `build/cloudflare/` se soubory pro bucket (`bucket/`), kódem Workeru 
 | Geometrie tratě | statické díly sloučené podle materiálu do buněk 500 m (`track_batcher.gd`) |
 | Fyzika | nejvýš 4 kroky na snímek, při nízkém FPS se hra zpomalí |
 | Okno | celá obrazovka jen klávesou F11, bez tlačítka Konec a bez záznamu telemetrie |
+
+### Nízká kvalita (D-043)
+
+Pro slabší počítače je v menu zaškrtávátko LOW QUALITY. Zapnout ho jde i adresou `…/?quality=low` (vypnout `?quality=high`), třeba v odkazu pro kamaráda, a volba se uloží. Zjednoduší stíny slunce (jeden řez do 150 m, tvrdé okraje), vypne stíny světlometů, glow a SSAO, 3D obraz kreslí nejvýš 720 řádků, dohled zkrátí na 1 500 m (s hustší mlhou), na startu nechá 1 soupeře a v noci 2 lampy trati. Trať má jednodušší materiály (bez detailu a parallaxu, zem se svítí po vrcholech) a 3D rozlišení se samo snižuje až na 360 řádků, dokud hra nejede aspoň 50 FPS. HUD vlevo nahoře ukazuje FPS a počet volání kreslení (`draws`), pod tím kvalitu, 3D rozlišení / velikost plátna a skutečnou grafickou kartu, takže je vidět, co pomohlo. Když FPS roste se zmenšením okna, omezuje grafická karta počtem pixelů, ne procesor. Notebook se dvěma grafikami: ve Windows *Nastavení > Systém > Obrazovka > Grafika*, pro Chrome zvolit *Vysoký výkon*.
+
+Ladit se dá bez nahrání na Cloudflare: export a místní server jako v postupu výše. Godot ve webovém exportu vyžaduje zabezpečené připojení (HTTPS nebo `localhost`), jinak ohlásí chybějící HTTPS. Pro jiný počítač ve stejné síti proto spustit server s HTTPS:
+
+```bash
+python3 tools/serve_web.py build/web --bind 0.0.0.0 --https
+```
+
+Server vypíše adresy, na testovacím počítači otevřít `https://<IP tohoto počítače>:8000/?quality=low`. Certifikát je podepsaný sám sebou (vytvoří ho příkaz `openssl` do `build/web-cert/` a obnoví ho, když se změní adresa), takže prohlížeč jednou varuje. V Chrome *Rozšířené > Pokračovat*, v Safari *Zobrazit podrobnosti > navštívit tento web*. Vlastní certifikát jde zadat přes `--cert` a `--key`. macOS se při prvním spuštění může zeptat, zda povolit příchozí připojení pro Python. Server nemá heslo, proto jen v domácí síti a po testu ho zastavit. Pokud hra na slabém počítači běží pod 10 FPS i s nízkou kvalitou, stojí za to v Chrome otevřít `chrome://gpu`. „Software only“ u WebGL znamená, že prohlížeč nepoužívá grafickou kartu.
 
 ## Stav (9. 11. 2026)
 

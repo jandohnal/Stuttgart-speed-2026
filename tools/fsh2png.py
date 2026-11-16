@@ -6,6 +6,9 @@ plus an index.json with entry names, record types, sizes and metadata.
 Usage:
     python3 tools/fsh2png.py sources/GameData/CarModel/356a.fsh decomposed/GameData/CarModel/356a
     python3 tools/fsh2png.py sources decomposed          # whole tree, mirrors folders
+
+Track light decals (GameData/Track/<track>.env, docs/formats/map.md) are SHPI archives as well; on a whole
+tree they go to decomposed/GameData/Track/<track>/env/.
 """
 import json
 import os
@@ -173,6 +176,8 @@ def main(src, dst):
         jobs = [(src, dst)]
     else:
         jobs = [(path, os.path.join(dst, rel)) for path, rel in source_files(src, [".fsh"])]
+        # Track light decals (.env, tools/light_decals.py): SHPI too, next to the track's textures in env/.
+        jobs += [(path, os.path.join(dst, rel, "env")) for path, rel in source_files(src, [".env"])]
     total, bad = 0, 0
     for s, o in sorted(jobs):
         if os.path.isdir(os.path.join(o, "original")):

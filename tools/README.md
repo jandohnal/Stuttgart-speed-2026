@@ -7,7 +7,9 @@ Python 3, jen standardní knihovna. Čtou ze `sources/`, zapisují do `decompose
 | Nástroj | Vstup → výstup | Formát |
 | --- | --- | --- |
 | `archives.py` | `refpack <in> <out>`: rozbalí EA RefPack (`.crp` …); `bigf <in.viv> <složka>`: rozbalí archiv BIGF | [crp.md](../docs/formats/crp.md), [bnk.md](../docs/formats/bnk.md) |
-| `fsh2png.py` | textury FSH (SHPI) → PNG + `index.json`; jeden soubor nebo celý strom | [fsh.md](../docs/formats/fsh.md) |
+| `fsh2png.py` | textury FSH (SHPI) a světelné obtisky tratí `.env` → PNG + `index.json`; jeden soubor nebo celý strom | [fsh.md](../docs/formats/fsh.md) |
+| `sky.py` | obloha originálu `Sky/<Trať>.txt` + `.bin` → `<trať>_sky.json` (vrstvy, kopule, prstenec horizontu, prolnutí oblastí podle řezu); po `fsh2png` a `track2gltf` | [sky.md](../docs/formats/sky.md) |
+| `light_decals.py` | sekce světelných obtisků tratí `.map` → `<trať>_decals.json` (rozsahy řezů, textury z `env/`); po `fsh2png` | [map.md](../docs/formats/map.md) |
 | `crp2gltf.py` | model auta `.crp` → glTF (+ atlasy textur, morph targety poškození `dz0`–`dz9`, oddělené levé a pravé díly) + `<auto>_damage.json` (zóny, odpojitelné díly) + `<auto>_styles.json` (styly z `.tpg`: díly k odebrání a atlasy každé varianty, D-022); vynechá zdvojené díly nižší úrovně detailu, vnitřní panely víek otočí od vnějších, vrstvené díly (světla, obtisky …) zvedne 1 mm nad podklad | [crp.md](../docs/formats/crp.md#styly-varianty-modelu) |
 | `track2gltf.py` | trať `.crp` → glTF (skupiny road, terrain, vegetation, objects, drivethrough = keře podle značky BUSH, props) + `<trať>_road.json` (řezy SimD, úseky, start a cíl; okruh bez `_fstart.scn` vlastní čáru podle stop `.lsp`) + `<trať>_objects.json` (rozmístěné objekty, kolize a hmotnost; seznam průjezdných keřů) + `<trať>_lights.json` (záře `ef`: ve světě, na objektech, na předlohách; zdroje částic) | [crp.md](../docs/formats/crp.md), [scn.md](../docs/formats/scn.md) |
 | `snd2wav.py` | zvukové banky `.viv` / `.bnk` → WAV + `index.json`; u sad motoru `sd*.viv` i `engine.json` (smyčky pod plynem a bez plynu, otáčky) | [bnk.md](../docs/formats/bnk.md) |
@@ -29,8 +31,8 @@ Python 3, jen standardní knihovna. Čtou ze `sources/`, zapisují do `decompose
 | `build_data.py` | celý převod pro hru: volitelně zkopíruje instalaci do `sources/` (`--install <složka>`), spustí všechny převodníky (souběžně, `--jobs N`) a ověří, že vznikly soubory, které hra potřebuje. Na jakémkoli systému. |
 | `fetch_hdri.py` | stáhne oblohy podle `data/hdri.json` z Poly Haven (CC0) do `assets/hdri/<id>_<rozlišení>.hdr`; `--res`, `--track`, `--alternatives`. Volitelné, bez nich hra použije procedurální oblohu. |
 | `credits_stats.py` | historie gitu + logy sezení Claude Code tohoto projektu (`~/.claude/projects/<projekt>/`, i podagenti) → `game/ui/credits_stats.json` pro okno credits v menu: dny vývoje, commity, sezení, odpovědi, aktivní čas (mezery pod 30 min), tokeny (vstup, cache, výstup) a modely. Data originálu nečte. |
-| `pack_web.py` | `decomposed/` → balíčky pro hru v prohlížeči v `build/web/data/` (zipy po autech, tratích a zvucích + `manifest.json`), kontroluje soubory, na které odkazují glTF. Balíčky se nešíří (D-039), viz [web.md](../docs/web.md) |
-| `serve_web.py` | webový export z `build/web/` přes HTTP se správnými hlavičkami; `--port`, `--bind` (výchozí jen tento počítač) |
+| `pack_web.py` | `decomposed/` → balíčky pro hru v prohlížeči v `build/web/data/` (zipy po autech, tratích a zvucích + `manifest.json`), kontroluje soubory, na které odkazují glTF. Do balíčku trati přidá její HDRI oblohy z `assets/hdri/` zmenšené na 1024 px (`sky/<trať>_<day|night>.hdr`, `--hdri` jiná složka). Balíčky se nešíří (D-039), viz [web.md](../docs/web.md) |
+| `serve_web.py` | webový export z `build/web/` přes HTTP se správnými hlavičkami; `--port`, `--bind` (výchozí jen tento počítač), `--https` s certifikátem podepsaným sebou pro test z jiného počítače v síti (`--cert`, `--key` vlastní) |
 | `deploy_web.py` | nahraje `build/web/` do privátního bucketu R2 za Worker s heslem (`web_host/`, D-041), nezměněné soubory přeskočí; `--local` plní lokální simulátor, viz [web.md](../docs/web.md) |
 | `package_web.py` | složka `build/cloudflare/` pro ruční nahrání v dashboardu Cloudflare: soubory pro bucket R2, `worker.js` a návod `NAVOD.md` (D-041, [web.md](../docs/web.md)) |
 
@@ -69,9 +71,11 @@ python3 tools/track2gltf.py sources/GameData/Track/farmland.crp decomposed/GameD
 python3 tools/parts.py sources/FEData decomposed/FEData/Data/parts.json   # po sim_dump
 python3 tools/ai_lines.py sources/GameData/Track decomposed/GameData/Track   # po track2gltf
 python3 tools/emitters.py sources/GameData/Track decomposed/GameData/Track   # po track2gltf
+python3 tools/light_decals.py sources/GameData/Track decomposed/GameData/Track   # po fsh2png
+python3 tools/sky.py sources/GameData/Track decomposed/GameData/Track   # po fsh2png a track2gltf
 ```
 
-`fsh2png.py` přeskočí složku s podsložkou `original/`: to jsou ručně vylepšené textury (autorova kopie: farmland, skidpad) a převedené originály leží v `original/`.
+`fsh2png.py` přeskočí složku s podsložkou `original/`: to jsou ručně vylepšené textury a převedené originály leží v `original/`.
 
 Kontrola modelů po převodu:
 

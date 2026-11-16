@@ -1,7 +1,7 @@
 extends Control
 ## Main menu (D-009, look D-032): race setup panel on the left (car, parts Stock / Sport via CarParts,
 ## paint colour, tyres and track dropdowns, then option checkboxes: night, driver aids, sound,
-## opponents, rubber band) and PLAY; a porthole with an archive photo (ui/photos/porthole_*, else a
+## opponents, rubber band, low quality graphics) and PLAY; a porthole with an archive photo (ui/photos/porthole_*, else a
 ## placeholder) with the selected car turning in it (CarShowcase, one turn a minute) above a caption
 ## naming the car; top right the selected track's outline from the original menu (TRACK_ART); a footer with credits (a dialog: tribute, how it was made, CREDITS_STATS) and exit. The lists come from
 ## main.gd (CARS, TRACKS); entries whose data is missing in decomposed/ are disabled. The choice
@@ -42,6 +42,8 @@ const OPTION_LABELS := {
 	"sound": "SOUND",
 	"opponents": "OPPONENTS",
 	"rubber_band": "RUBBER BAND",
+	"low_quality": "LOW QUALITY",
+	"original_sky": "ORIGINAL SKY",
 }
 ## Track outlines of the original menu (yellow line with shadow, docs/formats/trackart.md): first
 ## image of FEData/TrackArt/<track>/ (folder name in any case), none for tracks without art.

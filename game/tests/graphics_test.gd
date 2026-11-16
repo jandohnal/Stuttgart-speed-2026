@@ -1,12 +1,13 @@
 extends Node
 ## Graphics check (needs a window, not --headless): same views every run for before/after
 ## screenshots and FPS.
-##   godot --path game res://tests/graphics_test.tscn -- <output folder> [--track=<name>] [--slice=<n>] [--time=day|night] [--windowed=1]
+##   godot --path game res://tests/graphics_test.tscn -- <output folder> [--track=<name>] [--slice=<n>] [--time=day|night] [--windowed=1] [--low=1]
 ##     [--env|--sky|--sun|--vp|--head=<property>:<value>] (repeatable)
 ## --env, --sky, --sun, --vp and --head set a property of the Environment, the sky material, the sun, the viewport or both
 ## headlights (night) for trying
 ## settings without editing the scene, e.g. --env=sdfgi_enabled:true --vp=use_taa:true.
 ## --shadow_atlas=<px> and --shadow_filter=<0..5> override the project's directional shadow settings.
+## --low=1: the menu's LOW QUALITY option (GameSettings.is_low_quality).
 ## The car settles on the slice, then: chase view (standing), chase view while driving (no cockpit
 ## view, the inside of the car is not checked in this phase). Each phase saves <phase>.png and
 ## prints the average and worst-frame FPS (vsync off). README uses farmland slice 1284.
@@ -33,6 +34,7 @@ func _ready() -> void:
 	if not args.is_empty() and not args[0].begins_with("--"):
 		out_dir = args[0]
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+	GameSettings.options["low_quality"] = _arg(args, "low") == "1"
 	main = preload("res://scenes/main.tscn").instantiate() as Node3D
 	add_child(main)
 	car = main.get_node("Car")

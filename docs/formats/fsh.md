@@ -2,18 +2,18 @@
 type: file-format
 format: fsh
 game: "NFS5 (Porsche 2000 / Porsche Unleashed), PC"
-location: ["GameData/CarModel/*.fsh", "GameData/Track/*.fsh", "GameData/Track/Sky/*.fsh", "GameData/DashHud/*.fsh", "GameData/Render/*.fsh", "FEData/**/*.fsh"]
-count: 553
+location: ["GameData/CarModel/*.fsh", "GameData/Track/*.fsh", "GameData/Track/Sky/*.fsh", "GameData/DashHud/*.fsh", "GameData/Render/*.fsh", "FEData/**/*.fsh", "GameData/Track/*.env"]
+count: 568
 endianness: little
 status: done
 tool: "tools/fsh2png.py"
 output: "decomposed/<cesta bez přípony>/NNN_<jméno>.png + index.json"
-updated: 2026-10-15
+updated: 2026-11-15
 ---
 
 # Formát `.fsh` – archiv textur (SHPI)
 
-Všech 553 souborů se převede bez chyby na 10 425 obrázků.
+Všech 553 souborů `.fsh` se převede bez chyby na 10 425 obrázků, 15 map odrazů `.env` na 95 obrázků.
 
 ## Obal
 
@@ -75,7 +75,10 @@ Položka je řetězec záznamů. Každý záznam má 16bajtovou hlavičku:
 
 Mipmapy se nepřevádějí, bere se jen plné rozlišení.
 
+Světelné obtisky tratí `GameData/Track/<trať>.env` ([map.md](map.md)) jsou také SHPI. Při převodu celého stromu jdou do `decomposed/GameData/Track/<trať>/env/` vedle textur trati (jeden soubor: `python3 tools/fsh2png.py sources/GameData/Track/alps.env decomposed/GameData/Track/alps/env`).
+
 ## Poznámky
 
 - Dva obrázky 0x7D mají alfu všude 0 (`Track/coastal.fsh` `walk`, `Track/Sky/default.fsh` `horz`). Jsou tak uložené ve zdroji, nejde o chybu převodu.
+- `.env` (světelné obtisky na autech): 2–11 obrázků 64×64 typu 0x7D na trať, barva světla v RGB, tvar a síla v alfě. Které platí na kterém úseku trati, určuje `<trať>.map`, viz [map.md](map.md).
 - Textury aut jsou ve složkách `CarModel/<auto>D` a `<auto>L` (pravděpodobně detail/low).

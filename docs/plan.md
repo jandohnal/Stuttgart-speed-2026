@@ -66,7 +66,8 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Varianty aut ze stylů `.tpg` (D-022): díly a textury každé varianty, f901 s karoserií, kabriolety a turba; kontrola všech 113 stylů kamerou kolem auta na skidpadu (`car_orbit_test`) a překryvů dílů (`mesh_check.py`), opravené zdvojené díly a z-fighting vnitřních panelů víek
 - [ ] Spáry mezi silnicí a terénem a vedlejší úseky `SimD` mimo geometrii (varování z kontroly)
 - [x] Exportér tratí: světelné záře a zdroje částic z `ef` (`_lights.json`), vzhled září z `flare.dat` ([tools/flare.py](../tools/flare.py))
-- [ ] Exportér tratí: význam šířek `SimD`, spojení úseků (`.jnc`), předlohy z úloh (`_stNN.scn`), animace objektů, zdroje částic a stíny `ef`, `<trať>.map`
+- [ ] Exportér tratí: význam šířek `SimD`, spojení úseků (`.jnc`), předlohy z úloh (`_stNN.scn`), animace objektů, zdroje částic a stíny `ef`
+- [x] Světelné obtisky na autech: `<trať>.env` a `<trať>.map` rozluštěné z exe, převod ([tools/light_decals.py](../tools/light_decals.py), [formats/map.md](formats/map.md)), ve hře záblesky lamp v tunelech a stín stromů (D-044)
 - [x] Ideální stopy soupeřů `.lsp` a klíče `.key` do `<trať>_ai.json` ([tools/ai_lines.py](../tools/ai_lines.py), [formats/lsp.md](formats/lsp.md)), profily `.ais` a řízení `TRAFCFG` ([tools/ais2json.py](../tools/ais2json.py), [formats/ais.md](formats/ais.md))
 - [ ] Ověřit v exe význam `.key`, tabulek `.ais` A/B a rozdíl stop `.lsp` 0/1 (D-023)
 - [ ] Spustit originál na Macu přes Wine jako referenci
@@ -179,8 +180,12 @@ Mimo pořadí fází. Webová verze je výstup tohoto repozitáře, desktopová 
 - [x] Sloučení statické geometrie tratě a méně stínových průchodů (Farmland plynule i v prohlížeči)
 - [x] Hosting na Cloudflare za heslem: R2 a Worker, nahrání skriptem i ručně přes dashboard (D-041)
 - [x] Veřejný repozitář jako webová verze, desktopová hra v samostatném repozitáři (D-042)
+- [x] Volba nízké kvality pro slabší počítače, i z adresy `?quality=low` (D-043)
+- [ ] Změřit nízkou kvalitu na slabých počítačích v prohlížeči
 - [ ] Změřit FPS a paměť na všech tratích, ve dne i v noci, s 0, 3 a 7 soupeři
 - [ ] Doladit osvětlení bez HDRI (Farmland je tmavý)
+- [x] Obloha a horizont originálu jako výchozí obloha, HDRI jako volba v menu ([formats/sky.md](formats/sky.md), D-045)
+- [ ] Obloha originálu: rozluštit barvy oblastí (`.bin` 0xCEC), další tabulky podle řezu, zvlnění a blesky (`*_lightning.bin`)
 - [ ] Vyzkoušet Firefox a gamepad
 
 ## Rizika

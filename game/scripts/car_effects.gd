@@ -125,7 +125,7 @@ func setup(car: Car) -> void:
 		var debris := _make_debris()
 		add_child(debris)
 		_debris.append(debris)
-		var web := GameSettings.is_web_profile()
+		var web := GameSettings.is_web_profile() or GameSettings.is_low_quality()
 		for list: Array in [[_grass, null if web else _make_grass()], [_leaves, null if web else _make_leaves()]]:
 			if list[1] != null:
 				add_child(list[1])

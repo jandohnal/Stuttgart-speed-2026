@@ -115,7 +115,10 @@ func setup(track: Node3D, data: Dictionary, track_entry: String, is_night: bool)
 	if props != null:
 		_add_props(props, data.get("props", {}))
 	if night:
-		for i in (WEB_LIGHT_POOL if GameSettings.is_web_profile() else LIGHT_POOL):
+		var pool := WEB_LIGHT_POOL if GameSettings.is_web_profile() else LIGHT_POOL
+		if GameSettings.is_low_quality():
+			pool = mini(pool, GameSettings.LOW_LIGHT_POOL)
+		for i in pool:
 			var light := OmniLight3D.new()
 			light.omni_range = LIGHT_RANGE
 			light.omni_attenuation = LIGHT_ATTENUATION

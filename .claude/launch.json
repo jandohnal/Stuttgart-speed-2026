@@ -13,6 +13,19 @@
       "port": 8765
     },
     {
+      "name": "web-lan",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "tools/serve_web.py",
+        "build/web",
+        "--bind",
+        "0.0.0.0",
+        "--https"
+      ],
+      "port": 8000,
+      "url": "https://localhost:8000"
+    },
+    {
       "name": "web-private",
       "runtimeExecutable": "npx",
       "runtimeArgs": [

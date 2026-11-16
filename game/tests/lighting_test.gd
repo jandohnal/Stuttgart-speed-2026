@@ -1,8 +1,9 @@
 extends Node
 ## Headless test of day / night lighting (D-019):
 ##   godot --headless --path game res://tests/lighting_test.tscn
-## Checks the HDRI lookup (monaco1..5 share "monaco"), that a missing HDRI keeps the procedural sky
-## without failing, that a day HDRI gives a panorama sky and a sun above the horizon pointed at the
+## Checks the HDRI lookup (monaco1..5 share "monaco"), that a track without sky data keeps the
+## procedural sky without failing, that the original's sky (D-045) is the default and an HDRI (with
+## the original's horizon ring) the option, that a day HDRI gives a sun above the horizon pointed at the
 ## sky's brightest direction, and that at night the car has headlights with shadows and tail lights
 ## that brighten under the brake. Tracks or HDRIs missing locally skip their checks.
 
@@ -22,7 +23,7 @@ func _ready() -> void:
 	sky.sky_material = PhysicalSkyMaterial.new()
 	env.sky = sky
 	var sun := DirectionalLight3D.new()
-	_expect(not SkyLighting.apply(env, sun, "no_such_track", "night"), "fallback reported")
+	_expect(SkyLighting.apply(env, sun, "no_such_track", "night") == "procedural", "fallback reported")
 	_expect(env.sky.sky_material is PhysicalSkyMaterial and sun.light_energy < 0.5, "fallback: procedural sky, moonlight")
 	sun.free()
 	# Panorama mapping (PanoramaSkyMaterial): u = 0 looks along -Z, u = 0.25 along +X, v = 0.5 is the horizon.
@@ -32,17 +33,24 @@ func _ready() -> void:
 		print("  skip scene checks: farmland missing in decomposed/")
 		_finish()
 		return
-	for time: String in ["day", "night"]:
+	var saved_sky: bool = GameSettings.options.get("original_sky", true)
+	for run: Array in [["day", true], ["day", false], ["night", false]]:
+		var time: String = run[0]
+		GameSettings.options["original_sky"] = run[1]
 		var main: Node3D = preload("res://scenes/main.tscn").instantiate()
 		main.track_name = "farmland"
 		main.time_of_day = time
 		add_child(main)
 		var world_env: Environment = (main.get_node("WorldEnvironment") as WorldEnvironment).environment
 		var light: DirectionalLight3D = main.get_node("Sun")
-		var has_hdri := SkyLighting.hdri_path("farmland", time) != ""
-		_expect(main.hdri_sky == has_hdri, "%s: HDRI used when present (%s)" % [time, has_hdri])
-		if has_hdri:
-			_expect(world_env.sky.sky_material is PanoramaSkyMaterial, "%s: panorama sky" % time)
+		var has_hdri: bool = SkyLighting.hdri_path("farmland", time) != "" and not run[1]
+		var has_sky := not OriginalSky.load_data("farmland").is_empty()
+		var expected := "hdri" if has_hdri else ("original" if has_sky else "procedural")
+		_expect(main.sky_source == expected, "%s, %s: sky %s (expected %s)" % [time, "original" if run[1] else "hdri option", main.sky_source, expected])
+		if main.sky_source != "procedural":
+			_expect(world_env.sky.sky_material is ShaderMaterial, "%s: sky shader with the horizon ring" % time)
+		if main.sky_source == "original":
+			_expect(main.original_sky != null, "%s: original sky follows the camera" % time)
 		if time == "day" and has_hdri:
 			var towards: Vector3 = light.global_basis.z
 			var info := SkyLighting.sky_info(SkyLighting.hdri_path("farmland", "day"), Image.new())
@@ -61,6 +69,7 @@ func _ready() -> void:
 		lights._process(0.0)
 		_expect(lights.tail_lights[0].light_energy > idle and lights.tail_lights[0].visible, "%s: brake light" % time)
 		main.queue_free()
+	GameSettings.options["original_sky"] = saved_sky
 	_finish()
 
 

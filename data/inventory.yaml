@@ -90,7 +90,7 @@ items:
     format: ini/text
     status: readable
     doc: docs/formats/scn.md
-    notes: "Tónování, zvukové prvky, kamery, startovní pozice, vlastnosti objektů (hmotnost, průjezdnost). .scn: GEOM_ELEMENT (značka objektu jako 4CC, vrcholy předlohy se umístí bez jejího tr; FNSH = dlaždice cílové čáry), TRIGGER_ELEMENT (start/cíl); animdefs.txt: collideType, mass, drivethrough podle značky (BUSH = keře průjezdné, i mimo rozmístěné objekty, D-031)"
+    notes: ".map: světelné obtisky na autech, docs/formats/map.md. Tónování, zvukové prvky, kamery, startovní pozice, vlastnosti objektů (hmotnost, průjezdnost). .scn: GEOM_ELEMENT (značka objektu jako 4CC, vrcholy předlohy se umístí bez jejího tr; FNSH = dlaždice cílové čáry), TRIGGER_ELEMENT (start/cíl); animdefs.txt: collideType, mass, drivethrough podle značky (BUSH = keře průjezdné, i mimo rozmístěné objekty, D-031)"
     use: "Předloha atmosféry a interakce s objekty"
 
   - id: crp_container
@@ -186,6 +186,32 @@ items:
     output: "decomposed/<cesta bez přípony>/*.png + index.json"
     status: decoded
     notes: "SHPI, 10 425 obrázků. 8bitové (0x7B) s paletou 0x2A/0x29, 16/24/32bitové. 15 souborů celých v RefPack, 222 obrázků s pixely v RefPack"
+
+  - id: track_sky
+    category: usable_now
+    priority: medium
+    path: ["GameData/Track/Sky/*.txt", "GameData/Track/Sky/*.bin", "GameData/Track/Sky/*.fsh"]
+    count: {txt: 17, bin: 19, fsh: 17}
+    format: sky
+    doc: docs/formats/sky.md
+    tool: [tools/fsh2png.py, tools/sky.py]
+    output: "decomposed/GameData/Track/Sky/<Trať>/*.png, decomposed/GameData/Track/<trať>/<trať>_sky.json"
+    status: partial_decoded
+    notes: "Kopule s vrstvami (.txt: basic/multinormal, oblasti počasí A/B, měřítka, vítr, move ratio, zvlnění, mraky), SkyCnfig .bin v9 (prstenec horizontu 16 segmentů r = 400 s dlaždicemi horz a barvami hzcl, tvar kopule, prolnutí A→B podle řezu). Nerozluštěné: barvy 0xCEC, tabulky 0x1A5C a 0x655C, *_lightning.bin"
+    use: "Výchozí obloha a horizont hry, horizont i s HDRI (D-045, game/scripts/original_sky.gd)"
+
+  - id: track_env_maps
+    category: usable_now
+    priority: medium
+    path: "GameData/Track/*.env"
+    count: 15
+    format: fsh
+    doc: docs/formats/map.md
+    tool: [tools/fsh2png.py, tools/light_decals.py]
+    output: "decomposed/GameData/Track/<trať>/env/*.png + index.json, <trať>/<trať>_decals.json"
+    status: decoded
+    notes: "Světelné obtisky na autech, SHPI s 2–11 obrázky 64×64 32bitové (0x7D), celkem 95: barva světla v RGB, tvar a síla v alfě (BT/YT/WT tunelová světla, TT stín stromů). Kde platí, určují sekce <trať>.map (rozsah řezů SimD, 3 stupně textur open/covered, texturesize, aspect), rozluštěno z Porsche.exe"
+    use: "Záblesky lamp v tunelech a stín stromů na autech (D-044, game/scripts/light_decals.gd)"
 
   - id: track_maps
     category: usable_now
