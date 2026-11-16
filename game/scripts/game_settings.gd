@@ -11,6 +11,8 @@ const FILE := "user://settings.cfg"
 ## weak computers (is_low_quality, LOW_* below), on the web also set by the address ?quality=low|high.
 ## original_sky draws the original's sky and horizon, off the HDRI with the original's horizon (D-045,
 ## SkyLighting.apply); without an HDRI file the original's sky is used either way.
+## original_handling drives every car with the original's driving model (D-046, OriginalHandling),
+## off the physical model; without GameData/Simulation/handling.json the physical one either way.
 const DEFAULT_OPTIONS := {
 	"steering_assist": false,
 	"brake_assist": false,
@@ -20,6 +22,7 @@ const DEFAULT_OPTIONS := {
 	"rubber_band": true,
 	"low_quality": false,
 	"original_sky": true,
+	"original_handling": false,
 }
 ## Low quality: the 3D view renders at most this many lines (instead of stuttgart/render_height),
 ## the camera sees this far (m, the fog thickens to hide the edge), at most this many opponents
@@ -113,6 +116,11 @@ func save_wheel() -> void:
 ## The web build's reduced quality: fewer lights and particles, no decals (Compatibility renderer).
 func is_web_profile() -> bool:
 	return OS.has_feature("web")
+
+
+## The menu's ORIGINAL HANDLING option.
+func is_original_handling() -> bool:
+	return bool(options.get("original_handling", false))
 
 
 ## The menu's LOW QUALITY option (also ?quality=low in the web build's address).

@@ -15,7 +15,8 @@ Python 3, jen standardní knihovna. Čtou ze `sources/`, zapisují do `decompose
 | `snd2wav.py` | zvukové banky `.viv` / `.bnk` → WAV + `index.json`; u sad motoru `sd*.viv` i `engine.json` (smyčky pod plynem a bez plynu, otáčky) | [bnk.md](../docs/formats/bnk.md) |
 | `car_colors.py` | databáze aut menu `FEData/Data/nfs5.car` → `car_colors.json` (palety barev laku a interiéru podle modelu, tovární barva a styl modelu podle varianty) | [car.md](../docs/formats/car.md) |
 | `parts.py` | katalog dílů `FEData/Data/nfs5.prt` + seznamy dílů aut z `nfs5.car` + konstanty vzorců a tabulka pneumatik z `Porsche.exe` → `parts.json` (díly, sady Stock / Sport, pneumatiky pro každou variantu z `cars.json`); `--report` vypíše tabulku Sport | [prt.md](../docs/formats/prt.md) |
-| `sim_dump.py` | fyzika aut `.sim` → `cars.json` (druhý argument; bez něj na standardní výstup) | [sim.md](../docs/formats/sim.md) |
+| `sim_dump.py` | fyzika aut `.sim` → `cars.json` (druhý argument; bez něj na standardní výstup); pole s ověřeným významem i pod názvy v `fields` | [sim.md](../docs/formats/sim.md) |
+| `handling_exe.py` | konstanty jízdního modelu originálu z `Porsche.exe` → `handling.json` (tik, řízení, zatížení, síly kol, motor a automat, tabulky povrchů, smyku a meziplynu); v repozitáři jen adresy (D-023, D-046) | [sim.md](../docs/formats/sim.md#jízdní-model-originálu) |
 | `mesh_check.py` | hotový glTF → jeden řádek na model (OK / WARN / FAIL) + `<model>_check.json`: trojúhelníky obrácené proti normálám, zahozené při převodu, u aut pořadí vrcholů dílů kreslených jen z lícové strany a pro každý styl překryvy dílů v jedné rovině, vrstvené díly bez odsazení nebo zapuštěné a délka otevřených hran, u tratí plochy terénu mířící dolů a díry v silnici (paprsky přes řezy SimD) | [model-check.md](../docs/model-check.md) |
 | `flare.py` | záře světel `GameData/Render/flare.dat` → `flares.json` (vrstvy, barvy, velikosti, blikání) | [flare.md](../docs/formats/flare.md) |
 | `emitters.py` | tratě `.crp` → `<trať>_emitters.json`: zdroje částic (`ef` druhu 3) s oběma řádky báze (`direction`, `up` = směr, kterým částice letí); na rozmístěných objektech přepočtené do světa | [crp.md](../docs/formats/crp.md#efekty-ef-článku), [water.md](../docs/water.md) |
@@ -40,6 +41,7 @@ Python 3, jen standardní knihovna. Čtou ze `sources/`, zapisují do `decompose
 
 | Modul | Obsah | Používají |
 | --- | --- | --- |
+| `pe_exe.py` | `Exe`: čtení hodnot `Porsche.exe` podle virtuální adresy (sekce PE) | `parts`, `handling_exe` |
 | `car_colors.py` | `model_styles` (styl každé varianty modelu z `nfs5.car`) | `crp2gltf` (výchozí styl) |
 | `common.py` | `find_file` (soubor ve složce bez ohledu na velikost písmen), `source_files` (soubory s příponou ve stromu a jejich relativní cesta pro zrcadlení do `decomposed/`) | `fsh2png`, `crp2gltf`, `track2gltf`, `snd2wav`, `ai_csv2json`, `ai_lines`, `ais2json`, `scn` |
 | `archives.py` | `decompress` (RefPack), `read_bigf` (BIGF) | `crp`, `fsh2png`, `snd2wav` |
@@ -69,6 +71,7 @@ python3 tools/ai_csv2json.py sources/GameData/Simulation/AI decomposed/GameData/
 python3 tools/crp2gltf.py sources/GameData/CarModel/356a.crp decomposed/GameData/CarModel/356a/356a.gltf   # každé auto
 python3 tools/track2gltf.py sources/GameData/Track/farmland.crp decomposed/GameData/Track/farmland/farmland.gltf   # každá trať
 python3 tools/parts.py sources/FEData decomposed/FEData/Data/parts.json   # po sim_dump
+python3 tools/handling_exe.py sources/Porsche.exe decomposed/GameData/Simulation/handling.json
 python3 tools/ai_lines.py sources/GameData/Track decomposed/GameData/Track   # po track2gltf
 python3 tools/emitters.py sources/GameData/Track decomposed/GameData/Track   # po track2gltf
 python3 tools/light_decals.py sources/GameData/Track decomposed/GameData/Track   # po fsh2png

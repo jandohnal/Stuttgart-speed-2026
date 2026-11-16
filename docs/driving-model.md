@@ -16,7 +16,7 @@ Stav k 19. 10. 2026. Náš model: `game/scripts/car.gd` (D-003, D-015, D-017). O
 | Přilnavost | kapacita kola = zatížení × 0x0F4 × koeficient povrchu (tabulka 16 povrchů × 3 typy pneumatik: silniční, do deště, závodní; zvlášť sucho a mokro). Asfalt se silničními pneumatikami = 1,0, takže celkem ≈ 0x0F4 × g | μ = 0,444 + 0,353 × 0x0F4 (356 A 0,85, GT1 1,42), `rear_grip` = (1 − 0x0F0) / 0x0F0 od 29. 10. 2026 (dřív 1,12, motor vpředu 1,0), citlivost na zatížení, vrchol a pokles do smyku | Originál má rozsah 1,1–2,75 lineárně. My ho stlačujeme a vyvážení přední/zadní odhadujeme. Je potřeba změřit skutečné boční g originálu (Wine) a podle toho nastavit převod 0x0F4 → μ a 0x0F0 → `rear_grip`. |
 | Pneumatika (tvar síly) | síla kola omezená kapacitou. Model skluzu jako NFS4 (boční síla z rychlosti kola, mez přilnavosti, pokles při ztrátě) | poměr skluzu a směrový úhel spojené do jednoho normovaného skluzu, vrchol `peak_slip_ratio` 0,12, úhel podle profilu pneumatiky, pokles na `slide_grip` 0,75 | Náš model je bohatší, to je výhoda. Data originálu pro tvar křivky nejsou, zůstává naše ladění. |
 | Motor a převodovka | otáčky se mění pevnými kroky za tik (+250, −100, ±50), síla = moment × poměr rychlost/otáčky × účinnost 0x058 / hmotnost. Brzdění motorem = −moment × 0x098. Zpoždění řazení 0x054 (tiky) | otáčky svázané s koly, setrvačnost motoru = 0x058 / 1000 (**chybně**), účinnost pevně 0,85, brzdění motorem 0,12 × max. moment, doba řazení 0,35 s × 0x054 / 8, automat, spojka při rozjezdu, turbodíra | Opraveno 19. 10. 2026: 0x058 → účinnost převodu, 0x098 → brzdění motorem. Setrvačnost motoru je pevně 0,09 kg·m² (v datech není). |
-| Brzdy | síla = pedál × 0x104 (m/s²) × (1 − poškození × 0,005), omezená úměrně rychlosti (kola se nikdy nezablokují), vpředu podíl 0x108 | `brake_decel_g` = 0,8 g × 0x104 / 6,5, `brake_front_bias` pevně 0,58, ABS jako asistent | Opraveno 19. 10. 2026: 0x104 přímo v m/s² (356 A 6,5 = 0,66 g), 0x108 → `brake_front_bias`. Originál kola nezamyká z principu, takže naše ABS (výchozí zapnuté) odpovídá originálu. |
+| Brzdy | síla = pedál × 0x104 (m/s²) × (1 − poškození × 0,005), omezená úměrně rychlosti, vpředu podíl 0x108. Oprava 16. 11. 2026: bez ABS kola při plné brzdě pod asi 95 km/h zamykají, ABS je volba originálu | `brake_decel_g` = 0,8 g × 0x104 / 6,5, `brake_front_bias` pevně 0,58, ABS jako asistent | Opraveno 19. 10. 2026: 0x104 přímo v m/s² (356 A 6,5 = 0,66 g), 0x108 → `brake_front_bias`. Originál kola nezamyká z principu, takže naše ABS (výchozí zapnuté) odpovídá originálu. |
 | Aerodynamika | přítlak na nápravu = 0x10C / 0x110 × 0,001 × rychlost (lineárně), mají ho i silniční auta. Odpor ze vzorce: moment při vmax / v³ | přítlak ½ρv² × (0x10C − 1) × 1,2 m², silniční auta nulový. Odpor ½ρv²·CdA dopočítaný z vmax a výkonu | Opravit převod přítlaku: buď zachovat náš kvadratický tvar se stejnou silou při referenční rychlosti, nebo převzít lineární. Odpor máme ekvivalentní. |
 | Řízení | vstup ±127 (+ sbíhavost 0x100) × faktor rozsahu 0x0FC, rozsah se mění s rychlostí. Poškozená kola stáčí řízení do strany s náhodným chvěním, boční sklon silnice táhne řízení | `max_steer_deg` 30°, od 29. 10. 2026 zmenšený s rychlostí (rozvor × μg / v² + vrchol směrového úhlu), `steer_rate` 4 rad/s, asistent řízení drží přední kola u vrcholu směrového úhlu, poškození: sbíhavost, chvění, menší rejd | Rozsah z 0x0FC zatím nepřevádět (jednotka nejistá). Tah sklonu silnice je námět, který nemáme. |
 | Náběh kláves | NFS4: volant 16/32 (1/128 za tik, plný rejd 0,25 s, návrat 0,125 s), plyn 0,5 s, brzda progresivně. V NFS5 se vstup hráče zatím nenašel | plyn 0,4 → 0,15 s podle rychlosti, brzda 0,6 s lineárně, volant 0,25 → 0,8 s podle rychlosti, návrat 0,2 s | Jsme blízko NFS4. Jako další krok dohledat vstup hráče v exe NFS5. |
@@ -202,8 +202,36 @@ Závěry:
 - **Rejd originálu (0x0FC)** je při 100 km/h 17,8° (356 A) a 25° (993 Turbo), tedy víc než náš (asi 10°). Originál ale nemá pokles síly za vrcholem, plnou sílu má kolo od 2,8° dál. Přetočená kola proto v originálu nic nestojí, u nás ano. Náš rejd podle rychlosti (D-026) tak dává stejný výsledek („plný rejd = plná přilnavost“) a zůstává.
 - Stáčení dál kmitá s periodou asi 1 s. Skidpad navíc auto po 1,5–2,5 s vyvede k překážce, pro přesnější srovnání by byla lepší velká rovná plocha.
 
+## Model originálu (D-046, 17. 11. 2026)
+
+Model originálu je teď ve hře jako volba ORIGINAL HANDLING (`original_handling.gd`, popis v [formats/sim.md](formats/sim.md#jízdní-model-originálu)). Fyzikální model zůstává výchozí a jeho čísla se nezměnila (`straight_test` 993 Turbo před a po: 0–100 5,5 s, 285 km/h, 100–0 37 m).
+
+`original_handling_test` (rovná plocha, klávesy):
+
+| Auto | 0–100 km/h | Maximum za 40 s | Rejd ve stání / 100 km/h | Brzdění 100–30 km/h (0x104) | Brzdění motorem | Kruh 70 km/h, plný rejd |
+| --- | --- | --- | --- | --- | --- | --- |
+| 356 A 1.6, originál | 16,1 s | 145 km/h | 28,1° / 17,8° | 6,36 m/s² (6,5) | 0,59 m/s² ze 145 km/h | 1,00 g (0x0F4 1,15) |
+| 993 Turbo, originál | 5,0 s | 269 km/h | 28,1° / 25,2° | 9,01 m/s² (10) | 1,62 m/s² z 269 km/h | 1,52 g (0x0F4 2,0) |
+| 993 Turbo, fyzikální | 5,6 s | 271 km/h | 30° / – | 10,37 m/s² | 2,28 m/s² | 0,93 g |
+
+- **Hodnoty odpovídají vzorcům originálu.**
+  - Rejd při 100 km/h je přesně 0x0FC × (1,75 − 0,025 v).
+  - Brzdění je mírně pod 0x104: pod 95 km/h bez ABS kola zamknou a zamčené kolo brzdí slaběji (smyk se dělí 0x0F4).
+  - 356 A dává 0–100 za 16,1 s, skutečnost asi 16 s.
+- **Originál je výrazně přilnavější:** 993 Turbo drží v kruhu 1,5 g proti 0,9 g fyzikálního modelu. Kapacita kola roste lineárně s 0x0F4 (1,1–2,75) a přední kola mohou dát až 4/3 kapacity.
+- **AI (`ai_drive_test`, farmland):**
+
+  | Auto | Originál | Fyzikální model |
+  | --- | --- | --- |
+  | 356 A | 5:35, 4 lehké doteky | 5:57 |
+  | 993 Turbo | 4:15, bez resetu | 4:38 |
+  | 935 | 2 resety ve vracečce u řezu 1430 | 1 reset jinde |
+
+  AI plánuje zatáčky s 0,8 × 0x0F4 g. S plnou 0x0F4 (2,0 g) se 993 Turbo ve vracečce roztočila. Řidič AI je naladěný na fyzikální model, v originálu točí volantem málo.
+- **Co v modelu chybí:** kolize originálu, povrchy pod koly, závětří, přesné vizuální naklápění. Srovnání s originálem přes Wine zůstává otevřené.
+
 ## Otevřené otázky
 
-- Náběh kláves v NFS5: dohledat vstup hráče v exe (jednotka 0x0FC je od 29. 10. 2026 známá).
+- ~~Náběh kláves v NFS5~~: volant 12/127 za tik oběma směry, pedály model sám nerampuje (kde je zapisuje vstup klávesnice, se nenašlo, hra je dává rovnou 0 nebo 255). Náběh plynu dělají otáčky motoru, které stoupají po krocích (16. 11. 2026, `0x49DD20`).
 - ~~Tvar křivky pneumatiky v originálu~~: lineární omezení bez poklesu, plná síla od 2,8° (29. 10. 2026).
 - Skutečné maximální boční zrychlení originálu: změřit přes Wine, protože z exe plyne jen kapacita ≈ 0x0F4 × g na suchém asfaltu.

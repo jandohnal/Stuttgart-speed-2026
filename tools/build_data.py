@@ -26,6 +26,7 @@ INSTALL_ITEMS = ["GameData", "FEData", "Porsche.exe"]
 # sample of every kind of output.
 EXPECTED = [
     "GameData/Simulation/cars.json",
+    "GameData/Simulation/handling.json",
     "GameData/Simulation/AICarData/ais.json",
     "GameData/Simulation/AI/trafcfg.json",
     "GameData/CarModel/356a/356a.gltf",
@@ -90,6 +91,7 @@ def stages(src, dst):
     render, out_render = os.path.join(game, "Render"), os.path.join(out_game, "Render")
     first = [
         ["sim_dump", os.path.join(sim, "CarData"), os.path.join(out_sim, "cars.json")],
+        ["handling_exe", os.path.join(src, "Porsche.exe"), os.path.join(out_sim, "handling.json")],
         ["fsh2png", src, dst],
         ["snd2wav", os.path.join(game, "Sounds"), os.path.join(out_game, "Sounds")],
         ["car_colors", os.path.join(fe, "Data", "nfs5.car"), os.path.join(out_fe, "Data", "car_colors.json")],

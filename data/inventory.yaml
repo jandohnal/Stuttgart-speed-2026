@@ -19,7 +19,18 @@ items:
     tool: tools/sim_dump.py
     output: decomposed/GameData/Simulation/cars.json
     status: mostly_decoded  # meanings verified from Porsche.exe (Ghidra), 2026-10-19
-    use: "Referenční hodnoty pro jízdní model fiktivních aut podle éry"
+    use: "Parametry aut pro fyzikální model i model originálu (D-046)"
+
+  - id: driving_model_constants
+    category: usable_now
+    priority: high
+    path: Porsche.exe
+    format: sim
+    doc: docs/formats/sim.md
+    tool: tools/handling_exe.py
+    output: decomposed/GameData/Simulation/handling.json
+    status: decoded  # model 0x49F160 and its functions, 2026-11-16
+    use: "Konstanty jízdního modelu originálu (tik, řízení, zatížení, kola, motor, automat, tabulky povrchů a podřazení)"
 
   - id: ai_config
     category: usable_now

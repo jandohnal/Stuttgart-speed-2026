@@ -210,11 +210,88 @@ Principy (popis, ne kód):
 - **Brzdy:** brzdná síla = pedál × 0x104 × (1 − poškození brzd × 0,005), omezená úměrně rychlosti. Přední náprava dostane podíl 0x108, zadní zbytek.
 - **Pohon:** podíl 0x05C jde na přední kola a dělí se podle zatížení kol, zbytek na zadní.
 - **Řízení:** úhel kol = vstup (±127) ± sbíhavost 0x100, násobený faktorem z 0x0FC. Úhly počítá hra v 1/256 otáčky (1,41°), rychlost v m/s (práh 44,64 = 100 mph). Plný rejd je **0x0FC / 256 otáčky** (356 A 12 → 16,9°, 993 Turbo 17 → 23,9°). Pod 30 m/s (108 km/h) se násobí 1,75 − 0,025 × rychlost, nejvýš 20 jednotek (28°), nad 80 m/s (288 km/h) se dělí rychlostí / 80. Při 100 km/h tedy 356 A 17,8°, 993 Turbo 25° (`0x49F160`, `0x4A20D0`, ověřeno 29. 10. 2026).
-- **Boční síla kola** (`0x4A20D0`): směrový úhel v 1/256 otáčky, síla = úhel omezený na 1–2 × polovina kapacity kola, nejvýš kapacita. Plnou sílu má kolo od 2/256 otáčky (2,8°) a dál **bez poklesu**, přetočená kola tedy přilnavost neztrácejí.
+- **Boční síla kola** (`0x4A20D0`): směrový úhel v 1/256 otáčky, síla = úhel omezený na 1–2 × polovina kapacity kola, nejvýš kapacita. Plnou sílu má kolo od 2/256 otáčky (2,8°) a dál **bez poklesu**, přetočená kola tedy přilnavost neztrácejí. *Oprava 16. 11. 2026: to platí jen pro zadní kola. Přední mají sílu úměrnou úhlu (1/12 kapacity na jednotku) až do 16 jednotek, tedy až 4/3 kapacity, viz [Jízdní model originálu](#jízdní-model-originálu).*
 - **Stáčení** (`0x49F160`): moment = (boční síly předních kol − boční síly zadních) × 0x1B8 + rozdíl podélných sil levých a pravých kol × 0x1B8. Rameno je pro obě nápravy stejné, **těžiště leží uprostřed rozvoru**. Každá náprava tak v ustálené zatáčce nese polovinu boční síly a vyvážení dává jen 0x0F0: pod 50 % auto nedotáčí (356 A 48,5 % mírně, motor vpředu 44 % nejvíc). Rychlost kola ze stáčení se počítá s ramenem 0x1B4.
 - **Karoserie:** naklopení = 0x128 × podélné zrychlení, náklon = 0x12C × boční zrychlení. Obojí je omezené mezemi 0x134/0x138 a tlumené 0x114/0x118: v každém kroku zůstává podíl předchozí výchylky.
 
 Řetězce v exe: nastavení `.FRONTDOWNFORCE`, `.REARDOWNFORCE`, `.BRAKEBIAS`, `.SUSPENSIONSTIFFNESS`, `.SUSPENSIONTRAVEL`, `.STEERINGTOE`, `.FRONTTIREPRESSURE`, `.REARTIREPRESSURE`, díly `Engine`, `Turbo`, `Supercharged`, `Gear Box`. Výjimky podle jména auta: GT1, GT2, GT3 a 935 mají závodní pneumatiky; 959 má pevné 0x0F0.
+
+## Jízdní model originálu
+
+Rozbor 16. 11. 2026 (`0x49F160` a funkce, které volá). Podle tohoto popisu je napsaný `game/scripts/original_handling.gd` (D-046). Jsou tu jen principy slovy, ne kód. Konstanty čte `tools/handling_exe.py` z exe podle adres, které nástroj uvádí.
+
+**Krok a jednotky**
+- Model běží v pevném tiku 1/32 s.
+- Síly jsou rovnou zrychlení (m/s²). Hmotnost se objevuje jen v převodu motoru (hnací síla je dělená hmotností).
+- Rychlost auta se rozkládá do os auta: bočně, svisle a podélně.
+- Rychlost kola se převádí na zrychlení, které by polovinu té rychlosti zrušilo za jeden tik (× 32 × −0,5).
+- Úhly jsou v otáčkách: 1/256 otáčky je jednotka úhlu, úhlová rychlost je v otáčkách za sekundu.
+
+**Řízení** (`0x49DD20`, `0x49F160`)
+- Cílová poloha volantu je ±127.
+- Z klávesnice se volant posouvá k cíli nejvýš o 12 za tik (asi 0,33 s na plný rejd) a stejnou rychlostí se vrací. Analogový vstup jde přímo.
+- K poloze volantu se přičte tah bočního sklonu silnice: složka gravitace napříč autem × 8, nejvýš ±64. Přičte se i tah poškozené přední části: rozdíl poškození vlevo a vpravo × 0,25.
+- Úhel kola = poloha × (1 − poškození kola / 512) × rejd / 127, kde rejd je 0x0FC × (1,75 − 0,025 v) pod 30 m/s, nejvýš 20 jednotek. Nad 80 m/s se dělí v / 80.
+- Sbíhavost 0x100 se k levému kolu přičítá, od pravého odečítá.
+
+**Zatížení a přilnavost** (`0x4A1900`)
+- Kapacita kola = povrch[typ pneumatiky] × podíl nápravy (0x0F0, vzadu 1 − 0x0F0) × svislá složka osy „nahoru“ × 0x0F4 × 9,8 × 0,5.
+- Tabulka povrchů má 16 řádků po 3 typech pneumatik, zvlášť pro sucho a mokro. Asfalt je řádek 1.
+- Podélný přenos = zrychlení minulého tiku × 0x0F8 × kapacita / 9,8 × 0,2 / 0x11C. Odečte se vpředu a přičte vzadu. Pod plynem se zmenšuje o 10 × úhel smyku karoserie.
+- Boční přenos má stejný tvar. Jedna strana dostane celý, druhá dělený 0x130.
+- Přítlak se přičítá nad 5 m/s: 0x10C × 0,001 × v každému přednímu kolu, 0x110 obdobně zadním.
+
+**Síly kola** (`0x4A20D0`, `0x4A1DC0`, `0x4A1C70`)
+- Rychlost se otočí do os kola.
+- Směrový úhel je atan(boční / (½ podélné)), tedy zhruba dvojnásobek skutečného.
+- **Boční síla**, vždy proti boční rychlosti:
+  - zadní kolo: 1–2 jednotky úhlu × ½ kapacity, nejvýš tolik, kolik zruší polovinu boční rychlosti;
+  - přední kolo: úhel (nejvýš 16) × kapacita / 12. Omezení boční rychlostí platí jen pod asi 2 m/s.
+- **Podélná síla:**
+  - povel (pohon a brzda) × 0x0F4;
+  - brzda nikdy nepřetočí kolo dozadu: je omezená tím, co zastaví kolo za tik.
+- **Zamčené kolo** (smyk proti pohybu se silou kapacita × (1 − 1/k), k je 8 / 8 / 6 podle pneumatiky):
+  - bez ABS při pedálu nad 92 %, když brzda převýší kapacitu, pod 2 × (16 − kapacita) m/s (asi 95 km/h);
+  - s ABS pod 25 m/s jeden tik ze čtyř;
+  - zadní kola s ruční brzdou vždy.
+- **Kruh přilnavosti:** větší síla + ¼ menší (podélná × 0,9) do kapacity × (1 − poškození × 0,005). Nad ní se obě síly zmenší tak, že ztratí až 1/k kapacity. Protáčené zadní kolo má k = 4.
+- Kontrola trakce nechá zadní kola bez ztráty, dokud je úhel smyku karoserie pod 0,15.
+- Hodnota smyku každého kola (0–1) slouží pro zvuk a kouř.
+
+**Součet a pohyb** (`0x49F160`, `0x49F0C0`)
+- Boční zrychlení = součet bočních sil. Podélné = součet podélných / 0x0F4.
+- Svah: podélně −4,9 × sklon (jen když brzda není sešlápnutá aspoň na ¼), bočně −19,6 × náklon (jen ve smyku přes 1 m/s nebo na velmi strmém náklonu).
+- Moment stáčení:
+  - boční síly předních kol proti zadním, s ramenem 1 / (rozvor / 2 × 6,4);
+  - rozdíl podélných sil levých a pravých kol se stejným ramenem.
+- Stáčení se mění o moment / 48 za tik.
+- Boční rychlost předních kol se počítá s ramenem rozvor / 2 × 6,4 × rychlost stáčení, násobeným (v + 70) × 0,0125 nad 10 m/s a (v + 30) × 0,025 pod ní. Zadních s opačným znaménkem.
+- **Zpomalení:**
+  - v neutrálu po rovině ×0,99 za tik (rychle a rovně ×0,998);
+  - závodní auto (0x0F4 > 2,5) bez plynu pod 30 m/s × (1 − 0,05 × rychlost stáčení);
+  - ruční brzda pod 1 m/s ×0,5.
+- Úhel smyku karoserie (pole 0xDC0) je boční / podélná rychlost nad 5 m/s.
+
+**Motor** (`0x49E440`)
+- Cílové otáčky = plyn × (omezovač + 100), v neutrálu a ve vzduchu + 250.
+- Volný motor stoupá o 250 a klesá o 200 za tik.
+- Při řazení nahoru klesá o 100 (do 3. stupně) nebo 200 za tik. Při podřazení přičte meziplyn podle cílového stupně (tabulka zvlášť pro lehkou a prudkou brzdu).
+- Otáčky kol = rychlost × (převod × stálý převod × 60 / obvod kola).
+- Hnací zrychlení = křivka momentu (lb-ft, lineárně po 500 ot/min) × (otáčky kol na m/s) / hmotnost × 0,1 × účinnost 0x058.
+- Motor vpředu před koly o víc než 250 ot/min (spojka, protáčení): plný moment, otáčky klesají o rozdíl omezený přilnavostí pohonu. Nad 1/8 omezovače se nastaví příznak protáčení.
+- Jinak motor táhne moment × plyn a otáčky drží u otáček kol (krok 200).
+- Když kola točí rychleji, než motor chce: brzdění motorem = −moment × 0x098 a otáčky dohánějí kola krokem úměrným převodu.
+- Omezovač: na otáčkách omezovače se otáčky srazí na omezovač + 50 a plyn se na 2 + 3 × stupeň tiků odpojí.
+- Poškozený motor náhodně vynechává: pravděpodobnost poškození / 300, výkon × (1 − poškození / 300).
+- Odpor vzduchu = 0x1B0 × v³, kde 0x1B0 = hnací zrychlení nejvyššího stupně při maximální rychlosti / vmax³. V závětří za jiným autem se zmenšuje (`0x49D9B0`).
+
+**Automat** (`0x49DAF0`)
+- Pod polovičním plynem podřazuje, když nižší stupeň zůstane pod 0,8 omezovače a úhel smyku karoserie je pod 0,1.
+- S plynem řadí nahoru nad 0,9–1,0 omezovače (náhodně) a podřazuje (kick-down), když nižší stupeň zůstane pod 0,8 omezovače.
+- Zpětný chod: ve stání (pod 0,2 m/s) držená brzda bez plynu zařadí zpátečku a pedály se prohodí. Plyn vrátí 1. stupeň.
+- Každé řazení trvá 0x054 tiků bez hnací síly.
+
+**Karoserie:** naklopení a náklon kreslí `0x499A70` (nerozluštěno podrobně). Hra bere podíl zrychlení 0x128 / 0x12C × 0,001 s tlumením 0x114 / 0x118 a mezemi 0x134 / 0x138.
 
 ## Hypotézy z NFS4 – výsledek ověření
 

@@ -37,6 +37,7 @@ Duchovní nástupce NFS: Porsche 2000. Tento veřejný repozitář je webová ve
 - `python3 tools/ai_lines.py sources/GameData/Track decomposed/GameData/Track` – ideální stopy soupeřů (`.lsp`) a klíče tratí (`.key`) do `<trať>_ai.json`; potřebuje `_road.json`.
 - `python3 tools/ais2json.py sources/GameData/Simulation decomposed/GameData/Simulation` – profily aut soupeřů (`.ais`) a řízení AI (`TRAFCFG.DAT`) do JSON.
 - `python3 tools/sim_dump.py sources/GameData/Simulation/CarData decomposed/GameData/Simulation/cars.json` – fyzika aut do JSON.
+- `python3 tools/handling_exe.py sources/Porsche.exe decomposed/GameData/Simulation/handling.json` – konstanty jízdního modelu originálu z exe (volba ORIGINAL HANDLING, D-046).
 - `python3 tools/car_colors.py sources/FEData/Data/nfs5.car decomposed/FEData/Data/car_colors.json` – palety barev laku aut do JSON (volba barvy v menu).
 - `python3 tools/parts.py sources/FEData decomposed/FEData/Data/parts.json [--report]` – díly aut (katalog `nfs5.prt`, seznamy v `nfs5.car`, konstanty z `Porsche.exe`) a sady Stock / Sport do JSON; potřebuje `cars.json`.
 - `python3 tools/particles.py sources/GameData/Render/particle.ini decomposed/GameData/Render/particles.json` – částicové systémy originálu do JSON (jiskry auta, voda).

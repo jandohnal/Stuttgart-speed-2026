@@ -445,6 +445,8 @@ func _build_car(target: Car, key: String, color: String, cars: Variant, player: 
 	var damage: Variant = OriginalAssets.load_json(model_path.get_basename() + "_damage.json")
 	if damage is Dictionary:
 		target.setup_damage(damage)
+	if _chosen_handling() == "original" and not target.set_original_handling(true):
+		push_warning("Original handling needs %s (tools/handling_exe.py); physical model used" % OriginalHandling.FILE)
 	var engine: Variant = OriginalAssets.load_json(engine_sound.path_join("engine.json"))
 	if engine is Dictionary:
 		var audio := CarAudio.new()
@@ -668,6 +670,14 @@ func _chosen_sky() -> String:
 	if arg == "original" or arg == "hdri":
 		return arg
 	return "original" if GameSettings.options.get("original_sky", true) else "hdri"
+
+
+## Driving model the player chose, for every car: --handling=original|sim, else the menu option (D-046).
+func _chosen_handling() -> String:
+	var arg := _user_arg("handling")
+	if arg == "original" or arg == "sim":
+		return arg
+	return "original" if GameSettings.is_original_handling() else "sim"
 
 
 ## The original's sky blends its weather regions by the camera's road slice.

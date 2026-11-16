@@ -44,6 +44,7 @@ const OPTION_LABELS := {
 	"rubber_band": "RUBBER BAND",
 	"low_quality": "LOW QUALITY",
 	"original_sky": "ORIGINAL SKY",
+	"original_handling": "ORIGINAL HANDLING",
 }
 ## Track outlines of the original menu (yellow line with shadow, docs/formats/trackart.md): first
 ## image of FEData/TrackArt/<track>/ (folder name in any case), none for tracks without art.
@@ -118,6 +119,9 @@ func _ready() -> void:
 		toggle.custom_minimum_size.y = 38
 		toggle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		toggle.button_pressed = last["time"] == NIGHT if key == NIGHT else GameSettings.options[key]
+		if key == "original_handling" and not OriginalHandling.available():
+			toggle.disabled = true  # the original's constants are missing (tools/handling_exe.py)
+			toggle.button_pressed = false
 		toggle.toggled.connect(_update_caption.unbind(1))
 		options_grid.add_child(toggle)
 		option_toggles[key] = toggle

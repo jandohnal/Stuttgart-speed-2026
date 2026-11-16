@@ -1,7 +1,8 @@
 """Dump NFS5 .sim car physics files to JSON.
 
-Field map: docs/formats/sim.md. Unknown fields are exported as raw values
-under "unknown" so they can be analysed later.
+Field map: docs/formats/sim.md. The fields beyond the basic ones are exported as
+raw values under "unknown" (the game reads them there by offset) and, for those
+whose meaning Porsche.exe confirmed, also by name under "fields" (file units).
 
 Usage:
     python3 tools/sim_dump.py sources/GameData/Simulation/CarData decomposed/GameData/Simulation/cars.json
@@ -13,6 +14,17 @@ import struct
 import sys
 
 ENGINE_POS = {0: "rear", 1: "mid", 2: "front"}
+INDUCTION = {0: "natural", 1: "turbo", 2: "supercharged"}
+# Offset: name of the fields read from "unknown" by meaning (docs/formats/sim.md, Porsche.exe).
+NAMED = {
+    0x054: "shift_delay_ticks", 0x058: "gear_efficiency_pct", 0x098: "engine_brake_pct",
+    0x0F0: "front_grip_pct", 0x0F4: "grip", 0x0F8: "load_transfer_pct", 0x0FC: "steer_lock",
+    0x104: "brake_decel_ms2", 0x108: "brake_front_pct", 0x10C: "downforce_front",
+    0x110: "downforce_rear", 0x114: "pitch_damping_pct", 0x118: "roll_damping_pct",
+    0x11C: "suspension_stiffness", 0x124: "ride_height_mm", 0x128: "pitch_per_accel",
+    0x12C: "roll_per_accel", 0x130: "lateral_transfer_split", 0x134: "pitch_limit",
+    0x138: "roll_limit", 0x13C: "ai_speed_scale", 0x140: "ai_profile_factor", 0x144: "ai_table_factor",
+}
 
 
 def f32(d, o):
@@ -45,6 +57,7 @@ def parse(d):
         "wheelbase_mm": f32(d, 0x44),
         "engine_position": ENGINE_POS.get(i32(d, 0x48), i32(d, 0x48)),
         "turbo": bool(i32(d, 0x4C)),
+        "induction": INDUCTION.get(i32(d, 0x4C), i32(d, 0x4C)),
         "front_torque_split_pct": f32(d, 0x5C),
         "gears": [f32(d, 0x68 + 4 * i) for i in range(gears)],
         "reverse_ratio": f32(d, 0x60),
@@ -55,6 +68,7 @@ def parse(d):
         "torque_curve_lbft_per_500rpm": torque,
         "torque_peak_nm": round(max(torque) * 1.3558, 1) if torque else None,
         "unknown": unknown,
+        "fields": {name: unknown["0x%03X" % o] for o, name in NAMED.items() if "0x%03X" % o in unknown},
     }
 
 

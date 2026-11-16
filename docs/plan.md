@@ -81,6 +81,8 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Skutečná trať pro jízdní pocit: farmland (Normandie), start na startovní čáře originálu
 - [x] Raycast podvozek, model pneumatik, motor a převodovka z dat JSON (pneumatiky: skluz, rotace kol, setrvačnost motoru; 0–100 km/h 15,8 s proti reálným ~16 s)
 - [ ] Doladit pneumatiky a řízení proti originálu přes Wine (přilnavost 0x0F4 a setrvačnost 0x058 jsou hypotézy), asistent řízení pro klávesnici hotový; ABS naladěné podle ruční jízdy proti originálu, zadní přilnavost z 0x0F0 (D-027) (smyk zádí při brzdění v zatáčce); klávesy s náběhem pedálů a volantu jako v tehdejších hrách; kontrola trakce, spojka při rozjezdu, turbodíra a samosvor závodních aut (D-015); asistenti, zvuk a diagnostika se přepínají v menu (D-017)
+- [x] Jízdní model originálu jako volba ORIGINAL HANDLING (D-046): konstanty z exe (`tools/handling_exe.py`), `original_handling.gd`, test `original_handling_test`
+- [ ] Ověřit model originálu proti originálu přes Wine a naladit řidiče AI na model originálu (vracečka farmlandu u řezu 1430 s 935)
 - [x] HUD: kulatý rychloměr (s počítadlem km) a otáčkoměr v klasickém stylu (kreslené procedurálně, stupnice z dat auta, ručička s tlumenou setrvačností); otáčky motoru při řazení klesají a stoupají plynule (spojka)
 - [x] HUD: výřez mapy vlevo dole s hráčem a soupeři (D-036, `minimap_test`)
 - [x] Mechanické válečkové počitadlo kilometrů (D-013): vzdálenost z poháněných kol, nájezd uložený pro každé auto, vzhled podle éry auta

@@ -131,6 +131,15 @@ var boost_full_rpm := 4000.0  ## first rpm where the curve reaches 90 % of its p
 var boost := 0.0  ## 0..1, built-up share of the full boost
 var launch_rpm := 2400.0
 @export_group("")
+## Driving model of the original (D-046, OriginalHandling): grip model in the original's ticks,
+## Jolt only carries the car and handles collisions. Off: the physical model below. Set with
+## set_original_handling(); the driver aids map to the original's ABS and traction control.
+var original_handling := false
+var original: OriginalHandling = null
+var _original_time := 0.0
+var _original_wheels: Array[Wheel] = []  ## front left, front right, rear left, rear right
+var _model_rest := Transform3D.IDENTITY
+const ORIGINAL_CORNER_SHARE := 0.8
 @export var rev_drop_rate := 2500.0  ## rpm/s, engine falling off throttle with the clutch open
 @export var rev_rise_rate := 6000.0  ## rpm/s, throttle blip on a downshift
 @export var clutch_sync_rate := 6000.0  ## rpm/s, engine pulled to the new gear as the clutch closes
@@ -256,6 +265,7 @@ func setup(model: Node3D, car_params: Dictionary) -> void:
 	critical_damping = 2.0 * sqrt(spring_rate * mass / 4.0)
 	_model = model
 	if model != null:
+		_model_rest = model.transform
 		add_child(model)
 		_build_collision(model)
 		_find_wheels(model)
@@ -448,6 +458,11 @@ func reset_to(xf: Transform3D) -> void:
 	_accel_key = 0.0
 	_brake_key = 0.0
 	_steer_key = 0.0
+	if original != null:
+		original = OriginalHandling.new(params)
+		original.abs_on = brake_assist
+		original.tc_on = traction_control
+		_original_time = 0.0
 
 
 # --- setup helpers -----------------------------------------------------------------------
@@ -567,6 +582,9 @@ func _physics_process(delta: float) -> void:
 	if wheels.is_empty() or delta <= 0.0:
 		return
 	forward_speed = -global_basis.z.dot(linear_velocity)
+	if original_handling and original != null:
+		_physics_original(delta)
+		return
 	_read_input(delta)
 	_update_damage()
 	_update_misfire(delta)
@@ -1127,3 +1145,166 @@ func _damage_summary() -> Dictionary:
 		"engine": 1.0 - engine_health(),
 		"lost": damage.detached_count() + wheels.filter(func(w: Wheel) -> bool: return w.detached).size(),
 		"loose": damage.hinged_count()}
+
+
+# --- driving model of the original (D-046) ------------------------------------------------
+
+## Switches between the physical model and the original's. False when the original's data
+## (GameData/Simulation/handling.json, tools/handling_exe.py) is missing: the physical model stays.
+func set_original_handling(on: bool) -> bool:
+	original_handling = false
+	if not on:
+		if _model != null:
+			_model.transform = _model_rest
+		return true
+	if not OriginalHandling.available():
+		return false
+	original = OriginalHandling.new(params)
+	if not original.is_ready():
+		original = null
+		return false
+	original.abs_on = brake_assist
+	original.tc_on = traction_control
+	_original_wheels.clear()
+	for front: bool in [true, false]:
+		for left: bool in [true, false]:
+			for w in wheels:
+				if w.front == front and (w.center.x < 0.0) == left:
+					_original_wheels.append(w)
+					break
+	if _original_wheels.size() != 4:
+		original = null
+		return false
+	# The AI plans corners with this: the original's model on a steady circle gives about 0.8 x
+	# 0x0F4 g (original_handling_test: 356 A 1.00 g from 1.15, 993 Turbo 1.52 g from 2.0).
+	mu = ORIGINAL_CORNER_SHARE * original.grip
+	original_handling = true
+	return true
+
+
+func _physics_original(delta: float) -> void:
+	_read_input_original()
+	_update_damage()
+	var o := original
+	o.abs_on = brake_assist
+	o.tc_on = traction_control
+	# Springs only carry the car; the tyres' forces come from the original's model.
+	var front_on := false
+	var rear_on := false
+	for w in wheels:
+		_update_contact(w, delta)
+		_support_wheel(w, delta)
+		if w.normal_load > 0.0:
+			if w.front:
+				front_on = true
+			else:
+				rear_on = true
+	if front_on or rear_on:
+		# The original applies its own share of the slope (OriginalHandling.step): take away the
+		# part of Jolt's gravity along the road.
+		var up := global_basis.y
+		var g := get_gravity()
+		apply_central_force(-(g - up * g.dot(up)) * mass)
+	_original_time += delta
+	var tick := float(o.k["tick"])
+	while _original_time >= tick:
+		_original_time -= tick
+		_original_tick(front_on, rear_on)
+	gear = o.car_gear()
+	rpm = maxf(o.rpm, IDLE_RPM)
+	steer = o.steer_angle
+	engine_torque_nm = 0.0
+	tc_cut = 0.0
+	for i in 4:
+		var w := _original_wheels[i]
+		w.slip_angle = 0.0
+		w.slip_ratio = o.skid[i] * peak_slip_ratio * 2.0  # sound and smoke start at 1 x the peak
+		w.force = Vector2.ZERO
+	if _model != null:
+		_model.transform = _model_rest * Transform3D(Basis(Vector3.RIGHT, o.pitch) * Basis(Vector3.BACK, o.roll), Vector3.ZERO)
+	_update_odometer(delta)
+	_update_telemetry(delta)
+
+
+func _original_tick(front_on: bool, rear_on: bool) -> void:
+	var o := original
+	var b := global_basis
+	var fwd := -b.z
+	var right := b.x
+	var up := b.y
+	var v := linear_velocity
+	var v_long := v.dot(fwd)
+	var v_lat := v.dot(right)
+	var yaw_rate := angular_velocity.dot(up)
+	var corners: Array[float] = []
+	for w in _original_wheels:
+		corners.append(damage.zone(w.zone) if damage != null and w.zone >= 0 else 0.0)
+	var aero := 0.0
+	if damage != null:
+		aero = (damage.zone(1) + damage.zone(5)) * 0.5
+	var info := {"engine": engine_damage(), "drive": engine_damage(), "aero": aero,
+		"brakes": (corners[0] + corners[1] + corners[2] + corners[3]) / 4.0, "wheels": corners}
+	var digital := digital_input and not auto_drive and not _original_analog
+	var brk := 1.0 if held else brake
+	var thr := 0.0 if held else throttle
+	o.allow_reverse = not auto_drive and not held
+	var r := o.step(thr, brk, _original_steer, digital, handbrake, v_long, v_lat, yaw_rate,
+		up.y, fwd.y, right.y, [front_on, rear_on], info)
+	var a_long: float = r["long"]
+	var a_lat: float = r["lat"]
+	var tick := float(o.k["tick"])
+	v += (right * a_lat + fwd * a_long) * tick
+	var w_yaw: float = r["yaw"]
+	var ang := angular_velocity + up * w_yaw
+	var keep := o.slow_down(Vector2(v_long, v_lat).length(), v_long, ang.dot(up), fwd.y, handbrake)
+	if keep.x != 1.0:
+		var vertical := up * v.dot(up)
+		v = vertical + (v - vertical) * keep.x
+	if keep.y != 1.0:
+		ang *= keep.y
+	linear_velocity = v
+	angular_velocity = ang
+	for w in wheels:
+		w.omega = v_long / wheel_radius if w.normal_load > 0.0 else w.omega
+
+
+var _original_steer := 0.0  ## -1 right .. 1 left, as read; the original ramps the keys itself
+var _original_analog := false
+
+
+## Pedals and steering as the original reads them: keys are full on or off (the steering ramps
+## in OriginalHandling), a wheel and the AI give values in between.
+func _read_input_original() -> void:
+	var accel := Input.get_action_strength("accelerate")
+	var brk := Input.get_action_strength("brake")
+	var steer_in := Input.get_action_strength("steer_left") - Input.get_action_strength("steer_right")
+	_original_analog = false
+	if wheel != null and wheel.is_active() and accel == 0.0 and brk == 0.0 and steer_in == 0.0:
+		accel = wheel.throttle()
+		brk = wheel.brake()
+		steer_in = wheel.steer()
+		_original_analog = true
+	if auto_drive:
+		accel = auto_throttle
+		brk = auto_brake
+		steer_in = auto_steer
+	throttle = accel
+	brake = brk
+	_original_steer = steer_in
+	handbrake = Input.is_action_pressed("handbrake") and not auto_drive
+
+
+## Suspension only: the wheel carries its share of the car on its spring (unsprung model);
+## no tyre force. The wheel turns with the car's speed.
+func _support_wheel(w: Wheel, delta: float) -> void:
+	if w.detached:
+		w.normal_load = 0.0
+		return
+	var up := global_basis.y
+	apply_force(up * _update_unsprung(w, delta), w.ray.global_position - global_position)
+	w.contact = w.normal_load > 0.0
+	if not w.contact:
+		w.omega *= 0.99
+	w.spin = fmod(w.spin + w.omega * delta, TAU)
+	_update_visual(w)
+

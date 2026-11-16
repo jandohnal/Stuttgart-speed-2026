@@ -33,6 +33,8 @@ import os
 import struct
 import sys
 
+from pe_exe import Exe
+
 PART = 0x168
 CAR = 0x670
 # nfs5.car (file offsets; Porsche.exe sees the record 2 bytes later)
@@ -63,33 +65,6 @@ EXE_SURFACE_GRIP_DRY = 0x5D0D50  # f32[surface][tyre type 0..2], dry weather
 ASPHALT = 1  # surface row of dry asphalt
 # cars.json variants without an nfs5.car record of their own: the record whose parts they get.
 ALIASES = {"993coupe4s36": "993coupes436", "944tcoupes25": "944tcoupe25"}
-
-
-class Exe:
-    """Reads values of Porsche.exe by virtual address (PE sections)."""
-
-    def __init__(self, path):
-        self.data = open(path, "rb").read()
-        pe = struct.unpack_from("<I", self.data, 0x3C)[0]
-        count, opt = struct.unpack_from("<H", self.data, pe + 6)[0], struct.unpack_from("<H", self.data, pe + 20)[0]
-        base = struct.unpack_from("<I", self.data, pe + 24 + 28)[0]
-        self.sections = []
-        for k in range(count):
-            vsize, va, rsize, raw = struct.unpack_from("<IIII", self.data, pe + 24 + opt + 40 * k + 8)
-            self.sections.append((base + va, max(vsize, rsize), raw))
-
-    def offset(self, va):
-        for start, size, raw in self.sections:
-            if start <= va < start + size:
-                return va - start + raw
-        raise ValueError("address 0x%x outside the exe" % va)
-
-    def f32(self, va):
-        return round(struct.unpack_from("<f", self.data, self.offset(va))[0], 6)
-
-    def text(self, va):
-        o = self.offset(va)
-        return self.data[o:o + 16].split(b"\0")[0].decode("latin1")
 
 
 def cstr(rec, offset, size=STRING):

@@ -449,7 +449,15 @@ Voda (D-033): z řezu 1606 na forest jízda po silnici krytým mostem u vodopád
 
 31. 10. 2026: forest 10 zdrojů (6 v dosahu), 4 tekoucí materiály, auto nejvíc mokré 0,65 v mostě, pod 0,1 za 6 s jízdy. Stojící auto u mostu (`--at=1628`) 31 FPS s vodou i bez ní. Canyon, castle (vodopád, fontána) a monaco1 projdou se `--emitter`.
 
+Model originálu (D-046, bez okna): na rovné ploše plný plyn (0–100 km/h, maximum za 40 s), rejd plné klávesy ve stání a při 100 km/h, uvolnění plynu (brzdění motorem), plná brzda (zpomalení proti 0x104) a kruh při 70 km/h s plným rejdem (boční g proti 0x0F4). Každá fáze má časový limit. Výchozí `--handling=original`, `--handling=sim` stejné měření s fyzikálním modelem, `--car=`. Volba `--handling=original|sim` platí i pro ostatní testy a hru (jinak podle menu, výchozí fyzikální model).
+
+```bash
+~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/original_handling_test.tscn -- --car=993Tcoupe36
+```
+
 ## Stav a známá omezení
+
+- Jízdní model originálu (D-046, `original_handling.gd`, volba ORIGINAL HANDLING): vzorce originálu v jeho tiku 1/32 s, konstanty z `GameData/Simulation/handling.json` (`tools/handling_exe.py`). Jolt v tomto režimu jen nese auto na pružinách a řeší kolize. Karoserie se naklápí jen vizuálně (uzel modelu), jako v originálu.
 
 - Pérování (`car.gd`, od 29. 10. 2026): kolo s neodpruženou hmotou (25–41 kg podle pneumatiky) na pružné pneumatice (200 kN/m). Pružina, tlumič (stlačení a odskok zvlášť), tlumený doraz a stabilizátor působí mezi kolem a karoserií, zatížení pro přilnavost dává jen pneumatika. `unsprung_model = false` vrátí dřívější model, kde kolo sedělo přímo na silnici (paprsek) ([docs/driving-model.md](../docs/driving-model.md#neodpružená-hmota-29-10-2026)).
 - Model pneumatik (`car.gd`): každé kolo má vlastní rotaci se setrvačností 1,2 kg·m², poháněná kola navíc setrvačnost motoru přes převod (pevně 0,09 kg·m², v datech není). Podélný skluz a úhel skluzu tvoří jeden normovaný vektor skluzu. Síla roste k vrcholu (délka 1), pak klesá na 75 % (smyk). Vrchol: skluz 0,12, úhel 3° + 0,08° × profilové číslo (356: 8,6°). Přilnavost μ = 0,444 + 0,353 × `.sim` 0x0F4 (356: 0,85, hypotéza), citlivost na zatížení 10 %, valivý odpor 0,015. Kola se integrují v 8 podkrocích. Brzdy působí momentem (zpomalení 0x104 v m/s², 356: 0,66 g, podíl vpředu 0x108, 356: 60 %), bez ABS mohou kola zablokovat. Zadní pneumatiky mají 1,12× přilnavost předních (geometrie zadní nápravy, tlaky): bez brzdy je auto mírně nedotáčivé, při brzdění se zatížení přesune dopředu a záď ztratí rezervu. Se stejnou přilnavostí se auto se 56 % váhy vzadu roztočilo už při plném řízení bez brzdy, motor brzdí podílem 0x098 momentu při daných otáčkách (356: 23 %). Převodovka řadí nahoru, když vyšší stupeň dá na kolech víc síly. Ladění proti originálu přes Wine zbývá.

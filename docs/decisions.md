@@ -372,3 +372,40 @@ format: "Každé rozhodnutí má ID, stav (accepted | proposed | superseded), ko
 - **Rozhodnutí:** Výchozí obloha je obloha originálu ([formats/sky.md](formats/sky.md)): kopule s vrstvami barevných map a mraků z `Sky/<Trať>.txt` a prstenec horizontu s panoramatem krajiny `horz` tónovaným `hzcl`. Tvar kopule, prstence a prolnutí oblastí počasí podle řezu jsou z `Sky/<Trať>.bin`. Převádí `tools/sky.py` do `<trať>_sky.json`. Kreslí ji `game/shaders/original_sky.gdshader` jako sky shader po paprscích z kamery, takže je vždy za scénou a Godot z ní počítá okolní světlo i odrazy. `game/scripts/original_sky.gd` nastavuje prolnutí oblastí A → B podle řezu kamery. V menu je zaškrtávátko ORIGINAL SKY (volba `original_sky`, výchozí zapnuto, v testech `--sky=original|hdri`). Vypnuté použije HDRI (D-019) a prstenec horizontu originálu kreslí před ním (stejný shader s panoramatem). Když HDRI chybí (např. `tools/fetch_hdri.py` nestáhl), použije se obloha originálu. Procedurální obloha zůstává jen pro trať bez dat oblohy. Originál má na trať jednu denní dobu (Monaco noc, ostatní den). Opačná doba oblohu ztmaví (×0,06) nebo zesvětlí (×3). Mlha dostane průměrnou barvu horizontu, aby vzdálená trať navazovala na prstenec. Slunce zůstává ze scény (data oblohy směr slunce nemají).
 - **Důvod:** Přání uživatele (15. 11. 2026): použít mapy oblohy a horizontu originálu se zachováním přepnutí na HDRI. Výchozí je původní obloha, opačná denní doba se ztmaví nebo zesvětlí a horizont se kreslí i s HDRI. Krajina HDRI fotek k tratím nesedí a ve webové verzi byla bez HDRI jen procedurální obloha.
 - **Důsledky:** Upřesňuje D-019 (HDRI je volba, ne výchozí) a D-040 (web má oblohu originálu, balíček trati obsahuje `Sky/<Trať>/`). Na M1 Pro (farmland řez 1284) má obloha originálu 65 FPS za autem a 63 v jízdě proti 52 a 49 s HDRI. Funguje i v rendereru Compatibility. Odrazy a okolní světlo se počítají jednou (v cubemapě se vítr nehýbe), takže pohyb mraků se v odrazech neprojeví. Rozluštění není úplné: měřítko barevných map je odvozené ze vzhledu (mapa pokryje kopuli jednou), zvlnění je napodobené, barvy oblastí (`.bin` 0xCEC) a další tabulky podle řezu hra nepoužívá. Monaco ve dne působí s oblohou originálu šedozeleně. Přeexponovaný tunel a začátek záběru ve dne jsou stejné i s HDRI.
+
+## D-046 Jízdní model originálu jako volba (ORIGINAL HANDLING)
+- **Stav:** accepted
+- **Rozhodnutí:** Vedle fyzikálního modelu (D-003) má hra jízdní model originálu.
+  - **Kód:** `game/scripts/original_handling.gd` (`OriginalHandling`), napsaný vlastním kódem podle popisu principů v [formats/sim.md](formats/sim.md#jízdní-model-originálu).
+  - **Jak počítá:** běží v tiku originálu (1/32 s) a síly počítá jako zrychlení:
+    - zatížení kol ze statického podílu, přenosu ze zrychlení a přítlaku;
+    - boční síla kola ze směrového úhlu;
+    - kruh přilnavosti a smyk zamčeného nebo protáčeného kola;
+    - motor s otáčkami po krocích a automat originálu;
+    - řízení ±127 s krokem kláves 12 za tik a rejdem podle rychlosti;
+    - svah, stáčení kolem středu rozvoru, vizuální naklopení a náklon karoserie.
+  - **Napojení na Godot:** model mění rychlost a stáčení auta přímo. Jolt jen nese auto na pružinách (bez sil pneumatik) a řeší kolize. Podélnou složku gravitace Joltu model ruší a používá vlastní svah.
+  - **Konstanty:** čte je `tools/handling_exe.py` z lokálního `Porsche.exe` do `GameData/Simulation/handling.json` (D-023). V repozitáři jsou jen adresy a názvy.
+  - **Menu:** zaškrtávátko ORIGINAL HANDLING (volba `original_handling`, `GameSettings.is_original_handling()`), v testech `--handling=original|sim`. Platí pro všechna auta, hráče i soupeře.
+  - **Výchozí stav:** vypnuto, dokud se model neověří proti originálu.
+  - **Asistenti:** volby ABS a TRACTION CONTROL se v tomto režimu mapují na ABS a kontrolu trakce originálu. Asistent řízení, spojka při rozjezdu, turbodíra a samosvor se nepoužijí.
+  - **Bez dat:** když `handling.json` chybí, je zaškrtávátko zašedlé a auta jedou fyzikálním modelem.
+- **Důvod:** Přání uživatele (16. 11. 2026): chování vozu co nejvěrnější předloze, přepínatelné jako ORIGINAL SKY (D-045). Fyzikální model se k originálu dá jen kalibrovat (driving-model.md). Rozbor exe ale popsal celý jízdní model, takže ho jde napsat znovu se stejnými vzorci.
+- **Důsledky:**
+  - **Rozbor exe opravil dřívější popis:**
+    - přední kola mají boční sílu úměrnou směrovému úhlu až do 16/256 otáčky, zadní mají plnou sílu už od 2/256;
+    - originál má ABS a kontrolu trakce jako volby a bez ABS kola při prudkém brzdění pod asi 95 km/h zamykají;
+    - úhlová rychlost je v otáčkách za sekundu;
+    - pole 0xDC0 je úhel smyku karoserie, ne prokluz kol.
+  - **Měření** (`original_handling_test`, `straight_test`, [driving-model.md](driving-model.md#model-originálu-d-046-17-11-2026)):
+    - 356 A: 0–100 km/h 16,1 s (skutečnost asi 16 s), brzdění 6,4 m/s² (0x104 6,5), rejd při 100 km/h 17,8°;
+    - 993 Turbo: 0–100 km/h 5,0–5,2 s, maximum 285 km/h.
+  - **Fyzikální režim** dává stejná čísla jako před změnou.
+  - **Soupeři** projedou farmland. 993 Turbo je rychlejší než ve fyzikálním režimu (4:15 proti 4:38). AI plánuje zatáčky s 0,8 × 0x0F4 g (`Car.ORIGINAL_CORNER_SHARE`). 935 se ve vracečce u řezu 1430 otočí, protože řidič AI je naladěný na fyzikální model (ve fyzikálním režimu se 935 otočí jinde).
+  - **Nepřevzaté části:**
+    - kolize originálu (řeší Jolt);
+    - povrchy pod koly (platí asfalt);
+    - závětří za jiným autem (originál v něm snižuje odpor);
+    - zjednodušený režim;
+    - přesný tvar vizuálního naklápění (0x499A70 nerozluštěno, použitý je podíl zrychlení s tlumením z `.sim`).
+
