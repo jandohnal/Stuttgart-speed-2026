@@ -98,9 +98,11 @@ static func hdri_path(track: String, time: String) -> String:
 ## player chose (D-045): "original" (the original's dome and horizon, OriginalSky) or "hdri" (the
 ## HDRI with the original's horizon ring in front of it). Returns the sky used: "original", "hdri",
 ## or "procedural" when neither has data. A missing HDRI falls back to the original's sky.
-static func apply(env: Environment, sun: DirectionalLight3D, track: String, time: String, source := "original") -> String:
+## night_track: the original runs the track at night (Main.is_night_track), so its sky and horizon
+## are painted at night: drawn as they are at night, brightened by day.
+static func apply(env: Environment, sun: DirectionalLight3D, track: String, time: String, source := "original", night_track := false) -> String:
 	var data := OriginalSky.load_data(track)
-	if source == "hdri" and _apply_hdri(env, sun, track, time, data):
+	if source == "hdri" and _apply_hdri(env, sun, track, time, data, night_track):
 		return "hdri"
 	_apply_common(env, sun, time)
 	if data.is_empty():
@@ -112,11 +114,10 @@ static func apply(env: Environment, sun: DirectionalLight3D, track: String, time
 	var low := GameSettings.is_low_quality()
 	var material := OriginalSky.make_material(data, low)
 	var night := time == "night"
-	var night_sky := OriginalSky.is_night_sky(data)
 	var scale := OriginalSky.DAY_ENERGY
-	if night and not night_sky:
+	if night and not night_track:
 		scale *= OriginalSky.NIGHT_SCALE
-	elif not night and night_sky:
+	elif not night and night_track:
 		scale *= OriginalSky.DAY_SCALE
 	material.set_shader_parameter("energy", scale)
 	material.set_shader_parameter("horizon_energy", scale)
@@ -124,7 +125,9 @@ static func apply(env: Environment, sun: DirectionalLight3D, track: String, time
 	sky.sky_material = material
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
-	if not night and not night_sky:  # a brightened night horizon made a grey haze (Monaco by day)
+	# The fog joins the horizon in the track's own time (Industrial's orange haze at night); a
+	# brightened night horizon made a grey haze (Monaco by day), a darkened day one a murky fog.
+	if night == night_track:
 		var fog := OriginalSky.horizon_color(data)
 		if fog.a > 0.0:
 			env.fog_light_color = fog.srgb_to_linear() * scale
@@ -149,7 +152,7 @@ static func _apply_common(env: Environment, sun: DirectionalLight3D, time: Strin
 
 
 ## The HDRI sky (D-019) with the original's horizon ring when `data` has one. False without a file.
-static func _apply_hdri(env: Environment, sun: DirectionalLight3D, track: String, time: String, data: Dictionary) -> bool:
+static func _apply_hdri(env: Environment, sun: DirectionalLight3D, track: String, time: String, data: Dictionary, night_track: bool) -> bool:
 	var night := time == "night"
 	var file := hdri_path(track, time)
 	var img := Image.load_from_file(file) if not file.is_empty() else null
@@ -171,11 +174,10 @@ static func _apply_hdri(env: Environment, sun: DirectionalLight3D, track: String
 	var ring := OriginalSky.make_material(data, GameSettings.is_low_quality(), panorama, energy)
 	if ring != null:
 		# The ring's land is lit like the HDRI's horizon: its mean brightness there.
-		var night_land := OriginalSky.is_night_sky(data)
 		var land := 1.0
-		if night and not night_land:
+		if night and not night_track:
 			land = NIGHT_SCALE_RING
-		elif not night and night_land:
+		elif not night and night_track:
 			land = OriginalSky.DAY_SCALE
 		ring.set_shader_parameter("horizon_energy", land)
 		sky_material = ring

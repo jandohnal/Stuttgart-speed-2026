@@ -1,6 +1,6 @@
 extends Node
 ## Headless test of the opponent driver (AIDriver, D-026) alone on the track:
-##   godot --headless --fixed-fps 120 --path game res://tests/ai_drive_test.tscn [-- --track=monaco1 --car=935race --line=1 --laps=2 --trace=60:80]
+##   godot --headless --fixed-fps 120 --path game res://tests/ai_drive_test.tscn [-- --track=monaco1 --car=935race --line=1 --laps=2 --trace=60:80 --grip=0.9]
 ## --trace=from:to prints the driver's state every 0.25 s between those simulated seconds.
 ## On a track with start and finish lines (farmland by default) the AI drives the race from the
 ## start line and must cross the finish after every checkpoint; on a lap track without them
@@ -46,7 +46,7 @@ func _ready() -> void:
 	add_child(main)
 	car = main.get_node("Car") as Car
 	var line: String = main._user_arg("line")
-	ai = main.drive_by_ai(line.to_int() if line.is_valid_int() else 0)
+	ai = main.drive_by_ai(line.to_int() if line.is_valid_int() else main.ai_line())
 	race = main.race
 	if race != null:
 		race.finished.connect(func(time: float) -> void: finish_time = time)
@@ -58,12 +58,21 @@ func _ready() -> void:
 		var laps: String = main._user_arg("laps")
 		goal_distance = (float(lap["length_m"]) if lap is Dictionary else 2000.0) * (laps.to_int() if laps.is_valid_int() else 1)
 	last_slice = ai.slice
+	# --grip=x: the share of the grip planned for (grip_use and brake_use), set through the pace
+	# so the profile need not be built again.
+	var grip: String = main._user_arg("grip")
+	if grip.is_valid_float():
+		ai.pace = sqrt(grip.to_float() / ai.grip_use)
+	# --set=name:value,...: driver settings that do not need the profile built again (steer_gain,
+	# yaw_gain, yaw_integral_gain, speed_gain, brake_gain).
+	for pair: String in main._user_arg("set").split(",", false):
+		ai.set(pair.get_slice(":", 0), pair.get_slice(":", 1).to_float())
 	var trace: String = main._user_arg("trace")
 	if trace.contains(":"):
 		trace_from = trace.get_slice(":", 0).to_float()
 		trace_to = trace.get_slice(":", 1).to_float()
 		next_trace = trace_from
-	print("AI DRIVE TEST: %s, %s, line %s, %s" % [main.track_name, main.car_key, line if not line.is_empty() else "0",
+	print("AI DRIVE TEST: %s, %s, line %s, %s" % [main.track_name, main.car_key, line if not line.is_empty() else str(main.ai_line()),
 		"race to the finish" if race != null else "%.0f m along the road" % goal_distance])
 
 

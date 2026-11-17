@@ -334,28 +334,29 @@ const ROUGHNESS_GLOSSY := 0.1
 ## Parallax depth in hundredths of one texture tile (road tile about 6 m: 0.3 = about 2 cm).
 ## Plain parallax: deep parallax looked the same from behind the car and cost 5 FPS more.
 const HEIGHTMAP_SCALE := 0.3
-## Low quality: a ground material (lit per vertex) has normals with y above LOW_GROUND_UP at all
-## but LOW_STEEP_SHARE of its vertices (road banks and kerbs are a little steep).
-const LOW_GROUND_UP := 0.5
-const LOW_STEEP_SHARE := 0.05
+## Low quality: brightness of the unshaded track (texture colour times this) by day and at night
+## (NIGHT RACE on a day track). A night track of the original is painted at night and keeps 1.0.
+const LOW_TRACK_LIGHT := {"day": 1.0, "night": 0.4}
 
 
 ## gltf: the track's glTF relative to the data root; its advanced/ maps are added when given.
-## Low quality (GameSettings.is_low_quality): road and terrain cover most of the screen, so on a
-## weak graphics card their per-pixel cost decides the frame rate. All track materials keep only
-## the base colour (no detail noise, no advanced/ maps with parallax) with trilinear instead of
-## anisotropic filtering; the ground (low_vertex_lit) is also lit per vertex. Only the ground:
-## every track material is double-sided and per-vertex lighting cannot turn the normal for the
-## back face, so the back of a tree trunk or canopy facing away from the sun went black.
-static func setup_track(track: Node3D, gltf := "") -> void:
+## Low quality (GameSettings.is_low_quality) draws the track like the original (docs/formats/shadow.md):
+## its textures already hold the light and shade, so every track material is unshaded, times
+## LOW_TRACK_LIGHT for the time of day (night_track: the original's night track, painted at night, not
+## darkened). No lighting per pixel and no shadow pass, the cost that
+## decides the frame rate on a weak graphics card (road and terrain cover most of the screen).
+## Only the base colour stays (no detail noise, no advanced/ maps with parallax), trilinear
+## instead of anisotropic filtering.
+static func setup_track(track: Node3D, gltf := "", night := false, night_track := false) -> void:
 	if track == null:
 		return
 	if GameSettings.is_low_quality():
+		var light: float = LOW_TRACK_LIGHT["night" if night and not night_track else "day"]
 		for m in _materials(track):
 			_prepare(m)
 			m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-		for m in low_vertex_lit(track):
-			m.shading_mode = BaseMaterial3D.SHADING_MODE_PER_VERTEX
+			m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			m.albedo_color = Color(m.albedo_color.r * light, m.albedo_color.g * light, m.albedo_color.b * light, m.albedo_color.a)
 		return
 	var seen := {}
 	var road := {}
@@ -392,50 +393,6 @@ static func setup_track(track: Node3D, gltf := "") -> void:
 			_prepare(m)
 	if not gltf.is_empty():
 		_add_advanced(seen.keys(), gltf, road)
-
-
-## Opaque road and terrain materials whose faces all look up (normal y above LOW_GROUND_UP, at most
-## LOW_STEEP_SHARE of the vertices steeper): ground seen only from above, lit per vertex in low
-## quality (see setup_track). The terrain group also holds walls, rocks, tree trunks and canopies.
-static func low_vertex_lit(track: Node3D) -> Array[StandardMaterial3D]:
-	var counts := {}  # material -> [vertices, steep vertices]
-	for group: String in ["road", "terrain"]:
-		var node := track.find_child(group, true, false)
-		if node == null:
-			continue
-		for child in node.find_children("*", "MeshInstance3D", true, false):
-			var mi := child as MeshInstance3D
-			if mi.mesh == null:
-				continue
-			var basis := _basis_in(mi, track)
-			for surface in mi.mesh.get_surface_count():
-				var m := mi.mesh.surface_get_material(surface) as StandardMaterial3D
-				if m == null or m.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
-					continue
-				var normals: PackedVector3Array = mi.mesh.surface_get_arrays(surface)[Mesh.ARRAY_NORMAL]
-				var c: Array = counts.get(m, [0, 0])
-				for n in normals:
-					c[0] += 1
-					if (basis * n).normalized().y < LOW_GROUND_UP:
-						c[1] += 1
-				counts[m] = c
-	var out: Array[StandardMaterial3D] = []
-	for m: StandardMaterial3D in counts:
-		var c: Array = counts[m]
-		if c[0] > 0 and c[1] <= c[0] * LOW_STEEP_SHARE:
-			out.append(m)
-	return out
-
-
-## Rotation and scale of `node` relative to `root` (the track is not in the scene tree yet).
-static func _basis_in(node: Node3D, root: Node3D) -> Basis:
-	var basis := Basis.IDENTITY
-	var n: Node = node
-	while n != null and n != root:
-		if n is Node3D:
-			basis = (n as Node3D).basis * basis
-		n = n.get_parent()
-	return basis
 
 
 ## Adds the advanced/ maps to the materials; returns how many materials got at least one.

@@ -5,9 +5,9 @@ Writes next to <out>.gltf: <out>.bin, <stem>_road.json (SimD road slices split i
 start/finish from <track>_fstart.scn, on a circuit without it an own line on a straight),
 <stem>_objects.json (placed objects with their collision
 type and mass from animdefs.txt; their nodes are in the group "props"; and the drive-through
-parts, bushes, in the group "drivethrough"; shadow decals in the group "shadows"), <stem>_lights.json (ef
-flares and emitters: world ones, ones on placed objects, ones on library prototypes) and uses the
-track textures converted by tools/fsh2png.py (converted on the fly if missing).
+parts, bushes, in the group "drivethrough"; shadow decals in the group "shadows"), <stem>_lights.json (night
+flag from the render methods; ef flares and emitters: world ones, ones on placed objects, ones on library
+prototypes) and uses the track textures converted by tools/fsh2png.py (converted on the fly if missing).
 
 Usage:
     python3 tools/track2gltf.py sources/GameData/Track/skidpad.crp decomposed/GameData/Track/skidpad/skidpad.gltf
@@ -25,7 +25,8 @@ import ai_lines
 import fsh2png
 import scn
 from common import find_file
-from crp import EFFECT_FLARE, STATS, article_effects, article_matrix, article_mesh, base_info, entry_text, find, parse_crp, to_gltf, write_gltf
+from crp import (EFFECT_FLARE, HEADLIGHT_LAYERS, STATS, article_effects, article_matrix, article_mesh, base_info,
+                 entry_text, find, is_night, parse_crp, render_methods, to_gltf, write_gltf)
 
 GROUPS = [
     ("road", r"^RD"),
@@ -436,11 +437,17 @@ def convert(src, out_path, level=0, library=False):
                              "cards (PLANT_TEXTURES) moved to that group as <name> plants",
                    "objects": props, "drivethrough": drivethrough, "plant_parts": plant_parts}, fh, indent=1)
 
+    methods = render_methods(d, misc)
+    night = is_night(methods)
     with open(os.path.join(out_dir, stem + "_lights.json"), "w", encoding="utf-8") as fh:
         json.dump({"source": os.path.basename(src),
-                   "fields": "id = flare in GameData/Render/flare.dat (flares.json) or emitter tag; position and "
+                   "fields": "night = the original runs the track at night (a render method has a Headlights "
+                             "layer: night_methods; cars light their headlights); id = flare in "
+                             "GameData/Render/flare.dat (flares.json) or emitter tag; position and "
                              "direction in glTF space: world, local to the prop node (props, keyed by node in "
                              "group props) or local to a library prototype (library, keyed by object tag)",
+                   "night": night,
+                   "night_methods": sorted(n for n, types in methods.items() if any(t in HEADLIGHT_LAYERS for t in types)),
                    **lights}, fh, indent=1)
     flare_ids = {}
     for e in lights["world"] + [f for v in lights["props"].values() for f in v]:
@@ -455,7 +462,8 @@ def convert(src, out_path, level=0, library=False):
           + (f" (lap of {len(lap['segments'])} segments {lap['length_m']:.0f} m), " if lap else ", ") +
           f"start/finish slice {gates.get('start', {}).get('slice', '-')}/{gates.get('finish', {}).get('slice', '-')}, "
           f"placed objects {len(props)}, library prototypes skipped {stats['library_skipped']}, "
-          f"flares {sum(flare_ids.values())} {dict(sorted(flare_ids.items()))}, emitters {len(lights['emitters'])}")
+          f"flares {sum(flare_ids.values())} {dict(sorted(flare_ids.items()))}, emitters {len(lights['emitters'])}, "
+          f"{'night' if night else 'day'}")
 
 
 def main():

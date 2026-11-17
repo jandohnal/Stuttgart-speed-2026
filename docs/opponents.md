@@ -130,6 +130,7 @@ Konstanty společné všem řidičům:
 - auta před sebou: `OTHER_WINDOW`, `OTHER_OFF_LINE` (auto na jiné části trati se nepočítá);
 - vytlačení pod prahem poškození: `PUSH_SPEED`;
 - reset: `STUCK_SPEED`, `STUCK_TIME`, `OFF_ROAD`, `OFF_ROAD_TIME`, `UPSIDE_TIME`.
+- model originálu a skoky (D-047): `ORIGINAL_STEER_GAIN`, `JUMP_TIME`, `LANDING_TIME`; horizonty v profilu přes `crest_curvature`.
 
 Logika:
 
@@ -148,9 +149,10 @@ Logika:
 
 | Co | Kde |
 | --- | --- |
-| Nejvýš 7 soupeřů, ve hře výchozí 3 | `MAX_OPPONENTS`, `DEFAULT_OPPONENTS` |
-| Počet: `--opponents=n`, jinak ve hře přepínač Soupeři v menu a nastavení projektu `stuttgart/opponents`, v testech 0 | `_add_opponents()` |
-| Vytvoření soupeře: profil, barva, auto, řidič a jeho stopa (index 0 v `driver.setup`) | `_add_opponents()` |
+| Nejvýš 7 soupeřů (`--opponents`), v menu 0–4, výchozí 3 | `MAX_OPPONENTS`, `GameSettings.MENU_MAX_OPPONENTS` |
+| Počet: `--opponents=n`, jinak ve hře posuvník OPPONENTS v menu (D-049, v každé kvalitě), v testech 0 | `_add_opponents()` |
+| Vytvoření soupeře: profil, barva, auto, řidič a jeho stopa | `_add_opponents()` |
+| Stopa `.lsp` soupeřů podle trati (Monaco 1, 3, 4, 5 stopa 1, jinak 0, D-047) | `AI_LINES`, `ai_line()` |
 | Místo na roštu (střídavě ±2 m od středu, po 5 m) | `_grid_slot()`, `_place_on_grid()` |
 | Za cílem: 50 m dál, pak brzda a zastavení u kraje | `OPPONENT_STOP_AFTER`, `STOP_ASIDE`, `STOP_BRAKE`, `_on_opponent_crossed()`, `_start_stopping()`, `_drive_to_stop()` |
 
@@ -173,8 +175,8 @@ Logika:
 | Co efekt mění: `AIDriver.pace`, `AIDriver.throttle_share`, `Car.power_scale` | `_apply()` |
 
 ### Menu
-- `scripts/game_settings.gd`: výchozí hodnoty přepínačů, `"opponents"` a `"rubber_band"` v `DEFAULT_OPTIONS`.
-- `scripts/menu.gd`: popisky OPPONENTS a RUBBER BAND v `OPTION_LABELS`.
+- `scripts/game_settings.gd`: výchozí hodnoty voleb, `"opponents"` (počet, výchozí 3) a `"rubber_band"` v `DEFAULT_OPTIONS`, nejvyšší počet v menu `MENU_MAX_OPPONENTS`.
+- `scripts/menu.gd`: posuvník OPPONENTS pod zaškrtávátky (`_add_opponents_slider()`), popisek RUBBER BAND v `OPTION_LABELS`.
 
 ### Data
 - Stopy: `decomposed/GameData/Track/<trať>/<trať>_ai.json`. Vyrábí je `tools/ai_lines.py` z `.lsp` originálu.

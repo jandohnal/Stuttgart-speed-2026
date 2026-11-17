@@ -117,7 +117,7 @@ func setup(track: Node3D, data: Dictionary, track_entry: String, is_night: bool)
 	if night:
 		var pool := WEB_LIGHT_POOL if GameSettings.is_web_profile() else LIGHT_POOL
 		if GameSettings.is_low_quality():
-			pool = mini(pool, GameSettings.LOW_LIGHT_POOL)
+			pool = 0  # the track is unshaded (Materials.setup_track): lamp lights would light only the cars
 		for i in pool:
 			var light := OmniLight3D.new()
 			light.omni_range = LIGHT_RANGE

@@ -146,8 +146,11 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Soupeři D3: předjíždění podle vlastních schopností a místa na trati (auto před sebou pomalejší než vlastní profil o `pass_speed_margin`, místo vedle auta až za něj, kratší výhled při předjíždění, auto před sebou měřené po silnici); `pass_test --pace`
 - [ ] Soupeři D: racecraft (předjíždění v jízdě, obrana, prostor) a osobnosti z `prsonal`
 - [x] Soupeři E2: gumička (D-035): časový rozdíl proti hráči řídí tempo soupeřů, za hráčem i výkon až +10 %; přepínač v menu; `rubber_test`
+- [x] Soupeři: rychlejší soupeři (D-047): řízení v modelu originálu, horizonty v rychlostním profilu, stopa podle trati, vyšší profily
 - [ ] Soupeři E: síla AI v menu
 - [ ] Provoz, policie
+- [x] Noční tratě originálu (Monaco 1–5, Industrial) jedou vždy v noci: příznak z render metod, obloha, jas trati, NIGHT RACE neaktivní (D-050, IDEA-015 kroky 1–4); `night_track_test`
+- [ ] Noční tratě: skvrna světlometů podle `night.psh`, lampy a okna Industrial, jas aut v noci (IDEA-015 kroky 5–7)
 - [ ] Zvuky originálu pro všechny situace (soupeři, provoz, policie, prostředí)
 - [x] Ovládání volantem: kalibrace v menu, plyn, brzda, tlačítka, bez force feedbacku (D-038)
 - [ ] Ověřit volant na skutečném zařízení a doladit výchozí rozsah a křivku řízení
@@ -184,6 +187,8 @@ Mimo pořadí fází. Webová verze je výstup tohoto repozitáře, desktopová 
 - [x] Hosting na Cloudflare za heslem: R2 a Worker, nahrání skriptem i ručně přes dashboard (D-041)
 - [x] Veřejný repozitář jako webová verze, desktopová hra v samostatném repozitáři (D-042)
 - [x] Volba nízké kvality pro slabší počítače, i z adresy `?quality=low` (D-043)
+- [x] Nízká kvalita kreslí jako originál, bez stínů za běhu (D-048)
+- [x] Počet soupeřů posuvníkem v menu v každé kvalitě, nízká kvalita bez lamp trati, reflektorů soupeřů, obtisků a s malou radiance oblohy (D-049)
 - [ ] Změřit nízkou kvalitu na slabých počítačích v prohlížeči
 - [ ] Změřit FPS a paměť na všech tratích, ve dne i v noci, s 0, 3 a 7 soupeři
 - [ ] Doladit osvětlení bez HDRI (Farmland je tmavý)

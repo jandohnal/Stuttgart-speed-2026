@@ -75,6 +75,32 @@ def base_info(d, art):
             "tag": raw.decode("latin1") if raw and all(32 <= c < 127 for c in raw) else ""}
 
 
+# Layer types of a render method (RMth) that Porsche.exe creates in its layer factory (FUN_00449b70).
+# The Headlights vertex-light layers light the track with the car lights; creating any of them sets the
+# game's night flag (0x628A28), which picks the night light glows of the cars (night=1 in .tpg).
+LAYER_TYPES = range(0x8001, 0x8012)
+HEADLIGHT_LAYERS = {0x8002: "LayerVertexLight", 0x8003: "LayerVertexLight_Opaque",
+                    0x8011: "LayerVertexLight_Ambient"}
+
+
+def render_methods(d, misc):
+    """Render methods (RMth) as {name: [layer types]}. The layer record layout is not decoded yet, so the
+    types are the u32 values 0x8001-0x8011 after the 16-byte name (docs/formats/crp.md)."""
+    out = {}
+    for e in misc:
+        if e.tag != "RMth" or e.data is None:
+            continue
+        name = d[e.data:e.data + 16].split(b"\0")[0].decode("latin1")
+        types = [v for v in struct.unpack_from(f"<{(e.length - 16) // 4}I", d, e.data + 16) if v in LAYER_TYPES]
+        out.setdefault(name, []).extend(types)
+    return out
+
+
+def is_night(methods):
+    """True when a render method has a Headlights layer: the original then runs the track at night."""
+    return any(t in HEADLIGHT_LAYERS for types in methods.values() for t in types)
+
+
 def entry_text(d, e):
     return d[e.data:e.data + e.length].split(b"\0")[0].decode("latin1")
 

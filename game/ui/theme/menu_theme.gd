@@ -3,7 +3,7 @@ extends RefCounted
 ## ACCENT_CHOICES) and the icons stay sharp at any scale: they are SVGs in ui/icons rasterized as
 ## DPITexture, with the red #C8101A mapped to the accent. Font: Saira Condensed from ui/fonts
 ## (OFL, not in git until downloaded), else the system condensed font (Avenir Next Condensed on macOS).
-## Type variations: SetupDropdown, SetupCheckBox, RedButton, FooterButton, SetupLabel, PanelHeader,
+## Type variations: SetupDropdown, SetupCheckBox, SetupSlider, SliderLabel, SliderValue, RedButton, FooterButton, SetupLabel, PanelHeader,
 ## FooterTitle, LogoTop, LogoBottom, ScreenTitle, CaptionLabel, SideText, PlayLabel, CreditsText,
 ## CreditsValue, CreditsNote and the panels
 ## SetupPanel, HeaderStrip, CaptionPanel, FooterPanel, Bezel.
@@ -86,6 +86,7 @@ static func build(accent := ACCENT) -> Theme:
 	_dropdown(t, accent)
 	_popup(t, accent)
 	_checkbox(t, accent)
+	_slider(t, accent)
 	_red_button(t, accent)
 	_footer_button(t, accent)
 	_plain_button(t)
@@ -233,6 +234,40 @@ static func _checkbox(t: Theme, accent: Color) -> void:
 	for c: String in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
 		t.set_color(c, type, LABEL_INK)
 	t.set_color("font_disabled_color", type, Color(LABEL_INK, 0.5))
+
+
+## Option slider (OPPONENTS): caption like a checkbox's, a dark groove filled with the accent up to
+## a light grabber, the value in a dark box on the right.
+static func _slider(t: Theme, accent: Color) -> void:
+	var type := "SetupSlider"
+	t.set_type_variation(type, "HSlider")
+	var groove := _flat(Color("#3A362E"), 2)
+	_set_margins(groove, 0, 5)
+	var fill := _flat(accent, 2)
+	_set_margins(fill, 0, 5)
+	t.set_stylebox("slider", type, groove)
+	t.set_stylebox("grabber_area", type, fill)
+	t.set_stylebox("grabber_area_highlight", type, fill)
+	t.set_stylebox("focus", type, _focus())
+	var grabber := _grabber(FIELD_BG)
+	t.set_icon("grabber", type, grabber)
+	t.set_icon("grabber_highlight", type, _grabber(Color.WHITE))
+	t.set_icon("grabber_disabled", type, grabber)
+	t.set_constant("center_grabber", type, 1)
+	_label(t, "SliderLabel", font(700), 20, LABEL_INK)
+	var box := _flat(INK)
+	_set_margins(box, 0, 0)
+	_label(t, "SliderValue", font(800), 22, Color.WHITE)
+	t.set_stylebox("normal", "SliderValue", box)
+
+
+## Upright grabber of the option slider: `fill` with a 2 px dark border.
+static func _grabber(fill: Color) -> Texture2D:
+	var size := Vector2i(14, 28)
+	var img := Image.create(size.x, size.y, false, Image.FORMAT_RGBA8)
+	img.fill(BORDER)
+	img.fill_rect(Rect2i(2, 2, size.x - 4, size.y - 4), fill)
+	return ImageTexture.create_from_image(img)
 
 
 ## PLAY: vertical red gradient, 2 px dark border, white line on top, hard shadow (4, 4).

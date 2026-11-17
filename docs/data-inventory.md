@@ -1,6 +1,6 @@
 ---
 type: inventory
-updated: 2026-11-04
+updated: 2026-11-17
 machine_readable: ../data/inventory.yaml
 ---
 
@@ -19,6 +19,7 @@ Nejcennější data jsou čitelná hned: fyzika 86 verzí aut a nastavení AI so
 | hotovo | Textury `.fsh` | 553 souborů, 10 425 obrázků | převedeno do PNG ([fsh.md](formats/fsh.md)) | Reference vzhledu |
 | částečně | Obloha `Sky/*.txt`, `.bin`, `.fsh` | 17 tratí + `default` | převedeno do `<trať>_sky.json` a PNG ([sky.md](formats/sky.md)), barvy a některé tabulky `.bin` neznámé | Výchozí obloha a horizont (D-045) |
 | hotovo | Světelné obtisky `.env` + `.map` | `Track/*.env` 15 (95 obrázků 64×64), `Track/*.map` 15 | převedeno do PNG v `<trať>/env/` a `<trať>_decals.json` ([map.md](formats/map.md)) | Lampy v tunelech a stín stromů na autech (D-044) |
+| částečně | Stín auta `CarModel/Shadow.fsh` | 1 obrázek 64×64 | převedeno do PNG, geometrie pod autem nerozluštěná ([shadow.md](formats/shadow.md)) | Originál nemá stíny počítané za běhu, jen textury |
 | hotovo | Zvuky `.viv`/`.bnk` | 42 archivů | převedeno do WAV ([bnk.md](formats/bnk.md)) | Zvuky hry (D-011) |
 | rozbalit | Hudba, videa | 28 skladeb, 12 videí | známý formát | Nepoužije se |
 | hotovo | Geometrie aut | `.crp`, 44 | převedeno do glTF ([crp.md](formats/crp.md)) | Auta hry (D-009) |

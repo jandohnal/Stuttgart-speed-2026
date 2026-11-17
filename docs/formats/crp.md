@@ -6,7 +6,7 @@ location: ["GameData/CarModel/*.crp", "GameData/Track/*.crp", "FEData/Models/*.c
 compression: "EA RefPack (QFS), magic 0x10FB"
 status: "komprese, kontejner a geometrie aut hotové; tratě: skidpad"
 tool: ["tools/archives.py", "tools/crp.py", "tools/crp2gltf.py", "tools/track2gltf.py"]
-updated: 2026-10-30
+updated: 2026-11-17
 ---
 
 # Formát `.crp` – modely aut a tratí
@@ -84,7 +84,7 @@ Typ 4 je seznam čtyřúhelníků: každé 4 po sobě jdoucí rohy jsou jeden č
 | --- | --- |
 | `mt` | materiál: 0x10 jméno render metody (`CarExt`, `CarExtEnv`, `CarInt`, `CarWheel`, `CarWindow`), 0x28 index texturové stránky (od 0) |
 | `sf` | vložený archiv SHPI ([fsh.md](fsh.md)), index = pořadí souboru v `.tpg` (od 0) |
-| `RMth`, `BndP`, `Wndo` | render metody, ohraničující roviny, okna – nepoužito |
+| `RMth`, `BndP`, `Wndo` | render metody, ohraničující roviny, okna – u aut nepoužito (render metody tratí viz [Render metody a noc](#render-metody-rmth-a-noc)) |
 
 ## 3. Textury aut
 
@@ -97,7 +97,7 @@ Stránka je atlas 256×256 (nebo podle `.tpg`) složený z položek SHPI na jeji
 Rozluštěno 19. 10. 2026. Originál staví všechny varianty jednoho modelu (kupé, kabriolet, speedster, targa, turbo, Carrera RS) z jednoho `.crp`. Varianta = **styl** v `.tpg`; který styl má auto z menu, říká bajt 0x1C0 v `nfs5.car` ([car.md](car.md)).
 
 - `numstyles=N` a sekce `[styleN]` (**nejsou v pořadí čísel**): `name=`, `count=`, pak dvojice `geometryK=<slot>` / `typeK=<typ>` (slot ukazuje díly s TypeIndex = typ; slot, který styl neuvádí, ukazuje typ 0; typ, pro který model díl nemá, slot vyprázdní – např. střecha `Roof` u kabrioletu) a `textureK=<texturový slot>` / `typeK=<typ>` (výchozí typ 0).
-- `[fileN.<položka>]` (N = soubor v `[header]`, od 1; jména se opakují a slučují): podmínky alternativní položky SHPI. `count=` dvojic `geometryK`/`typeK` nebo `textureK`/`typeK` – položka platí, když aktivní typ slotu odpovídá aspoň jedné dvojici (např. 356 A `top`, `top1`, `top2` podle typu střechy, `rea`/`rea1` podle zádi, `dec6`/`dec7` podle texturového slotu 31). `frontend=0/1` a `testdrive=0/1` vybírají textury pro menu a jízdu (kola `whf` = menu, `whg` = hra, `faf`/`fag` rozmazaná kola pro testovací jízdu; sklo `glai`/`glat`). Dál `license=1` (značka), `racedecal=1` (číslo závodního auta), `rotate=1`, `tint=0` a sekce řidiče (`helm`, `fac*`, `suit`, `cas*` na stránkách `suit` a `head`). Položka bez sekce platí vždy.
+- `[fileN.<položka>]` (N = soubor v `[header]`, od 1; jména se opakují a slučují): podmínky alternativní položky SHPI. `count=` dvojic `geometryK`/`typeK` nebo `textureK`/`typeK` – položka platí, když aktivní typ slotu odpovídá aspoň jedné dvojici (např. 356 A `top`, `top1`, `top2` podle typu střechy, `rea`/`rea1` podle zádi, `dec6`/`dec7` podle texturového slotu 31). `frontend=0/1` a `testdrive=0/1` vybírají textury pro menu a jízdu (kola `whf` = menu, `whg` = hra, `faf`/`fag` rozmazaná kola pro testovací jízdu; sklo `glai`/`glat`). `night=0/1` vybírá denní nebo noční textury `interior.fsh` (`gal*`, `gam*` den, `gnl*`, `gnm*` noc; jen 6 aut, nejspíš podsvícené budíky v kokpitu). Porovnává se s příznakem noci trati, viz [Render metody a noc](#render-metody-rmth-a-noc). Dál `license=1` (značka), `racedecal=1` (číslo závodního auta), `rotate=1`, `tint=0` a sekce řidiče (`helm`, `fac*`, `suit`, `cas*` na stránkách `suit` a `head`). Položka bez sekce platí vždy.
 - Převodník (`crp2gltf.py`) dá do glTF díly všech stylů (jméno uzlu `<díl>_<slot>_<typ>`) a zapíše `<auto>_styles.json`: pro každý styl `hide` (uzly ostatních stylů), `textures` (atlasy odlišné od výchozích, např. `356a_tpage1_style5.png`; stejné atlasy se sdílí) a u kabrioletů `top_up`. Výchozí styl glTF je styl prvního záznamu modelu v `nfs5.car`. Atlasy berou `frontend=1`, `testdrive=0`; stránky řidiče mají jeden atlas. Hra styl použije přes `CarStyle` ([game/README.md](../../game/README.md)).
 - **Střecha kabrioletů:** sloty 37 (`Cabrio*`) a 41 (`CabrioUp*` / `CabrioDown*`) jsou celá záď se střechou nahoře a dole a styl uvádí oba. Hra ukazuje jen jeden: nižší (stažená střecha), `top_up` je vymění. Kde mají oba stejnou výšku (356, 356 B, 993, 996: obě zvednuté, stažená existuje jen v LOD), druhý se vynechá.
 - **Sloučení modelů není potřeba.** `gt2.crp` je bajtově shodný s `993.crp` (i `gt2D.fsh`), liší se jen `gt2.tpg` (jeden styl „GT2 Racecar“ = style8 993, jiný typ kol). `f901`, `f996` a `fboxster` jsou zmenšené kopie 901, 996 a boxster s vlastním lakem, ne rozdílové modely; `cop*` jsou úplné modely. Varianty jedné řady už jsou v jednom souboru jako styly.
@@ -184,7 +184,7 @@ Jméno ale o kolizi nerozhoduje. **Keře** poznáme podle značky v `Base` 0x44:
 
 Některé kopie téhož modelu knihovny značku nemají (farmland 3 ze 4 `BUSHSMALL_RIGID2`, castle 36 `BUSHMED_RIGID`, foothills 7). Model je jméno v závorce bez čísla kopie a `_LOD#`. Pokud mají všechny označené kopie modelu stejnou značku a příznaky `Base` a neoznačená kopie stejné příznaky, převezme značku od nich (`tag_from_model`). Generická jména bez závorky (`MESH01`, `OBJECT01`) se nedědí, protože se pod nimi míchají keře s terénem. Keře beze značky i bez označeného souseda zůstávají pevné: coastal `Bush`, canyon `CUTELITTLEBUSH`, castle `BUSHY#`. Jestli originál neoznačené kopie srážel, neověřeno (Wine). Hlavička `animdefs.txt` říká, že popisuje jen označené objekty.
 
-**Karty rostlin** bývají i přímo v zemních článcích `CNK…` (0x0611, bez značky) jako díly s vlastní texturou, např. `shrb` v `CLIFFDROP2DEEP` na canyonu. Jejich trojúhelníky mají 15–60 m a průhledná část sahá až k silnici. `track2gltf.py` je podle textury (`PLANT_TEXTURES`) přesune do `<článek> plants` ve skupině `drivethrough` (D-034). **Bit 0x0040** v příznacích `Base` (0x0651) mají právě stíny: 94 článků na všech tratích, vždy textura `sh80` a render metoda `S_Normal` / `S_UVAnimate`. Jdou do skupiny `shadows`.
+**Karty rostlin** bývají i přímo v zemních článcích `CNK…` (0x0611, bez značky) jako díly s vlastní texturou, např. `shrb` v `CLIFFDROP2DEEP` na canyonu. Jejich trojúhelníky mají 15–60 m a průhledná část sahá až k silnici. `track2gltf.py` je podle textury (`PLANT_TEXTURES`) přesune do `<článek> plants` ve skupině `drivethrough` (D-034). **Bit 0x0040** v příznacích `Base` (0x0651) mají právě stíny: 94 článků na všech tratích, vždy textura `sh80` a render metoda `S_Normal` / `S_UVAnimate`. Jdou do skupiny `shadows`. Jiné stíny originál nemá, viz [shadow.md](shadow.md).
 
 Články s `tr` jsou **objekty** s vlastní maticí; vrcholy mají v lokálních souřadnicích. Odpovídají jim cesty v misc `Desc` (`I:\NFS5Tracks\ModelLibrary\Objects\Smackable\…`). Jsou dvojího druhu:
 
@@ -216,6 +216,28 @@ Terén a silnice mají značku prázdnou.
 | `CmAn` | kamery (`camera00` …), 6340 B |
 | `Desc` | cesty ke zdrojovým modelům knihovny objektů |
 | `sn` | jméno souboru textur (`skidpad.fsh`) |
+| `RMth` | render metoda: jméno a seznam vrstev; podle vrstev se pozná noční trať (níže) |
+
+### Render metody (`RMth`) a noc
+
+Každá položka `RMth` začíná jménem render metody (16 B, `Opaque`, `NormMatState`, `FakeSort` …), na které odkazují materiály `mt`. Za ním následuje seznam vrstev. Typ vrstvy je u32 0x8001–0x8011 a hra podle něj vrstvu vytvoří ve factory `FUN_00449b70`. Strukturu záznamu vrstvy zatím rozluštěnou nemáme. Typy se hledají v datech položky po 4 B.
+
+Typy vrstev `Headlights` (RTTI v `Porsche.exe`):
+
+| Typ | Třída |
+| --- | --- |
+| 0x8001 | `RCustomLayers::LayerUVAnimate` |
+| 0x8002 | `Headlights::LayerVertexLight` |
+| 0x8003 | `Headlights::LayerVertexLight_Opaque` |
+| 0x8011 | `Headlights::LayerVertexLight_Ambient` |
+
+**Noc.** Originál nemá v datech trati denní dobu jako samostatnou hodnotu. Vytvoření vrstvy 0x8002, 0x8003 nebo 0x8011 nastaví globální příznak noci (`0x628A28` = 1, ve factory `FUN_00449b70`). Tyto vrstvy osvětlují trať světly aut. Příznak pak zapne promítání světlometů auta hráče na trať (textura `nght` z `GameData/Render/night.psh`, IDEA-015) a vybírá noční textury interiéru (`night=1` v `.tpg`, kapitola 3).
+
+Podle render metod jsou noční tratě **monaco1–5 a industrial**. Všechny ostatní tratě (alps, autobahn, canyon, castle, coastal, farmland, foothills, forest, skidpad) vrstvy `Headlights` nemají a jsou denní. Nočním tratím odpovídá i tmavá obloha (`st1a` Monaka) a velký počet lamp (tabulka září výše). Ověřeno 17. 11. 2026.
+
+`tools/track2gltf.py` zapíše příznak do `<trať>_lights.json`: `night` (true / false) a `night_methods` (render metody s vrstvou `Headlights`). Čtení vrstev je v `render_methods` a `is_night` v `tools/crp.py`.
+
+Jako příznak noci se nedá použít `ambient` z `<trať>.map`. Hodnotu 0,30 mají i denní tratě ([map.md](map.md)).
 
 ### Efekty (`ef` článku)
 

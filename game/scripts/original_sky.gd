@@ -6,14 +6,14 @@ extends Node
 ## option the same shader draws the HDRI and the ring in front of it (horizon_only).
 ## Weather region A blends into B along the track (region_blend keyed by road slice); this node
 ## follows the camera's slice and updates the blend.
-## Day / night: the original has one time per track (Monaco night, the rest day). The other time
-## scales the sky by NIGHT_SCALE or DAY_SCALE (user's choice, 15. 11. 2026).
+## Day / night: the original has one time per track (Monaco 1-5 and Industrial night, the rest day;
+## Main.is_night_track). Night tracks always run at night; NIGHT RACE on a day track scales the sky by
+## NIGHT_SCALE (DAY_SCALE would brighten a night sky by day; user's choice, 15. 11. 2026).
 
 const SHADER := preload("res://shaders/original_sky.gdshader")
 const DAY_ENERGY := 1.0
 const NIGHT_SCALE := 0.06  ## a day sky at night
 const DAY_SCALE := 3.0  ## a night sky (Monaco) by day
-const NIGHT_LUMINANCE := 0.08  ## linear luminance of the base sky map below which the sky is a night sky
 const TICKS := 30.0  ## Porsche.exe moves the sky layers 30 times a second
 const WIND_FACTOR := 0.00025  ## UV per tick per unit of wind speed (FUN_0045f1b0)
 const SUN_SIZE_DEG := 3.5
@@ -132,19 +132,6 @@ static func set_layers(m: ShaderMaterial, level: Dictionary, blend: float) -> vo
 		var wind := _wind(la["wind"]).lerp(_wind(lb["wind"]), blend)
 		m.set_shader_parameter("layer%d" % k, Vector4(inv.x, inv.y, wind.x, wind.y))
 	m.set_shader_parameter("region_blend", blend)
-
-
-## True when the base map of the track's sky is dark (the original's night tracks).
-static func is_night_sky(data: Dictionary) -> bool:
-	var level := pick_level(data, false)
-	if level.is_empty():
-		return false
-	var name: Variant = level["regions"][0]["layers"][0].get("map")
-	var textures: Dictionary = data.get("textures", {})
-	if name == null or not textures.has(name):
-		return false
-	var c := _average(str(data["folder"]).path_join(str(textures[name])), -1)
-	return c.srgb_to_linear().get_luminance() < NIGHT_LUMINANCE
 
 
 ## Mean colour of the horizon (horz weighted by alpha, tinted by hzcl): the fog colour that joins

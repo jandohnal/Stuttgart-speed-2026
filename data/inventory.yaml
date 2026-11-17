@@ -4,7 +4,7 @@
 # category: usable_now | unpack | to_write
 # priority: high | medium | low | none (podle docs/decisions.md)
 schema_version: 1
-updated: 2026-10-19
+updated: 2026-11-17
 install_size_mb: 540
 tracks: [alps, autobahn, canyon, castle, coastal, farmland, foothills, forest, industrial, monaco1, monaco2, monaco3, monaco4, monaco5, skidpad]
 
@@ -137,7 +137,7 @@ items:
     output: "decomposed/GameData/Track/<trať>/<trať>.gltf + <trať>_road.json + <trať>_objects.json + <trať>_lights.json"
     status: partial
     checked: "všech 15 převedeno, normály v pořádku, na hlavní trase bez děr; varování: spáry u okraje silnice, vedlejší úseky SimD mimo geometrii (docs/model-check.md)"
-    notes: "Převedeno všech 15 tratí. SimD = řezy silnice (pozice, vektory, šířky) v úsecích, start/cíl z *_fstart.scn, rozmístěné objekty z matice tr se značkou v Base 0x44 (*_objects.json), keře podle značky BUSH (drivethrough v animdefs.txt, neoznačené kopie modelu ji převezmou) ve skupině drivethrough bez kolize, světelné záře a zdroje částic z podpoložek ef (*_lights.json, 0–700 září na trať)"
+    notes: "Převedeno všech 15 tratí. SimD = řezy silnice (pozice, vektory, šířky) v úsecích, start/cíl z *_fstart.scn, rozmístěné objekty z matice tr se značkou v Base 0x44 (*_objects.json), keře podle značky BUSH (drivethrough v animdefs.txt, neoznačené kopie modelu ji převezmou) ve skupině drivethrough bez kolize, světelné záře a zdroje částic z podpoložek ef (*_lights.json, 0–700 září na trať). Noc: render metody RMth s vrstvami Headlights (typ 0x8002, 0x8003, 0x8011) zapnou v originálu noční režim, mají je monaco1–5 a industrial (docs/formats/crp.md, Render metody a noc); převodník ho zapíše do *_lights.json jako night a night_methods"
     use: "Jen náhled pro inspiraci stylem (D-005)"
 
   - id: flares
@@ -223,6 +223,19 @@ items:
     status: decoded
     notes: "Světelné obtisky na autech, SHPI s 2–11 obrázky 64×64 32bitové (0x7D), celkem 95: barva světla v RGB, tvar a síla v alfě (BT/YT/WT tunelová světla, TT stín stromů). Kde platí, určují sekce <trať>.map (rozsah řezů SimD, 3 stupně textur open/covered, texturesize, aspect), rozluštěno z Porsche.exe"
     use: "Záblesky lamp v tunelech a stín stromů na autech (D-044, game/scripts/light_decals.gd)"
+
+  - id: car_shadow
+    category: usable_now
+    priority: low
+    path: "GameData/CarModel/Shadow.fsh"
+    count: 1
+    format: fsh
+    doc: docs/formats/shadow.md
+    tool: tools/fsh2png.py
+    output: "decomposed/GameData/CarModel/Shadow/000_Shad.png + index.json"
+    status: partial_decoded  # texture and loading from Porsche.exe 2026-11-17; geometry under the car not decoded
+    notes: "Stín auta na zemi: jeden obrázek 64×64 (0x7D), černý půlkruh s alfou slábnoucí k okraji. Originál nemá stíny počítané za běhu, volby SHADOWMAPPING a DETAILEDSHADOWS v exe jsou nepoužité"
+    use: "Předloha skvrny pod autem s LOW QUALITY (D-048, game/scripts/car_shadow.gd, tvar vlastní)"
 
   - id: track_maps
     category: usable_now

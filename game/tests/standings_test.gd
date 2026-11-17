@@ -38,7 +38,7 @@ func _ready() -> void:
 		print("STANDINGS TEST: no race on ", main.track_name)
 		get_tree().quit(1)
 		return
-	main.drive_by_ai(1 if main.track_name.begins_with("monaco") else 0)
+	main.drive_by_ai(main.ai_line())
 	main._restart_race()
 	if main._user_arg("front") == "1":
 		var d := main.opponents[0].get_node("AIDriver") as AIDriver

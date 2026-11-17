@@ -40,6 +40,12 @@ extends Node
 
 const LOOK_TIME := 0.7  ## s of the current speed to the steering target (TRAFCFG look_ahead_factor)
 const PASS_LOOK_TIME := 0.4  ## same while passing: pure pursuit cuts corners by about look^2 x curvature / 2, beside a car that matters
+## Times the pure pursuit wheel angle in the original's driving model (D-046): its front tyres
+## build side force over a slip angle up to 16/256 of a turn, so the wheel must turn far more than
+## the arc's geometric angle; with 1 the car ran wide by 5-8 m and the feedback came too late.
+const ORIGINAL_STEER_GAIN := 3.0
+const LANDING_TIME := 0.8  ## s over which the steering comes back to full gain after a jump
+const JUMP_TIME := 0.2  ## s in the air that make a jump (a bump lifting a wheel briefly does not)
 const MIN_LOOK := 10.0  ## m
 const MAX_LOOK := 35.0  ## m
 const CURVE_SPANS := [2, 3, 4]  ## slices between the three line points a radius is measured on; the tightest counts
@@ -88,6 +94,7 @@ const OTHER_OFF_LINE := 12.0  ## m from the line a car may be and still count as
 @export var steer_gain := 1.0  ## times the pure pursuit wheel angle
 @export var yaw_gain := 2.0  ## wheel angle per wheelbase x curvature the car turns too little (P)
 @export var yaw_integral_gain := 1.5  ## same, per second the error lasts (I)
+@export var yaw_integral_limit := 0.1  ## largest summed error (wheelbase x curvature x s)
 
 var car: Car
 var road: Road
@@ -105,6 +112,7 @@ var reset_reason := ""  ## why the last reset happened: stuck, off road, upside 
 var line_offsets := PackedFloat32Array()  ## m along the slice's right vector
 var line := PackedVector3Array()  ## line point on every slice
 var curvature := PackedFloat32Array()  ## 1/m of the line at every slice
+var crest_curvature := PackedFloat32Array()  ## 1/m the line's height profile bends down (crest), 0 elsewhere
 var turn_side := PackedFloat32Array()  ## +1 the corner's centre is to the right of the line, -1 left
 var corner_speed := PackedFloat32Array()  ## m/s the line's radius allows at every slice
 var speed_limit := PackedFloat32Array()  ## m/s, the profile: corner speeds and the braking into them
@@ -122,6 +130,8 @@ var _stuck_time := 0.0
 var _off_time := 0.0
 var _upside_time := 0.0
 var _yaw_integral := 0.0  ## wheelbase x curvature error, summed over time
+var _landed_time := LANDING_TIME  ## s since the front wheels touched down after a jump
+var _air_time := 0.0  ## s the front wheels have been off the ground
 
 
 ## ai_data: the track's _ai.json (null or empty: the road centre); line_index: 0 or 1.
@@ -177,10 +187,22 @@ func _build_line(offsets: Array) -> void:
 				curvature[b] = k
 				# The chord's middle lies towards the centre of the circle.
 				turn_side[b] = 1.0 if ((line[i] + line[c]) * 0.5 - line[b]).dot(road.rights[b]) >= 0.0 else -1.0
+	crest_curvature.resize(n)
+	crest_curvature.fill(0.0)
+	for span: int in CURVE_SPANS:
+		for i in n:
+			var b := road.ahead(i, span)
+			var c := road.ahead(b, span)
+			if b != i and c != b:
+				crest_curvature[b] = maxf(crest_curvature[b], _crest(line[i], line[b], line[c]))
 	var grip := car.mu * Car.GRAVITY
 	corner_speed.resize(n)
 	for i in n:
-		corner_speed[i] = minf(sqrt(grip * grip_use / maxf(curvature[i], 1e-6)), MAX_SPEED)
+		# Over a crest the car gets lighter (g - v^2 kv) and so does the grip left for the corner:
+		# v^2 kh = grip_use mu (g - v^2 kv). On a straight crest this is the speed the car lifts off
+		# at; a car in the air flies straight on while the line turns, and lands off it.
+		var bend := maxf(curvature[i] + grip_use * car.mu * crest_curvature[i], 1e-6)
+		corner_speed[i] = minf(sqrt(grip * grip_use / bend), MAX_SPEED)
 	# Braking back from every corner: passes against the road's direction until nothing changes
 	# (a few, for the links between segments and the laps of a closed road).
 	var decel := minf(car.brake_decel_g, car.mu) * Car.GRAVITY * brake_use
@@ -205,6 +227,16 @@ func _build_line(offsets: Array) -> void:
 func _half_width(i: int) -> float:
 	var w: Array = road.slices[i].get("widths", [])
 	return maxf(float(w[0]), float(w[1])) if w.size() >= 2 else 4.0
+
+
+## Curvature (1/m) of the height profile through three points along the line where it bends down
+## (a crest), 0 in a dip or on an even slope.
+static func _crest(a: Vector3, b: Vector3, c: Vector3) -> float:
+	var d1 := Vector2(b.x - a.x, b.z - a.z).length()
+	var d2 := Vector2(c.x - b.x, c.z - b.z).length()
+	if d1 < 0.5 or d2 < 0.5:
+		return 0.0
+	return maxf(((b.y - a.y) / d1 - (c.y - b.y) / d2) / ((d1 + d2) * 0.5), 0.0)
 
 
 ## Radius of the circle through three points, measured in the horizontal plane.
@@ -285,16 +317,38 @@ func _steer(delta: float) -> void:
 	var dist2 := maxf(local.length_squared(), 1.0)
 	# Pure pursuit: the arc through the target point; positive = left (car front is -Z).
 	var curvature := -2.0 * local.x / dist2
-	var angle := atan(_wheelbase * curvature) * steer_gain
-	if speed > 3.0:
+	var angle := atan(_wheelbase * curvature)
+	if not _front_on_ground():
+		# In the air (a crest): the yaw rate does not answer the wheel, the feedback would wind the
+		# wheel up and the car would land with it turned and spin. Only the bare arc.
+		_yaw_integral = 0.0
+		_air_time += delta
+		if _air_time > JUMP_TIME:
+			_landed_time = 0.0
+		car.auto_steer = clampf(angle / deg_to_rad(car.max_steer_deg), -1.0, 1.0)
+		return
+	# After a jump the car lands off the line and the full gain would snap it round: it comes back
+	# over LANDING_TIME.
+	_air_time = 0.0
+	_landed_time += delta
+	var settle := clampf(_landed_time / LANDING_TIME, 0.0, 1.0)
+	angle *= lerpf(1.0, steer_gain * (ORIGINAL_STEER_GAIN if car.original_handling else 1.0), settle)
+	if speed > 3.0 and settle >= 1.0:
 		# The curvature the car actually drives, from its yaw rate.
 		var turning := car.angular_velocity.dot(car.global_basis.y) / speed
 		var error := _wheelbase * (curvature - turning)
-		_yaw_integral = clampf(_yaw_integral + error * delta, -0.1, 0.1)
+		_yaw_integral = clampf(_yaw_integral + error * delta, -yaw_integral_limit, yaw_integral_limit)
 		angle += yaw_gain * error + yaw_integral_gain * _yaw_integral
 	else:
 		_yaw_integral = 0.0
 	car.auto_steer = clampf(angle / deg_to_rad(car.max_steer_deg), -1.0, 1.0)
+
+
+func _front_on_ground() -> bool:
+	for w in car.wheels:
+		if w.front and w.contact and not w.detached:
+			return true
+	return false
 
 
 ## Point on the line `distance` m ahead of the car's slice.

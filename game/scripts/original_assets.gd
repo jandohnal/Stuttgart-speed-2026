@@ -25,9 +25,10 @@ static func exists(relative: String) -> bool:
 	return FileAccess.file_exists(path(relative))
 
 
-## True when a car or track file can be had: on the web its pack may not be downloaded yet.
+## True when a file can be had: on the web a car or track pack may not be downloaded yet; every
+## other file is in the core pack, mounted before the menu, so it is looked up directly.
 static func available(relative: String) -> bool:
-	if OS.has_feature("web"):
+	if OS.has_feature("web") and not DataPacks.pack_for(relative).is_empty():
 		return DataPacks.offers(relative)
 	return exists(relative)
 

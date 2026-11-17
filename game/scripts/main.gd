@@ -6,18 +6,19 @@ extends Node3D
 ## --windowed=1 keeps a window. F2 records telemetry to user://telemetry_*.csv, F5 repairs the car,
 ## F11 full screen, Esc goes back to the menu (scenes/menu.tscn, which sets GameSettings.car_key /
 ## track_name, time_of_day and the options: steering assist, ABS, traction control, sound).
-## Time of day: GameSettings.time_of_day, else --time=day|night or project setting
-## stuttgart/time (default day); the sky and sun come from SkyLighting, the car lamps from CarLights,
-## the track's lamps and warning lights from TrackLights.
+## Time of day: on the original's night tracks (Monaco 1-5, Industrial: night in <track>_lights.json,
+## is_night_track) always night, like the original; elsewhere GameSettings.time_of_day, else
+## --time=day|night or project setting stuttgart/time (default day). The sky and sun come from
+## SkyLighting, the car lamps from CarLights, the track's lamps and warning lights from TrackLights.
 ## Paint: GameSettings.car_color, else --color=<#rrggbb>; empty = the body texture untinted.
 ## --ai=0|1: the car is driven by AIDriver along the original's racing line 0 or 1 (D-026).
 ## Parts (CarParts): GameSettings.car_tune (stock / sport) and tyres (stock / slick / rain), else
 ## --tune= / --tyres=; default stock.
 ## Opponents (D-026, step C): on a track with a start line --opponents=<n> (0..MAX_OPPONENTS) puts n
 ## AIDriver cars of the player's model on a staggered grid ahead of the player, each with its
-## driver's name, style and colour (OpponentProfiles); the game itself starts with project setting
-## stuttgart/opponents (default DEFAULT_OPPONENTS) when the menu's Opponents option is on, the
-## tests with none unless they ask. They are held by the countdown
+## driver's name, style and colour (OpponentProfiles); the game itself starts with as many as the
+## menu's OPPONENTS slider (GameSettings.options["opponents"], 0..GameSettings.MENU_MAX_OPPONENTS),
+## the tests with none unless they ask. They are held by the countdown
 ## like the player and set back on the grid on restart. Rubber band (RaceRubberBand, D-035): the
 ## menu's option in the game, --rubber=0|1 else, off in the tests unless they ask.
 ## Laps: on Monte Carlo's circuits (start = finish line, "source": "lap") the race is --laps=<n>
@@ -36,6 +37,9 @@ const CarLights := preload("res://scripts/car_lights.gd")
 const CarParts := preload("res://scripts/car_parts.gd")
 const TrackLights := preload("res://scripts/track_lights.gd")
 const DEFAULT_TIME := "day"
+## Night flag of every track, for the web menu before a track's pack is loaded (tools/pack_web.py).
+const NIGHT_TRACKS := "GameData/Track/tracks.json"
+static var _night_tracks := {}  ## track -> is_night_track, read once
 ## Times of day offered in the menu -> shown name.
 const TIMES := {"day": "Den", "night": "Noc"}
 const SFX_BANK := "GameData/Sounds/SND_coll"
@@ -56,7 +60,7 @@ const GROUND_PROBE_UP := 3.5  ## m above a reset point the ground search starts 
 const GROUND_PROBE_DOWN := 3.0  ## m below it the search ends
 const RESET_HEIGHT := 0.4  ## m of the car's origin above the road after a reset (as Road.transform_at)
 const DEFAULT_LAPS := 3  ## laps of a circuit (Monte Carlo) in the game; the tests drive one
-const DEFAULT_OPPONENTS := 3
+const LOW_SKY_RADIANCE := Sky.RADIANCE_SIZE_32  ## low quality: the sky's radiance map (_apply_low_quality)
 const STOP_BRAKE := 0.6  ## brake after the finish (~0.5 g: firm, the wheels do not lock)
 const STOP_LOOKAHEAD := 4  ## road slices ahead the car steers to after the finish
 const STOP_SPEED := 0.3  ## m/s below which the stopped car is held
@@ -213,6 +217,10 @@ const CARS := {
 	"eden5": {"name": "Traffic eden5", "model": "eden5", "physics": "default"},
 	"postship": {"name": "Traffic postship", "model": "postship", "physics": "default"},
 }
+## Racing line of the original (<track>_ai.json, 0 or 1) the opponents drive, where it is not 0.
+## The two lines belong to different layouts of Monte Carlo: the other one runs into the barriers
+## (SAWHORSE) that close the streets of this layout (ai_drive_test, 17. 11. 2026).
+const AI_LINES := {"monaco1": 1, "monaco3": 1, "monaco4": 1, "monaco5": 1}
 ## Tracks offered in the menu: name in GameData/Track/ -> shown name.
 const TRACKS := {
 	"farmland": "Farmland (Normandie)",
@@ -260,8 +268,12 @@ const LOG_FIELDS := ["time", "speed_kmh", "rpm", "gear", "throttle", "brake", "s
 var track_name := ""
 ## Car key in cars.json; empty = --car argument or project setting stuttgart/car.
 var car_key := ""
-## "day" or "night"; empty = --time argument or project setting stuttgart/time.
+## "day" or "night"; empty = --time argument or project setting stuttgart/time. A night track
+## (night_track) makes it "night" whatever was asked.
 var time_of_day := ""
+## The original runs this track at night (is_night_track): its sky and textures are painted at night,
+## so the night is not made by darkening them (SkyLighting, Materials.setup_track).
+var night_track := false
 var hdri_sky := false  ## the sky is an HDRI (sky_source == "hdri")
 var sky_source := ""  ## "original", "hdri" or "procedural" (SkyLighting.apply, D-045)
 var original_sky: OriginalSky  ## follows the camera for the weather regions, null without the original's sky
@@ -274,7 +286,7 @@ var start_slice := 0
 var race: RaceTimer  ## null on tracks without start / finish lines (free driving)
 var ai_driver: AIDriver  ## null: the player drives
 var race_laps := -1  ## -1: --laps, else project setting stuttgart/laps in the game, 1 in tests
-var opponent_count := -1  ## -1: --opponents, else project setting stuttgart/opponents in the game, 0 in tests
+var opponent_count := -1  ## -1: --opponents, else the menu's OPPONENTS in the game, 0 in tests
 var opponents: Array[Car] = []  ## AI cars on the grid (their AIDriver is the child "AIDriver")
 var _opponent_grid: Array[Transform3D] = []
 var _stopping := false  ## past the finish: the car brakes along the road (_drive_to_stop)
@@ -307,8 +319,11 @@ func _ready() -> void:
 		track_name = GameSettings.track_name if not GameSettings.track_name.is_empty() else _track_from_args()
 	if time_of_day.is_empty():
 		time_of_day = GameSettings.time_of_day if not GameSettings.time_of_day.is_empty() else _time_from_args()
+	night_track = is_night_track(track_name)
+	if night_track:
+		time_of_day = "night"
 	_setup_lighting()
-	_set_shadow_atlas(GameSettings.is_low_quality())
+	_set_shadow_atlas()
 	if GameSettings.is_low_quality():
 		_apply_low_quality()
 	elif GameSettings.is_web_profile():  # every shadow pass draws the scene again
@@ -317,7 +332,7 @@ func _ready() -> void:
 	var folder := "GameData/Track/%s/" % track_name
 	var track := OriginalAssets.load_gltf(folder + track_name + ".gltf")
 	if track != null:
-		Materials.setup_track(track, folder + track_name + ".gltf")
+		Materials.setup_track(track, folder + track_name + ".gltf", time_of_day == "night", night_track)
 		add_child(track)
 		_add_track_collision(track)
 		var objects: Variant = OriginalAssets.load_json(folder + track_name + "_objects.json")
@@ -340,7 +355,8 @@ func _ready() -> void:
 		var arg := _user_arg("slice")
 		if arg.is_valid_int():
 			start_slice = clampi(arg.to_int(), 0, road_slices.size() - 1)
-		if _user_arg("decals") != "0":  # --decals=0: no light decals on the cars
+		# --decals=0: no light decals on the cars; low quality has none either (each car drawn again)
+		if _user_arg("decals") != "0" and not GameSettings.is_low_quality():
 			light_decals = LightDecals.load_track(track_name, road)
 			if light_decals != null:
 				add_child(light_decals)
@@ -362,7 +378,8 @@ func _ready() -> void:
 		_add_opponents(road_data, cars, color)
 	if _user_arg("ai").is_valid_int():
 		drive_by_ai(_user_arg("ai").to_int())
-	if track != null and _user_arg("effects") != "0" and _user_arg("leaves") != "0":  # --leaves=0: no leaves from crowns
+	# --leaves=0: no leaves from crowns; low quality has none either (every leaf is simulated and drawn)
+	if track != null and _user_arg("effects") != "0" and _user_arg("leaves") != "0" and not GameSettings.is_low_quality():
 		var leaves := FallingLeaves.new()
 		leaves.name = "FallingLeaves"
 		add_child(leaves)
@@ -432,11 +449,16 @@ func _build_car(target: Car, key: String, color: String, cars: Variant, player: 
 	var style := CarStyle.apply(model, model_path, car_style_of(key, car_colors))
 	Materials.setup_car(model, Color.from_string(color, Color(0, 0, 0, 0)) if not color.is_empty() else Color(0, 0, 0, 0))
 	target.setup(model, _fitted_parts(cars[physics], physics))
+	if GameSettings.is_low_quality():  # no shadows computed while running: a blob under the car
+		var shadow := CarShadow.new()
+		shadow.setup(target, model)
+		if player and time_of_day == "night":  # the unshaded track ignores the headlights
+			CarBeam.new().setup(target, shadow.front_reach)
 	if light_decals != null:
 		light_decals.add_car(target, model)
 	var car_lights := CarLights.new()
 	target.add_child(car_lights)
-	car_lights.setup(target, model, time_of_day == "night")
+	car_lights.setup(target, model, time_of_day == "night", player or not GameSettings.is_low_quality())
 	if player:
 		car_style = style
 		lights = car_lights
@@ -472,10 +494,8 @@ func _add_opponents(road_data: Dictionary, cars: Variant, player_color: String) 
 	if count < 0:
 		if arg.is_valid_int():
 			count = arg.to_int()
-		elif _is_game() and GameSettings.options["opponents"]:
-			count = int(ProjectSettings.get_setting("stuttgart/opponents", DEFAULT_OPPONENTS))
-			if GameSettings.is_low_quality():
-				count = mini(count, GameSettings.LOW_OPPONENTS)
+		elif _is_game():
+			count = int(GameSettings.options["opponents"])
 		else:
 			count = 0
 	count = clampi(count, 0, MAX_OPPONENTS)
@@ -499,7 +519,7 @@ func _add_opponents(road_data: Dictionary, cars: Variant, player_color: String) 
 		driver.name = "AIDriver"
 		opponent.add_child(driver)
 		OpponentProfiles.apply(driver, profile)
-		driver.setup(opponent, road, ai_data, 0)
+		driver.setup(opponent, road, ai_data, ai_line())
 		opponents.append(opponent)
 		standings.add_car(opponent, profile["name"])
 		($HUD as Hud).minimap.add_car(opponent, color)
@@ -589,6 +609,11 @@ func _on_race_finished(_time: float) -> void:
 	car.auto_brake = STOP_BRAKE
 
 
+## The original's racing line the opponents drive on this track (AI_LINES).
+func ai_line() -> int:
+	return int(AI_LINES.get(track_name, 0))
+
+
 ## Hands the car to AIDriver on the original's racing line `line_index` (<track>_ai.json).
 func drive_by_ai(line_index := 0) -> AIDriver:
 	if ai_driver == null:
@@ -659,7 +684,7 @@ func _restart_race() -> void:
 func _setup_lighting() -> void:
 	var world := $WorldEnvironment as WorldEnvironment
 	world.environment = world.environment.duplicate(true) as Environment
-	sky_source = SkyLighting.apply(world.environment, $Sun as DirectionalLight3D, track_name, time_of_day, _chosen_sky())
+	sky_source = SkyLighting.apply(world.environment, $Sun as DirectionalLight3D, track_name, time_of_day, _chosen_sky(), night_track)
 	hdri_sky = sky_source == "hdri"
 
 
@@ -702,33 +727,37 @@ func _apply_options() -> void:
 	GameSettings.apply_render_height()
 
 
-## Low quality (GameSettings.is_low_quality) for weak computers: every shadow pass draws the scene
-## again and the draw calls limit the web build, so the sun's shadows are cheap (one split over
-## LOW_SHADOW_DISTANCE, hard edges, small map; _set_shadow_atlas) and the view shorter (the fog
-## thickens to hide its edge); glow and SSAO are full-screen passes. Without any shadows the sun
-## lit one side of the trunks under the canopies and the other stayed near black.
-## Lighting the walls and trees by the sky only (the sun on the ground and cars) looked wrong: the
-## road under the canopies sunlit, the trees dark and an opponent's car a white spot.
+## Low quality (GameSettings.is_low_quality) for weak computers draws like the original
+## (docs/formats/shadow.md): no shadows computed while running. The track is unshaded, its textures
+## hold the light and shade (Materials.setup_track); the cars are lit by the sun and sky without
+## shadows and have a dark blob under them (CarShadow). The view is shorter (the fog thickens to
+## hide its edge); glow, SSAO and the colour adjustment are full-screen passes.
+## The sky shader uses TIME and POSITION (wind, camera), so Godot renders its radiance map (the
+## cars' ambient light and reflections) again every frame; with LOW_SKY_RADIANCE and incremental
+## processing that is a few tiny faces. Fog without aerial perspective (it samples that map).
 func _apply_low_quality() -> void:
-	var sun := $Sun as DirectionalLight3D
-	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
-	sun.directional_shadow_max_distance = GameSettings.LOW_SHADOW_DISTANCE
+	($Sun as DirectionalLight3D).shadow_enabled = false
 	var env := ($WorldEnvironment as WorldEnvironment).environment
 	env.glow_enabled = false
 	env.ssao_enabled = false
+	env.adjustment_enabled = false
+	env.fog_aerial_perspective = 0.0
 	env.fog_density = maxf(env.fog_density, GameSettings.LOW_FOG_DENSITY)
+	if env.sky != null:
+		env.sky.radiance_size = LOW_SKY_RADIANCE
+		env.sky.process_mode = Sky.PROCESS_MODE_INCREMENTAL
 	($Camera as Camera3D).far = GameSettings.LOW_VIEW_DISTANCE
 
 
-## Shadow map size and edge filtering are global (RenderingServer), so they are set on every start:
-## low quality LOW_SHADOW_ATLAS with hard edges, else the project settings.
-func _set_shadow_atlas(low: bool) -> void:
+## Shadow map size and edge filtering are global (RenderingServer), so they are set from the
+## project settings on every start (tests and graphics_test may have changed them); low quality,
+## where the sun casts no shadows, keeps only a tiny map (GameSettings.LOW_SHADOW_ATLAS).
+func _set_shadow_atlas() -> void:
 	var size := int(ProjectSettings.get_setting_with_override("rendering/lights_and_shadows/directional_shadow/size"))
+	if GameSettings.is_low_quality():
+		size = GameSettings.LOW_SHADOW_ATLAS
 	var quality := int(ProjectSettings.get_setting_with_override(
 		"rendering/lights_and_shadows/directional_shadow/soft_shadow_filter_quality"))
-	if low:
-		size = mini(size, GameSettings.LOW_SHADOW_ATLAS)
-		quality = RenderingServer.SHADOW_QUALITY_HARD
 	RenderingServer.directional_shadow_atlas_set_size(size, true)
 	RenderingServer.directional_soft_shadow_filter_set_quality(quality)
 
@@ -839,6 +868,29 @@ static func car_available(key: String, cars: Variant) -> bool:
 
 static func track_available(name: String) -> bool:
 	return OriginalAssets.available("GameData/Track/%s/%s.gltf" % [name, name])
+
+
+## The original runs the track at night (its render methods have Headlights layers, "night" in
+## <track>_lights.json from tools/track2gltf.py): Monaco 1-5 and Industrial. On the web before the
+## track's pack is loaded (the menu) from NIGHT_TRACKS in the core pack (tools/pack_web.py).
+static func is_night_track(name: String) -> bool:
+	if _night_tracks.has(name):
+		return _night_tracks[name]
+	var night := false
+	var lights := "GameData/Track/%s/%s_lights.json" % [name, name]
+	if OriginalAssets.exists(lights):
+		var data: Variant = OriginalAssets.load_json(lights)
+		if data is Dictionary and data.has("night"):
+			night = bool(data["night"])
+		elif data is Dictionary:
+			push_warning("%s has no night flag - convert the track again (tools/track2gltf.py)" % lights)
+	elif OriginalAssets.exists(NIGHT_TRACKS):
+		var index: Variant = OriginalAssets.load_json(NIGHT_TRACKS)
+		night = index is Dictionary and bool(index.get(name, {}).get("night", false))
+	else:
+		return false  # no data (yet): not cached, the track's pack may still come
+	_night_tracks[name] = night
+	return night
 
 
 ## Data packs a race on `track` in car `key` needs on the web (DataPacks, tools/pack_web.py).

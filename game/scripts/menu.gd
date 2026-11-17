@@ -1,7 +1,8 @@
 extends Control
 ## Main menu (D-009, look D-032): race setup panel on the left (car, parts Stock / Sport via CarParts,
-## paint colour, tyres and track dropdowns, then option checkboxes: night, driver aids, sound,
-## opponents, rubber band, low quality graphics) and PLAY; a porthole with an archive photo (ui/photos/porthole_*, else a
+## paint colour, tyres and track dropdowns, then option checkboxes: night (checked and disabled on the
+## original's night tracks, Main.is_night_track: they always run at night), driver aids, sound,
+## rubber band, low quality graphics; the OPPONENTS slider 0..4) and PLAY; a porthole with an archive photo (ui/photos/porthole_*, else a
 ## placeholder) with the selected car turning in it (CarShowcase, one turn a minute) above a caption
 ## naming the car; top right the selected track's outline from the original menu (TRACK_ART); a footer with credits (a dialog: tribute, how it was made, CREDITS_STATS) and exit. The lists come from
 ## main.gd (CARS, TRACKS); entries whose data is missing in decomposed/ are disabled. The choice
@@ -11,7 +12,7 @@ extends Control
 ## Layout: 1920x1080 design pixels (root content scale while the menu is up), wider or taller
 ## windows grow the background and keep the panel left and the porthole bottom-centre.
 ## Keyboard / gamepad: arrows or D-pad move the focus (dropdowns -> options -> PLAY -> wheel -> credits ->
-## exit -> back to the top), Space / A opens a list or toggles, Enter (anywhere) or Start plays,
+## OPPONENTS -> exit -> back to the top; left / right move the slider), Space / A opens a list or toggles, Enter (anywhere) or Start plays,
 ## Esc asks to quit.
 
 signal race_requested(config: Dictionary)
@@ -29,6 +30,28 @@ const MISSING := " – no data"
 const ORIGINAL_COLOR := "Original"
 const FACTORY := " (factory)"
 const SWATCH := 20  ## px
+## Our names for the original paint palette (nfs5.car has only RGB); unknown colours show as hex.
+const COLOR_NAMES := {
+	"#ffffff": "White",
+	"#f3ffcc": "Ivory",
+	"#d6ac76": "Sand Beige",
+	"#ffea89": "Pastel Yellow",
+	"#ffde00": "Speed Yellow",
+	"#fbb112": "Signal Yellow",
+	"#ff7200": "Orange",
+	"#ff0000": "Guards Red",
+	"#ab0000": "Indian Red",
+	"#7a0b00": "Burgundy Red",
+	"#2e1277": "Violet",
+	"#83a5cf": "Pastel Blue",
+	"#00a2ff": "Riviera Blue",
+	"#004396": "Cobalt Blue",
+	"#082259": "Midnight Blue",
+	"#053820": "Racing Green",
+	"#c4c7ce": "Silver",
+	"#3b3e41": "Slate Grey",
+	"#000000": "Black",
+}
 const TUNE_LABELS := {"stock": "Stock", "sport": "Sport"}
 const TYRE_LABELS := {"stock": "Stock", "slick": "Racing slick", "rain": "Rain"}
 const NIGHT := "night"
@@ -40,12 +63,14 @@ const OPTION_LABELS := {
 	"brake_assist": "ABS",
 	"traction_control": "TRACTION CONTROL",
 	"sound": "SOUND",
-	"opponents": "OPPONENTS",
 	"rubber_band": "RUBBER BAND",
 	"low_quality": "LOW QUALITY",
 	"original_sky": "ORIGINAL SKY",
 	"original_handling": "ORIGINAL HANDLING",
 }
+## The slider under the checkboxes: GameSettings option -> label (a count, 0..MENU_MAX_OPPONENTS).
+const OPPONENTS := "opponents"
+const OPPONENTS_LABEL := "OPPONENTS"
 ## Track outlines of the original menu (yellow line with shadow, docs/formats/trackart.md): first
 ## image of FEData/TrackArt/<track>/ (folder name in any case), none for tracks without art.
 const TRACK_ART := "FEData/TrackArt"
@@ -74,6 +99,9 @@ var colors: Array[String] = []  ## color_option items: "" (original) or "#rrggbb
 var car_colors: Variant  ## Main.CAR_COLORS, null when missing
 var parts: Variant  ## CarParts.FILE, null when missing
 var option_toggles := {}  ## key of OPTION_LABELS -> CheckBox
+## The player's NIGHT RACE choice for day tracks; a night track shows the box checked without changing it.
+var night_choice := false
+var opponents_slider: HSlider
 var wheel_setup: WheelSetup
 var _scale_size := Vector2i.ZERO  ## root content scale before the menu
 var _caption_tween: Tween
@@ -125,10 +153,15 @@ func _ready() -> void:
 		toggle.toggled.connect(_update_caption.unbind(1))
 		options_grid.add_child(toggle)
 		option_toggles[key] = toggle
+	night_choice = last["time"] == NIGHT
+	(option_toggles[NIGHT] as CheckBox).toggled.connect(_on_night_toggled)
+	_update_night()
+	_add_opponents_slider()
 	car_option.item_selected.connect(_on_car_selected)
 	for option: OptionButton in [tune_option, color_option, tyre_option, track_option]:
 		option.item_selected.connect(_on_item_selected)
 	track_option.item_selected.connect(_show_track.unbind(1))
+	track_option.item_selected.connect(_update_night.unbind(1))
 	_show_track()
 	play_button.pressed.connect(_play)
 	play_button.button_down.connect(_shift_play.bind(2))
@@ -150,6 +183,40 @@ func _ready() -> void:
 	_update_play()
 	_update_caption()
 	car_option.grab_focus()
+
+
+## OPPONENTS row under the checkboxes: caption, slider 0..MENU_MAX_OPPONENTS and the count in a box.
+func _add_opponents_slider() -> void:
+	var row := HBoxContainer.new()
+	row.name = "OpponentsRow"
+	row.add_theme_constant_override("separation", 14)
+	var label := Label.new()
+	label.theme_type_variation = &"SliderLabel"
+	label.text = OPPONENTS_LABEL
+	row.add_child(label)
+	opponents_slider = HSlider.new()
+	opponents_slider.theme_type_variation = &"SetupSlider"
+	opponents_slider.min_value = 0
+	opponents_slider.max_value = GameSettings.MENU_MAX_OPPONENTS
+	opponents_slider.step = 1
+	opponents_slider.rounded = true
+	opponents_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	opponents_slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	opponents_slider.custom_minimum_size.y = 30
+	opponents_slider.value = int(GameSettings.options[OPPONENTS])
+	row.add_child(opponents_slider)
+	var count := Label.new()
+	count.theme_type_variation = &"SliderValue"
+	count.custom_minimum_size = Vector2(32, 32)
+	count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	count.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	count.text = str(int(opponents_slider.value))
+	row.add_child(count)
+	opponents_slider.value_changed.connect(func(v: float) -> void: count.text = str(int(v)))
+	var rows := options_grid.get_parent()
+	rows.add_child(row)
+	rows.move_child(row, options_grid.get_index() + 1)
 
 
 ## Background pattern, top shade, play icon and the porthole photo.
@@ -205,7 +272,7 @@ func _link_focus() -> void:
 	var toggles: Array = option_toggles.values()
 	var chain: Array[Control] = [car_option, tune_option, color_option, tyre_option, track_option]
 	chain.append_array(toggles)
-	chain.append_array([play_button, %WheelButton, %CreditsButton, %ExitButton])
+	chain.append_array([opponents_slider, play_button, %WheelButton, %CreditsButton, %ExitButton])
 	for i in chain.size():
 		var c: Control = chain[i]
 		c.focus_next = c.get_path_to(chain[(i + 1) % chain.size()])
@@ -215,11 +282,12 @@ func _link_focus() -> void:
 	for i in toggles.size():
 		var t: Control = toggles[i]
 		t.focus_neighbor_top = t.get_path_to(toggles[i - 2] if i >= 2 else track_option)
-		t.focus_neighbor_bottom = t.get_path_to(toggles[i + 2] if i + 2 < toggles.size() else play_button)
+		t.focus_neighbor_bottom = t.get_path_to(toggles[i + 2] if i + 2 < toggles.size() else opponents_slider)
 		var other: Control = toggles[i ^ 1] if (i ^ 1) < toggles.size() else t
 		t.focus_neighbor_left = t.get_path_to(other)
 		t.focus_neighbor_right = t.get_path_to(other)
-	play_button.focus_neighbor_top = play_button.get_path_to(toggles[toggles.size() - 1])
+	opponents_slider.focus_neighbor_top = opponents_slider.get_path_to(toggles[toggles.size() - 1])
+	play_button.focus_neighbor_top = play_button.get_path_to(opponents_slider)
 	%WheelButton.focus_neighbor_right = %WheelButton.get_path_to(%CreditsButton)
 	%CreditsButton.focus_neighbor_left = %CreditsButton.get_path_to(%WheelButton)
 	%CreditsButton.focus_neighbor_right = %CreditsButton.get_path_to(%ExitButton)
@@ -265,7 +333,7 @@ func _fill_colors(keep: String) -> void:
 		var palette := Main.car_palette(car_keys[car_option.selected], car_colors)
 		for hex: String in palette["colors"]:
 			colors.append(hex)
-			var text := hex.to_upper() + (FACTORY if hex == palette["default"] else "")
+			var text: String = COLOR_NAMES.get(hex.to_lower(), hex.to_upper()) + (FACTORY if hex == palette["default"] else "")
 			color_option.add_icon_item(_swatch(Color(hex)), text)
 	color_option.select(maxi(colors.find(keep.to_lower()), 0))
 	color_option.disabled = colors.size() <= 1
@@ -292,6 +360,24 @@ func _preselect(option: OptionButton, index: int) -> void:
 				index = i
 				break
 	option.select(index)
+
+
+func _on_night_toggled(on: bool) -> void:
+	if not (option_toggles[NIGHT] as CheckBox).disabled:
+		night_choice = on
+
+
+## NIGHT RACE: on a night track of the original checked and disabled, elsewhere the player's choice.
+func _update_night() -> void:
+	var toggle := option_toggles[NIGHT] as CheckBox
+	var night_track := _selected_night_track()
+	toggle.disabled = night_track
+	toggle.set_pressed_no_signal(night_track or night_choice)
+	toggle.tooltip_text = "The original runs this track at night." if night_track else ""
+
+
+func _selected_night_track() -> bool:
+	return track_option.selected >= 0 and Main.is_night_track(track_names[track_option.selected])
 
 
 func _update_play() -> void:
@@ -427,7 +513,7 @@ func get_config() -> Dictionary:
 	var config := {
 		"car": car_keys[car_option.selected],
 		"track": track_names[track_option.selected],
-		"time": NIGHT if (option_toggles[NIGHT] as CheckBox).button_pressed else "day",
+		"time": NIGHT if night_choice else "day",  ## the NIGHT RACE choice; a night track runs at night anyway
 		"color": colors[color_option.selected] if color_option.selected >= 0 else "",
 		"tune": CarParts.TUNES[maxi(tune_option.selected, 0)],
 		"tyres": CarParts.TYRES[maxi(tyre_option.selected, 0)],
@@ -435,6 +521,7 @@ func get_config() -> Dictionary:
 	for key: String in option_toggles:
 		if key != NIGHT:
 			config[key] = (option_toggles[key] as CheckBox).button_pressed
+	config[OPPONENTS] = int(opponents_slider.value)
 	return config
 
 
@@ -453,7 +540,7 @@ func _play() -> void:
 	GameSettings.save_last()
 	var color := color_option.get_item_text(color_option.selected).trim_suffix(FACTORY).to_lower()
 	_set_caption("Loading… %s · %s, %s · %s" % [track_option.get_item_text(track_option.selected),
-		car_option.get_item_text(car_option.selected), color, config["time"]])
+		car_option.get_item_text(car_option.selected), color, NIGHT if _selected_night_track() else config["time"]])
 	race_requested.emit(config)
 	play_button.disabled = true
 	# Let the caption show before the game scene loads (which blocks).

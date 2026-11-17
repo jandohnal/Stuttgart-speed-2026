@@ -7,7 +7,7 @@ count: {txt: 17, bin: 19, fsh: 17}
 status: partial
 tool: ["tools/sky.py", "tools/fsh2png.py"]
 output: ["decomposed/GameData/Track/<trať>/<trať>_sky.json", "decomposed/GameData/Track/Sky/<Trať>/*.png"]
-updated: 2026-11-16
+updated: 2026-11-17
 ---
 
 # Obloha originálu: `Sky/<Trať>.txt`, `.bin`, `.fsh`
@@ -29,7 +29,7 @@ Soubor se hledá podle jména trati bez ohledu na velikost písmen (`farmland` �
 
 | Jméno | Rozměr | Význam |
 | --- | --- | --- |
-| `st1a`, `st1b` | 16×16, neprůhledné | barevná mapa oblohy, oblast počasí A a B (Monaco tmavé, noc) |
+| `st1a`, `st1b` | 16×16, neprůhledné | barevná mapa oblohy, oblast počasí A a B (Monaco tmavé, Industrial oranžové šero; noc určují render metody trati, [crp.md](crp.md#render-metody-rmth-a-noc)) |
 | `sc1a`, `sc2a`, `sc1b` … | 16×16 s alfou | další barevné mapy vrstev |
 | `cc1a`, `cm1a`, `cc2a` … | 32×32, bílé s alfou | mraky (textura vrstvy). `flat` v `.txt` znamená bílou plochu |
 | `horz` (`hor0`–`hor3`) | 256×256 s alfou | panorama krajiny v mřížce dlaždic, nad kopci průhledné. `hor<n>` přednostně pro úroveň výkonu `n` |

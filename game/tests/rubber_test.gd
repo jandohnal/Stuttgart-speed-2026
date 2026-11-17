@@ -41,8 +41,7 @@ func _ready() -> void:
 	add_child(main)
 	standings = main.standings
 	rubber = main.rubber_band != null
-	var line := 1 if main.track_name.begins_with("monaco") else 0
-	var player: AIDriver = main.drive_by_ai(line)
+	var player: AIDriver = main.drive_by_ai(main.ai_line())
 	var pace: float = main._user_arg("player").to_float()
 	if pace > 0.0:
 		player.pace = pace

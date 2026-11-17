@@ -6,9 +6,10 @@ extends Node
 
 const FILE := "user://settings.cfg"
 ## Option -> default. steering_assist, brake_assist (ABS) and traction_control are Car properties;
-## sound unmutes the master bus; opponents puts the opponents (main.gd, stuttgart/opponents of them) on the grid of a race;
-## rubber_band keeps them near the player (RaceRubberBand); low_quality is the reduced graphics for
-## weak computers (is_low_quality, LOW_* below), on the web also set by the address ?quality=low|high.
+## sound unmutes the master bus; opponents is how many opponents (0..MENU_MAX_OPPONENTS, the menu's
+## slider) stand on the grid of a race (main.gd _add_opponents), in any quality; rubber_band keeps
+## them near the player (RaceRubberBand); low_quality is the reduced graphics for weak computers
+## (is_low_quality, LOW_* below), on the web also set by the address ?quality=low|high.
 ## original_sky draws the original's sky and horizon, off the HDRI with the original's horizon (D-045,
 ## SkyLighting.apply); without an HDRI file the original's sky is used either way.
 ## original_handling drives every car with the original's driving model (D-046, OriginalHandling),
@@ -18,24 +19,26 @@ const DEFAULT_OPTIONS := {
 	"brake_assist": false,
 	"traction_control": false,
 	"sound": true,
-	"opponents": true,
+	"opponents": 3,
 	"rubber_band": true,
 	"low_quality": false,
 	"original_sky": true,
 	"original_handling": false,
 }
+## Most opponents the menu offers (its OPPONENTS slider); --opponents allows up to main.gd MAX_OPPONENTS.
+const MENU_MAX_OPPONENTS := 4
 ## Low quality: the 3D view renders at most this many lines (instead of stuttgart/render_height),
-## the camera sees this far (m, the fog thickens to hide the edge), at most this many opponents
-## and night track lights; the sun's shadows reach LOW_SHADOW_DISTANCE (m) in one split of a
-## LOW_SHADOW_ATLAS map with hard edges. No headlight shadows, glow or SSAO, effects only on the
-## player's car.
+## the camera sees this far (m, the fog thickens to hide the edge). Drawn like the original: no
+## shadows computed while running (an unshaded track, a blob under each car, main.gd
+## _apply_low_quality), so nothing that lights only the track: no lamp lights at night, no
+## opponents' headlights. No glow, SSAO or colour adjustment, no sky reflections (the sky's
+## radiance map would be re-rendered every frame), no light decals on the cars, no leaves falling
+## from the crowns, effects only on the player's car.
 const LOW_RENDER_HEIGHT := 720
 const LOW_VIEW_DISTANCE := 1500.0
 const LOW_FOG_DENSITY := 0.0012
-const LOW_OPPONENTS := 3
-const LOW_LIGHT_POOL := 2
-const LOW_SHADOW_DISTANCE := 150.0
-const LOW_SHADOW_ATLAS := 2048
+## Directional shadow map while the sun casts none (the project's size would only take memory).
+const LOW_SHADOW_ATLAS := 256
 ## Low quality adapts the 3D resolution to the graphics card (_adapt_render_height): below
 ## ADAPT_LOWER_FPS on average over ADAPT_LOWER_TIME s it renders ADAPT_STEP times fewer lines,
 ## down to LOW_MIN_RENDER_HEIGHT; above ADAPT_RAISE_FPS for ADAPT_RAISE_TIME s one step more, up to
@@ -81,7 +84,7 @@ func load_last() -> Dictionary:
 	var cfg := ConfigFile.new()
 	cfg.load(FILE)
 	for key: String in DEFAULT_OPTIONS:
-		options[key] = bool(cfg.get_value("options", key, DEFAULT_OPTIONS[key]))
+		options[key] = _option_value(key, cfg.get_value("options", key, DEFAULT_OPTIONS[key]))
 	var quality := _url_quality()
 	if not quality.is_empty():
 		options["low_quality"] = quality == "low"
@@ -89,6 +92,17 @@ func load_last() -> Dictionary:
 	return {"car": str(cfg.get_value("last", "car", "")), "track": str(cfg.get_value("last", "track", "")),
 		"time": str(cfg.get_value("last", "time", "")), "color": str(cfg.get_value("last", "color", "")),
 		"tune": str(cfg.get_value("last", "tune", "")), "tyres": str(cfg.get_value("last", "tyres", ""))}
+
+
+## A saved option as its default's type; opponents saved as on / off (before the slider) is the
+## default count / none.
+static func _option_value(key: String, value: Variant) -> Variant:
+	var default: Variant = DEFAULT_OPTIONS[key]
+	if default is int:
+		if value is bool:
+			return default if value else 0
+		return clampi(int(value), 0, MENU_MAX_OPPONENTS) if key == "opponents" else int(value)
+	return bool(value)
 
 
 func save_last() -> void:

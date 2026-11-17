@@ -46,6 +46,21 @@ def core_files(root):
     return files
 
 
+def night_tracks(root):
+    """GameData/Track/tracks.json for the core pack: the night flag of every track (<track>_lights.json,
+    tools/track2gltf.py), read by the menu before the track's pack is loaded (Main.is_night_track)."""
+    index = {}
+    for lights in sorted((root / "GameData/Track").glob("*/*_lights.json")):
+        if lights.name != f"{lights.parent.name}_lights.json":
+            continue
+        data = json.loads(lights.read_text(encoding="utf-8"))
+        if "night" not in data:
+            sys.exit(f"{lights} has no night flag - convert the track again (tools/track2gltf.py)")
+        index[lights.parent.name] = {"night": data["night"]}
+    name = (MOUNT / "GameData/Track/tracks.json").as_posix()
+    return {name: (json.dumps(index, indent=1) + "\n").encode("utf-8")}
+
+
 def project_files():
     """Our own files the game reads raw (res://...); an export holds only their imported form."""
     files = []
@@ -236,6 +251,7 @@ def main():
     packs.update(sound_packs(args.decomposed))
     tracks = [name.removeprefix("track-") for name in packs if name.startswith("track-")]
     skies = track_skies(args.hdri, tracks, SKY_WIDTH)
+    skies["core"] = {**skies.get("core", {}), **night_tracks(args.decomposed)}
     if not skies:
         print(f"no HDRI skies in {args.hdri} (tools/fetch_hdri.py): the web build keeps the procedural sky")
 

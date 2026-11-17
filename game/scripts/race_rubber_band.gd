@@ -15,7 +15,7 @@ extends Node
 
 const DEAD_GAP := 2.0  ## s around the player without any help
 const FULL_GAP := 5.0  ## s with full effort
-const MAX_GRIP_USE := 0.9  ## share of the tyres' friction a driver catching up plans for
+const MAX_GRIP_USE := 0.95  ## share of the tyres' friction a driver catching up plans for
 const MAX_POWER := 1.1  ## engine power of a driver catching up
 const MIN_PACE := 0.75
 const MIN_THROTTLE := 0.5

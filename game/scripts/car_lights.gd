@@ -52,8 +52,10 @@ var _tail_materials: Array[StandardMaterial3D] = []
 var _braking := false
 
 
-## Builds the lights from the model's lamp parts (model already added to the car).
-func setup(car: Node3D, model: Node3D, is_night: bool) -> void:
+## Builds the lights from the model's lamp parts (model already added to the car). Without
+## `head_lights` the head lamps only glow (low quality: an opponent's headlights would light
+## nothing but the other cars, the track is unshaded).
+func setup(car: Node3D, model: Node3D, is_night: bool, head_lights := true) -> void:
 	_car = car
 	night = is_night
 	name = "Lights"
@@ -79,7 +81,7 @@ func setup(car: Node3D, model: Node3D, is_night: bool) -> void:
 				lamps[kind][side].append(at + Vector3(side * box.size.x / 2.0, 0.0, 0.0))
 	for side: int in [-1, 1]:
 		var head: Array = lamps["head"][side]
-		if not head.is_empty():
+		if not head.is_empty() and head_lights:
 			headlights.append(_headlight(_average(head)))
 		var tail: Array = lamps["tail"][side]
 		if not tail.is_empty():

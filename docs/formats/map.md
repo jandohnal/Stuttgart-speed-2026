@@ -7,12 +7,12 @@ count: {map: 15, env: 15}
 status: done
 tool: ["tools/light_decals.py", "tools/fsh2png.py"]
 output: ["decomposed/GameData/Track/<trať>/<trať>_decals.json", "decomposed/GameData/Track/<trať>/env/*.png"]
-updated: 2026-11-15
+updated: 2026-11-17
 ---
 
 # Formát `.map` a `.env` – světelné obtisky na autech
 
-`<trať>.map` je textový INI, `<trať>.env` archiv SHPI s obrázky 64×64 ([fsh.md](fsh.md)). Dohromady popisují, jaké světlo nebo stín se promítá na auto v určitém místě trati: záblesky lamp v tunelech, stín stromů nad silnicí, světla Monaka. Nejde o odrazy okolí (ty jsou v originálu jinde, hra je řeší sondou, D-018).
+`<trať>.map` je textový INI, `<trať>.env` archiv SHPI s obrázky 64×64 ([fsh.md](fsh.md)). Dohromady popisují, jaké světlo nebo stín se promítá na auto v určitém místě trati: záblesky lamp v tunelech, stín stromů nad silnicí, světla Monaka. Nejde o odrazy okolí (ty jsou v originálu jinde, hra je řeší sondou, D-018). Přehled všech stínů originálu je v [shadow.md](shadow.md).
 
 Rozluštěno z `Porsche.exe` (Ghidra, 15. 11. 2026): načítání `FUN_004409d0` (cesty `%s%s.env` a `%s%s.map`), výběr sekce `FUN_00441140`, textury `FUN_00441180`, nastavení auta na adrese 0x43a724 až 0x43a8a6 (kód mimo funkce Ghidry) a výpočet UV `FUN_00445b10`.
 
@@ -23,7 +23,7 @@ Načítá se pouze tehdy, když existuje sekce `[header]`. Klíče, které hra n
 | Sekce | Klíč | Typ | Výchozí | Význam |
 | --- | --- | --- | --- | --- |
 | header | `count` | int | 0 | počet sekcí `[section0]` … `[section<count−1>]` |
-| header | `tint`, `ambient`, `interior`, `interiordiffuse`, `lightdecal` | 4× float (a, r, g, b) | 1; `ambient` 0,3 | barevné faktory trati. `lightdecal` násobí barvu obtisku, ostatní zatím nevyužité (viz [flare.md](flare.md)) |
+| header | `tint`, `ambient`, `interior`, `interiordiffuse`, `lightdecal` | 4× float (a, r, g, b) | 1; `ambient` 0,3 | barevné faktory trati. `lightdecal` násobí barvu obtisku, ostatní zatím nevyužité (viz [flare.md](flare.md)). `ambient` neurčuje noc: 0,30 mají i denní tratě, noc určují render metody `.crp` ([crp.md](crp.md#render-metody-rmth-a-noc)) |
 | sectionN | `startslice`, `endslice` | int | 0 | rozsah řezů `SimD` (včetně obou krajů) |
 | sectionN | `texture1.open` … `texture3.open`, `texture1.covered` … `texture3.covered` | u32 | `ENV0` | 4CC jména obrázku v `.env`, zapsané jako desítkové číslo little-endian (540103746 = `BT1 `) |
 | sectionN | `texturesize` | float | 6,0 | velikost textury v metrech |
