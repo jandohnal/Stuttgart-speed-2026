@@ -111,7 +111,7 @@ Hra se spouští rovnou přes celou obrazovku (`display/window/size/mode` = full
 | `scripts/car_audio.gd` | zvuk auta: smyčky motoru podle otáček (výška, prolínání dvou nejbližších) a plynu (load / coast), pískání pneumatik podle skluzu, vítr, drhnutí, nárazy a díly ze signálů `CarDamage`; sběrnice `Engine` a `Sfx` |
 | `scripts/waterfall.gd`, `shaders/waterfall.gdshader` | pilot realistického vodopádu (D-033, forest u mostu): shader toku podle propadlé výšky, kapky a závoj z plochy meshe, cákance u paty, zvuk `waterfall huge` |
 | `scripts/track_water.gd` | voda trati (D-033): vodní částice originálu na polohách zdrojů (`<trať>_emitters.json`), tekoucí textury vodopádů a fontán, mokré auto v tříšti, rozvíření mlhy projíždějícími auty; `--water=0` ji vypne |
-| `scripts/falling_leaves.gd` | listí padající z podzimních korun nad a kolem silnice před autem hráče (D-028): dopadne na zem, chvíli leží a projíždějící auta (hráč i soupeři) ho rozvíří; `--leaves=0` ho vypne |
+| `scripts/falling_leaves.gd` | listí padající z listnatých korun nad silnicí před autem hráče jen na farmland, foothills, alps, autobahn (les na začátku) a forest (lesní část) (D-028): dopadne na zem, chvíli leží a projíždějící auta (hráč i soupeři) ho rozvíří; `--leaves=0` ho vypne |
 | `scripts/original_sky.gd` | obloha a horizont originálu (D-045, [sky.md](../docs/formats/sky.md)): `<trať>_sky.json` do `shaders/original_sky.gdshader` (kopule s vrstvami a větrem, prstenec `horz`), prolnutí oblastí počasí podle řezu kamery; `--sky=original\|hdri` vybere oblohu (jinak volba ORIGINAL SKY v menu) |
 | `scripts/light_decals.gd` | světelné obtisky originálu na autech (D-044, [map.md](../docs/formats/map.md)): na řezech ze `<trať>_decals.json` další průchod materiálů auta (`shaders/light_decal.gdshader`) s texturou z `env/`: záblesky lamp v tunelech, stín stromů; pod střechou varianta `covered`; `--decals=0` je vypne |
 | `scripts/car_effects.gd` | efekty auta (D-028): stopy pneumatik na silnici při skluzu za vrcholem, prach a hroudy hlíny za koly na terénu v barvě textury pod kolem (textury Kenney Particle Pack, CC0, `assets/particles/kenney/`), stébla trávy na zeleném terénu a suché listí na texturách s listím (CC0, `assets/particles/foliage/`, `leaves/`), jiskry při nárazu a drhnutí karoserie (barvy ze `Sparks` v `particles.json`); `--effects=0` je vypne (srovnání FPS) |
@@ -440,6 +440,14 @@ Efekty (D-028): z roštu farmlandu plný plyn po silnici, plný rejd s brzdou (s
 ```
 
 30. 10. 2026: farmland 214 čtyřúhelníků stop, prach na všech 4 kolech, jiskry 0,3–0,6 s, barva pod kolem silnice `#979187`, pole `#8c7b47`; skidpad asfalt `#525153`, štěrk `#5c5d4c`. Tráva a listí: farmland končí na `rdca` (tráva i listí na 4 kolech), pole `fm04` jen tráva, forest končí na štěrkové krajnici `rda2` (jen prach). Listí z korun: farmland až 173 padajících a 146 ležících listů, auto jich rozvířilo 41, forest a pole 0. FPS s listím a bez něj stejné (33–35).
+
+Padající listí (D-028): načte trať a vypíše koruny, ze kterých padá listí (materiál, trojúhelníky, úseky). Projde, když listí mají jen farmland, alps, autobahn (jen do úseku 110), foothills a forest a ostatní tratě žádné koruny nemají:
+
+```bash
+for t in alps autobahn canyon castle coastal farmland foothills forest industrial monaco1 monaco2 monaco3 monaco4 monaco5 skidpad; do ~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/leaves_test.tscn -- --track=$t | grep LEAVES; done
+```
+
+17. 11. 2026: farmland 2 408 trojúhelníků korun (úseky 1–1857), foothills 1 333, autobahn 865 (úseky 0–103), forest 373 (duby, úseky 1003–1491), alps 6 (úseky 10–154), ostatní 0. Test efektů na farmland beze změny (až 179 padajících listů).
 
 Voda (D-033): z řezu 1606 na forest jízda po silnici krytým mostem u vodopádu (řezy 1630–1634) a dál. Vypíše každou sekundu řez, mokrost auta a počet zdrojů. Projde, když trať má zdroje i tekoucí materiály a auto zmokne nad 0,5 a pak schne. `--track=<trať> --emitter=<n>` postaví auto před n-tý vodní zdroj, `--at=<řez>` na řez (forest 1616: vodopád v záběru), `--wet` drží auto mokré (srovnání vzhledu), `--look=x,y,z,tx,ty,tz` dá vlastní kameru (forest `-610,135,-2115,-555,140,-2170`: vodopád zepředu), v okně `--shot=<složka>` uloží snímky:
 

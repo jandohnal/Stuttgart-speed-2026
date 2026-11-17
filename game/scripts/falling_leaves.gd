@@ -1,10 +1,10 @@
 extends Node3D
 ## Leaves falling from autumn tree crowns over and beside the road (D-028), simulated one by one so
 ## they land on the real ground, lie there a while and are whirled up by passing cars.
-## - Crowns: at load, triangles of the track's see-through materials (crown cards; fences and
-##   bushes are low, bridges opaque) in a colour that is not green (a green crown keeps its
-##   leaves), at least CANOPY_MIN m above the road and within CANOPY_REACH m of its centre line,
-##   filed under their nearest road slice.
+## - Crowns: at load, triangles of the leafy tree crowns listed for the track in CROWNS (by
+##   texture; lamps, wires, icicles, awnings and conifers drop nothing, nor do tracks without
+##   an entry), at least CANOPY_MIN m above the road and within the track's reach (CANOPY_REACH m)
+##   of its centre line, filed under their nearest road slice.
 ## - Leaves start at a random point of a crown triangle along the road ahead of the player's car
 ##   (AHEAD m, following the road through bends), so they are already falling when the camera gets
 ##   there. A leaf out of the camera's view or far ahead may start part way down or already on the
@@ -21,6 +21,16 @@ const MAX_LEAVES := 195
 const SIZE := 0.2  ## m
 const CANOPY_MIN := 4.0  ## m above the road
 const CANOPY_REACH := 10.0  ## m from the road centre line
+## Tracks with leaves falling from trees over the road: texture names of their leafy crowns and
+## an optional own reach. Autobahn has crowns only in the wood at its start, forest's oaks stand
+## only in its wooded part; the green branch cards over the whole forest road (trl3) stay out.
+const CROWNS := {
+	"farmland": {"textures": ["cbb1", "cbb2", "cbb3", "cbb4", "oaka"]},
+	"foothills": {"textures": ["cbb1", "cbb2", "cbb3", "cbb4", "oake"]},
+	"autobahn": {"textures": ["cbb1", "cbb2", "cbb3", "cbb4"]},
+	"forest": {"textures": ["oaka", "oake"]},
+	"alps": {"textures": ["evra"], "reach": 14.0},  # few broadleaf trees, a little off the road
+}
 const AHEAD := 60.0  ## m of road ahead of the player's car where leaves start
 const DROP_BEHIND := 15.0  ## m behind the car where an unseen leaf is dropped
 const SPAWN_PER_FRAME := 4
@@ -43,6 +53,8 @@ const RAY_TRIES := 6  ## crown layers a ground ray passes through
 enum { FALLING, LYING, GONE }
 
 var _road: Road
+var _crown_textures: Array = []
+var _reach := CANOPY_REACH
 var _cars: Array[Car] = []
 var _player: Car
 var _canopy := {}  ## slice -> PackedVector3Array of crown triangles (3 points each)
@@ -65,10 +77,14 @@ var _spin := PackedFloat32Array()  ## rad/s
 var _frame := PackedFloat32Array()  ## atlas frame
 var _cool := PackedFloat32Array()  ## s before the next throw
 var kicks := 0  ## leaves thrown by cars so far (tests)
+var crowns := {}  ## material name -> {"triangles", "first", "last" slice} of the crowns used (tests)
 
 
-func setup(road: Road, track: Node3D, player: Car, cars: Array[Car]) -> void:
+func setup(road: Road, track: Node3D, player: Car, cars: Array[Car], track_name: String) -> void:
 	_road = road
+	var crowns: Dictionary = CROWNS.get(track_name, {})
+	_crown_textures = crowns.get("textures", [])
+	_reach = crowns.get("reach", CANOPY_REACH)
 	_player = player
 	_cars = cars
 	_rng.seed = 5
@@ -116,7 +132,7 @@ func counts() -> Dictionary:
 # --- crowns ----------------------------------------------------------------------------------
 
 func _collect_canopy(track: Node3D) -> int:
-	if track == null:
+	if track == null or _crown_textures.is_empty():
 		return 0
 	# Slices in a coarse grid for the nearest-slice lookup.
 	var cell := 20.0
@@ -138,8 +154,10 @@ func _collect_canopy(track: Node3D) -> int:
 				continue
 			var xf := mesh.global_transform
 			for s in mesh.mesh.get_surface_count():
-				if not _autumn_crown(mesh.get_active_material(s)):
+				var material := mesh.get_active_material(s)
+				if not _is_crown(material):
 					continue
+				var mat_name := material.resource_name
 				var arrays := mesh.mesh.surface_get_arrays(s)
 				var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
 				var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX] if arrays[Mesh.ARRAY_INDEX] != null else PackedInt32Array()
@@ -154,20 +172,26 @@ func _collect_canopy(track: Node3D) -> int:
 						continue
 					var road_p := _road.positions[slice]
 					var flat := Vector2(centre.x - road_p.x, centre.z - road_p.z)
-					if flat.length() > CANOPY_REACH or centre.y - road_p.y < CANOPY_MIN:
+					if flat.length() > _reach or centre.y - road_p.y < CANOPY_MIN:
 						continue
 					if not _canopy.has(slice):
 						_canopy[slice] = PackedVector3Array()
 					_canopy[slice].append_array([a, b, c])
 					count += 1
+					var info: Dictionary = crowns.get(mat_name, {"triangles": 0, "first": slice, "last": slice})
+					info["triangles"] += 1
+					info["first"] = mini(info["first"], slice)
+					info["last"] = maxi(info["last"], slice)
+					crowns[mat_name] = info
 	return count
 
 
-static func _autumn_crown(material: Material) -> bool:
+## A crown card of the track: see-through, its texture in the track's list. Track materials are
+## named "<texture> (<render state>)" (tools/track2gltf.py).
+func _is_crown(material: Material) -> bool:
 	if not (material is BaseMaterial3D) or (material as BaseMaterial3D).transparency == BaseMaterial3D.TRANSPARENCY_DISABLED:
 		return false
-	var c := CarEffects.Materials.average_color(material)
-	return not (c.h >= CarEffects.GRASS_HUE.x and c.h <= CarEffects.GRASS_HUE.y and c.s >= CarEffects.GRASS_MIN_SATURATION)
+	return material.resource_name.get_slice(" ", 0) in _crown_textures
 
 
 func _nearest_in_grid(grid: Dictionary, cell: float, p: Vector3) -> int:

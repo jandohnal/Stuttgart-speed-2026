@@ -104,6 +104,7 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [x] Závod od startu do cíle (D-025): odpočet 3-2-1, stopky, kontrolní body, průjezd cílovou čárou, nejlepší čas; kamera při startu obletí auto
 - [x] Efekty (D-028): stopy pneumatik na silnici při smyku, prach a kousky země za koly mimo silnici v barvě terénu, jiskry při nárazu a drhnutí (`effects_test`)
 - [x] Efekty: tráva na zeleném terénu a listí na texturách se spadaným listím, listí padající z podzimních korun na zem, rozvířené projíždějícími auty (D-028)
+- [x] Padající listí jen ze stromů nad tratí farmland, alps, autobahn (les na začátku), foothills a forest (lesní část); žádné z lamp, světel v tunelech ani v Monaku (D-028, `tests/leaves_test.tscn`)
 - [x] Rozbor vodních prvků originálu po tratích ([water.md](water.md))
 - [x] Voda: vodopády, peřeje a fontány podle zdrojů originálu, mokré auto, rozvíření mlhy (D-033)
 - [x] Voda: pilot realistického vodopádu na forest: shader, kapky, cákance, zvuk (D-033)

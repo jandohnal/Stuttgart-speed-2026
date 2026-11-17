@@ -368,7 +368,7 @@ func _ready() -> void:
 		add_child(leaves)
 		var field: Array[Car] = [car]
 		field.append_array(opponents)
-		leaves.setup(road, track, car, field)
+		leaves.setup(road, track, car, field, track_name)
 	if track != null and _user_arg("effects") != "0" and _user_arg("water") != "0":  # --water=0: no waterfalls, fountains, spray
 		var water := TrackWater.new()
 		water.name = "TrackWater"
