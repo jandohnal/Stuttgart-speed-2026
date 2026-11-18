@@ -1,30 +1,37 @@
 extends Node
 ## Autoload GameSettings: the car, track and options chosen in the menu, handed over to main.gd.
 ## Empty car / track mean "not chosen", so main.gd falls back to --car/--track and the project
-## settings. The tests run main.tscn directly and get the option defaults below: only the menu
+## settings. The tests run main.tscn directly and get DIRECT_OPTIONS below: only the menu
 ## loads the saved choice (user://settings.cfg), so a player's settings never change a test.
 
 const FILE := "user://settings.cfg"
-## Option -> default. steering_assist, brake_assist (ABS) and traction_control are Car properties;
-## sound unmutes the master bus; opponents is how many opponents (0..MENU_MAX_OPPONENTS, the menu's
-## slider) stand on the grid of a race (main.gd _add_opponents), in any quality; rubber_band keeps
-## them near the player (RaceRubberBand); low_quality is the reduced graphics for weak computers
-## (is_low_quality, LOW_* below), on the web also set by the address ?quality=low|high.
-## original_sky draws the original's sky and horizon, off the HDRI with the original's horizon (D-045,
-## SkyLighting.apply); without an HDRI file the original's sky is used either way.
-## original_handling drives every car with the original's driving model (D-046, OriginalHandling),
-## off the physical model; without GameData/Simulation/handling.json the physical one either way.
+## Option -> default for a player (the menu, D-053): sound unmutes the master bus; opponents is how
+## many opponents (0..MENU_MAX_OPPONENTS, the menu's slider) stand on the grid of a race (main.gd
+## _add_opponents), in any quality.
+## The menu's GAME MODE: PURE (experimental off) plays as close to the original as the game can,
+## every EXPERIMENTAL_OPTIONS box off; EXPERIMENTAL shows those boxes, each turning on an extra:
+## advanced_graphics is the full graphics (sun shadows, glow, ...), off the reduced graphics for
+## weak computers (is_low_quality, LOW_* below), on the web also set by the address
+## ?quality=low|high. hdri_sky lights the scene with an HDRI and the original's horizon
+## (SkyLighting.apply), off the original's sky (D-045); without an HDRI file the original's sky
+## either way. advanced_physics drives every car with the physical model, off the original's
+## driving model (D-046, OriginalHandling); without GameData/Simulation/handling.json the
+## physical one either way. diagnostics shows the FPS and the graphics line top left (Hud).
 const DEFAULT_OPTIONS := {
-	"steering_assist": false,
-	"brake_assist": false,
-	"traction_control": false,
 	"sound": true,
 	"opponents": 3,
-	"rubber_band": true,
-	"low_quality": false,
-	"original_sky": true,
-	"original_handling": false,
+	"experimental": false,
+	"advanced_graphics": false,
+	"hdri_sky": false,
+	"advanced_physics": false,
+	"diagnostics": false,
 }
+## Options of the EXPERIMENTAL mode, all off in PURE (the menu's NIGHT MODE box is the time of day).
+const EXPERIMENTAL_OPTIONS: Array[String] = ["advanced_graphics", "hdri_sky", "advanced_physics", "diagnostics"]
+## main.tscn run without the menu (the tests, the editor) keeps the full graphics and the physical
+## model the tests were measured with; the tests that need the other set the option themselves.
+## The FPS line shows there too.
+const DIRECT_OPTIONS := {"experimental": true, "advanced_graphics": true, "advanced_physics": true, "diagnostics": true}
 ## Most opponents the menu offers (its OPPONENTS slider); --opponents allows up to main.gd MAX_OPPONENTS.
 const MENU_MAX_OPPONENTS := 4
 ## Low quality: the 3D view renders at most this many lines (instead of stuttgart/render_height),
@@ -65,7 +72,7 @@ var car_tune := ""
 ## Tyres: "stock" / "slick" / "rain" (CarParts); empty = not chosen in the menu (stock).
 var tyres := ""
 ## Options toggled in the menu (not during the game), applied by main.gd when the game starts.
-var options := DEFAULT_OPTIONS.duplicate()
+var options := DEFAULT_OPTIONS.merged(DIRECT_OPTIONS, true)
 ## Calibrated wheel (WheelInput.to_dict, set in WheelSetup); empty = none. Loaded only by the menu.
 var wheel := {}
 ## Lines of the 3D view chosen by _adapt_render_height (0 = not adapting yet: LOW_RENDER_HEIGHT).
@@ -85,9 +92,14 @@ func load_last() -> Dictionary:
 	cfg.load(FILE)
 	for key: String in DEFAULT_OPTIONS:
 		options[key] = _option_value(key, cfg.get_value("options", key, DEFAULT_OPTIONS[key]))
+	if not options["experimental"]:
+		for key in EXPERIMENTAL_OPTIONS:
+			options[key] = false
 	var quality := _url_quality()
+	if quality == "high":
+		options["experimental"] = true
 	if not quality.is_empty():
-		options["low_quality"] = quality == "low"
+		options["advanced_graphics"] = quality == "high"
 	wheel = cfg.get_value("wheel", "mapping", {})
 	return {"car": str(cfg.get_value("last", "car", "")), "track": str(cfg.get_value("last", "track", "")),
 		"time": str(cfg.get_value("last", "time", "")), "color": str(cfg.get_value("last", "color", "")),
@@ -132,14 +144,15 @@ func is_web_profile() -> bool:
 	return OS.has_feature("web")
 
 
-## The menu's ORIGINAL HANDLING option.
+## The original's driving model: the menu's ADVANCED PHYSICS box off.
 func is_original_handling() -> bool:
-	return bool(options.get("original_handling", false))
+	return not bool(options.get("advanced_physics", false))
 
 
-## The menu's LOW QUALITY option (also ?quality=low in the web build's address).
+## The reduced graphics: the menu's ADVANCED GRAPHICS box off (also ?quality=low in the web
+## build's address, ?quality=high turns EXPERIMENTAL and the box on).
 func is_low_quality() -> bool:
-	return bool(options.get("low_quality", false))
+	return not bool(options.get("advanced_graphics", false))
 
 
 ## "low" / "high" from the web page's address (?quality=...), "" elsewhere or when not given.

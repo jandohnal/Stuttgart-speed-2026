@@ -33,10 +33,10 @@ func _ready() -> void:
 		print("  skip scene checks: farmland missing in decomposed/")
 		_finish()
 		return
-	var saved_sky: bool = GameSettings.options.get("original_sky", true)
+	var saved_sky: bool = GameSettings.options.get("hdri_sky", false)
 	for run: Array in [["day", true], ["day", false], ["night", false]]:
 		var time: String = run[0]
-		GameSettings.options["original_sky"] = run[1]
+		GameSettings.options["hdri_sky"] = not run[1]
 		var main: Node3D = preload("res://scenes/main.tscn").instantiate()
 		main.track_name = "farmland"
 		main.time_of_day = time
@@ -69,7 +69,7 @@ func _ready() -> void:
 		lights._process(0.0)
 		_expect(lights.tail_lights[0].light_energy > idle and lights.tail_lights[0].visible, "%s: brake light" % time)
 		main.queue_free()
-	GameSettings.options["original_sky"] = saved_sky
+	GameSettings.options["hdri_sky"] = saved_sky
 	_finish()
 
 

@@ -1,5 +1,5 @@
 extends Node
-## Headless test of the menu's LOW QUALITY option (GameSettings.is_low_quality):
+## Headless test of the reduced graphics (the menu's ADVANCED GRAPHICS box off, GameSettings.is_low_quality):
 ##   godot --headless --path game res://tests/low_quality_test.tscn [-- --track=<name>]
 ## Loads main.tscn twice with one opponent, at night so the car and track lights are there: without
 ## the option the sun casts shadows and glow is on; with it the scene is drawn like the original:
@@ -20,7 +20,7 @@ var failures := 0
 func _ready() -> void:
 	print("LOW QUALITY TEST")
 	for low in [false, true]:
-		GameSettings.options["low_quality"] = low
+		GameSettings.options["advanced_graphics"] = not low
 		var main: Node3D = preload("res://scenes/main.tscn").instantiate()
 		main.time_of_day = "night"
 		main.opponent_count = 1
@@ -74,7 +74,7 @@ func _ready() -> void:
 		main.queue_free()
 		await get_tree().process_frame
 	_test_adaptive()
-	GameSettings.options["low_quality"] = false
+	GameSettings.options["advanced_graphics"] = true
 	print("LOW QUALITY TEST %s" % ("OK" if failures == 0 else "FAILED (%d)" % failures))
 	get_tree().quit(1 if failures > 0 else 0)
 
@@ -82,7 +82,7 @@ func _ready() -> void:
 ## 30 FPS for 20 s lowers the lines to the minimum, 60 FPS for 60 s brings them back to the top;
 ## a step up that drops below the limit again becomes the ceiling.
 func _test_adaptive() -> void:
-	GameSettings.options["low_quality"] = true
+	GameSettings.options["advanced_graphics"] = false
 	GameSettings.adaptive_lines = 0
 	_feed(1.0 / 30.0, 20.0)
 	print("  adaptive: 30 FPS -> %d lines" % GameSettings.adaptive_lines)

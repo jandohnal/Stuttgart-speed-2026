@@ -1,7 +1,7 @@
 extends Node
 ## Headless test of the original's night tracks (IDEA-015):
 ##   godot --headless --path game res://tests/night_track_test.tscn
-## Main.is_night_track: Monaco 1-5 and Industrial, the rest day. With LOW QUALITY: monaco1 and
+## Main.is_night_track: Monaco 1-5 and Industrial, the rest day. In the reduced graphics: monaco1 and
 ## industrial asked for day run at night anyway, with the original's sky at full energy (not dimmed
 ## like a day sky at night), fog from the horizon and the track undarkened (painted at night);
 ## NIGHT RACE on farmland darkens the track to LOW_TRACK_LIGHT and dims the sky. The player's car
@@ -26,10 +26,10 @@ func _ready() -> void:
 			"nght: 128 px, bright in the middle, dark in the corner")
 	else:
 		print("  skip nght: %s missing (tools/fsh2png.py)" % CarBeam.POOL)
-	var saved_low: bool = GameSettings.options.get("low_quality", false)
-	var saved_sky: bool = GameSettings.options.get("original_sky", true)
-	GameSettings.options["low_quality"] = true
-	GameSettings.options["original_sky"] = true
+	var saved_graphics: bool = GameSettings.options.get("advanced_graphics", true)
+	var saved_sky: bool = GameSettings.options.get("hdri_sky", false)
+	GameSettings.options["advanced_graphics"] = false
+	GameSettings.options["hdri_sky"] = false
 	for run: Array in [["monaco1", "day"], ["industrial", "day"], ["farmland", "night"]]:
 		var track: String = run[0]
 		if not Main.track_available(track):
@@ -63,8 +63,8 @@ func _ready() -> void:
 				wrong.map(func(m: StandardMaterial3D) -> String: return "%s %s" % [m.resource_name, m.albedo_color])])
 		main.queue_free()
 		await get_tree().process_frame
-	GameSettings.options["low_quality"] = saved_low
-	GameSettings.options["original_sky"] = saved_sky
+	GameSettings.options["advanced_graphics"] = saved_graphics
+	GameSettings.options["hdri_sky"] = saved_sky
 	print("  %s" % ("all passed" if failures == 0 else "%d failed" % failures))
 	get_tree().quit(1 if failures > 0 else 0)
 

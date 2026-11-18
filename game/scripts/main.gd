@@ -5,7 +5,7 @@ extends Node3D
 ## the model and engine sound). --slice=<n> starts on road slice n instead of the start line;
 ## --windowed=1 keeps a window. F2 records telemetry to user://telemetry_*.csv, F5 repairs the car,
 ## F11 full screen, Esc goes back to the menu (scenes/menu.tscn, which sets GameSettings.car_key /
-## track_name, time_of_day and the options: steering assist, ABS, traction control, sound).
+## track_name, time_of_day and the options: graphics, sky, driving model, sound, opponents).
 ## Time of day: on the original's night tracks (Monaco 1-5, Industrial: night in <track>_lights.json,
 ## is_night_track) always night, like the original; elsewhere GameSettings.time_of_day, else
 ## --time=day|night or project setting stuttgart/time (default day). The sky and sun come from
@@ -533,7 +533,7 @@ func _add_opponents(road_data: Dictionary, cars: Variant, player_color: String) 
 	for opponent in opponents:
 		(opponent.get_node("AIDriver") as AIDriver).others = field
 	var rubber := _user_arg("rubber")
-	if rubber == "1" or (rubber.is_empty() and _is_game() and GameSettings.options["rubber_band"]):
+	if rubber == "1" or (rubber.is_empty() and _is_game()):  # always in the game itself (D-053)
 		rubber_band = RaceRubberBand.new()
 		rubber_band.name = "RubberBand"
 		add_child(rubber_band)
@@ -704,7 +704,7 @@ func _chosen_sky() -> String:
 	var arg := _user_arg("sky")
 	if arg == "original" or arg == "hdri":
 		return arg
-	return "original" if GameSettings.options.get("original_sky", true) else "hdri"
+	return "hdri" if GameSettings.options.get("hdri_sky", false) else "original"
 
 
 ## Driving model the player chose, for every car: --handling=original|sim, else the menu option (D-046).
@@ -727,13 +727,9 @@ func _follow_original_sky() -> void:
 	original_sky.setup(OriginalSky.load_data(track_name), road, $Camera as Camera3D, GameSettings.is_low_quality())
 
 
-## Options from the menu (GameSettings): driver aids and sound.
+## Options from the menu (GameSettings): sound and the 3D resolution.
 func _apply_options() -> void:
-	var options: Dictionary = GameSettings.options
-	car.steering_assist = options["steering_assist"]
-	car.brake_assist = options["brake_assist"]
-	car.traction_control = options["traction_control"]
-	AudioServer.set_bus_mute(0, not options["sound"])
+	AudioServer.set_bus_mute(0, not GameSettings.options["sound"])
 	GameSettings.apply_render_height()
 
 

@@ -145,8 +145,8 @@ func setup(driven: Car, track_road: Road, ai_data: Variant, line_index := 0) -> 
 	road = track_road
 	process_physics_priority = -1  # pedals set before the car reads them in the same tick
 	car.auto_drive = true
-	# Driver aids the player can choose are always on for the AI: it plans the limit, it does not
-	# feel for it through the pedals.
+	# ABS and traction control only the AI has: it plans the limit, it does not feel for it
+	# through the pedals.
 	car.brake_assist = true
 	car.traction_control = true
 	var front := 0.0

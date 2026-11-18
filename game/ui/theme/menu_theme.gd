@@ -3,10 +3,10 @@ extends RefCounted
 ## ACCENT_CHOICES) and the icons stay sharp at any scale: they are SVGs in ui/icons rasterized as
 ## DPITexture, with the red #C8101A mapped to the accent. Font: Saira Condensed from ui/fonts
 ## (OFL, not in git until downloaded), else the system condensed font (Avenir Next Condensed on macOS).
-## Type variations: SetupDropdown, SetupCheckBox, SetupSlider, SliderLabel, SliderValue, RedButton, FooterButton, SetupLabel, PanelHeader,
+## Type variations: SetupDropdown, SetupCheckBox, SetupSlider, SliderLabel, SliderValue, ModeButton, RedButton, FooterButton, SetupLabel, PanelHeader,
 ## FooterTitle, LogoTop, LogoBottom, ScreenTitle, CaptionLabel, SideText, PlayLabel, CreditsText,
 ## CreditsValue, CreditsNote and the panels
-## SetupPanel, HeaderStrip, CaptionPanel, FooterPanel, Bezel.
+## SetupPanel, HeaderStrip, CaptionPanel, FooterPanel, Bezel, ModeSwitch, ExperimentalPanel.
 
 const ACCENT := Color("#C8101A")
 const ACCENT_CHOICES: Array[Color] = [Color("#C8101A"), Color("#B3001E"), Color("#D4380D"), Color("#1F5AA6")]
@@ -87,6 +87,7 @@ static func build(accent := ACCENT) -> Theme:
 	_popup(t, accent)
 	_checkbox(t, accent)
 	_slider(t, accent)
+	_mode_switch(t, accent)
 	_red_button(t, accent)
 	_footer_button(t, accent)
 	_plain_button(t)
@@ -259,6 +260,38 @@ static func _slider(t: Theme, accent: Color) -> void:
 	_set_margins(box, 0, 0)
 	_label(t, "SliderValue", font(800), 22, Color.WHITE)
 	t.set_stylebox("normal", "SliderValue", box)
+
+
+## GAME MODE switch PURE / EXPERIMENTAL: two halves in a dark-bordered field, the chosen one red
+## with white text; the EXPERIMENTAL checkboxes sit in a darker inset panel under it.
+static func _mode_switch(t: Theme, accent: Color) -> void:
+	var frame := _flat(FIELD_BG, 2)
+	_set_margins(frame, 0, 0)
+	_panel(t, "ModeSwitch", frame)
+	var type := "ModeButton"
+	t.set_type_variation(type, "Button")
+	var off := StyleBoxEmpty.new()
+	var hover := _flat(FIELD_HOVER)
+	var on := _flat(accent)
+	on.border_width_bottom = 3
+	on.border_color = accent.darkened(0.45)
+	for style: StyleBox in [off, hover, on]:
+		_set_margins(style, 16, 4)
+	t.set_stylebox("normal", type, off)
+	t.set_stylebox("disabled", type, off)
+	t.set_stylebox("hover", type, hover)
+	t.set_stylebox("pressed", type, on)
+	t.set_stylebox("hover_pressed", type, on)
+	t.set_stylebox("focus", type, _focus())
+	t.set_font("font", type, font(800, 2))
+	t.set_font_size("font_size", type, 21)
+	for c: String in ["font_color", "font_hover_color", "font_focus_color"]:
+		t.set_color(c, type, Color(LABEL_INK, 0.7))
+	for c: String in ["font_pressed_color", "font_hover_pressed_color"]:
+		t.set_color(c, type, Color.WHITE)
+	var inset := _flat(Color("#EAE2C6"), 2, DIVIDER)
+	_set_margins(inset, 14, 10)
+	_panel(t, "ExperimentalPanel", inset)
 
 
 ## Upright grabber of the option slider: `fill` with a 2 px dark border.

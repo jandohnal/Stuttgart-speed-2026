@@ -322,7 +322,51 @@ custom_minimum_size = Vector2(0, 2)
 layout_mode = 2
 color = Color(0.749, 0.71, 0.58, 1)
 
-[node name="Options" type="GridContainer" parent="SetupArea/RaceSetup/VBox/Body/Rows"]
+[node name="ModeRow" type="HBoxContainer" parent="SetupArea/RaceSetup/VBox/Body/Rows"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Label" type="Label" parent="SetupArea/RaceSetup/VBox/Body/Rows/ModeRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"SliderLabel"
+text = "GAME MODE"
+
+[node name="ModeSwitch" type="PanelContainer" parent="SetupArea/RaceSetup/VBox/Body/Rows/ModeRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"ModeSwitch"
+
+[node name="Buttons" type="HBoxContainer" parent="SetupArea/RaceSetup/VBox/Body/Rows/ModeRow/ModeSwitch"]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="PureButton" type="Button" parent="SetupArea/RaceSetup/VBox/Body/Rows/ModeRow/ModeSwitch/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"ModeButton"
+toggle_mode = true
+text = "PURE"
+
+[node name="ExperimentalButton" type="Button" parent="SetupArea/RaceSetup/VBox/Body/Rows/ModeRow/ModeSwitch/Buttons"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 40)
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"ModeButton"
+toggle_mode = true
+text = "EXPERIMENTAL"
+
+[node name="Experimental" type="PanelContainer" parent="SetupArea/RaceSetup/VBox/Body/Rows"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_type_variation = &"ExperimentalPanel"
+
+[node name="Options" type="GridContainer" parent="SetupArea/RaceSetup/VBox/Body/Rows/Experimental"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/h_separation = 16

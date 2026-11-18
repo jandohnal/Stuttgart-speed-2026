@@ -70,11 +70,11 @@ const DAMAGE_REFERENCE_MPH := 100.0  ## 356 A 1.6, the car CarDamage's part spee
 ## angle, never under max_steer_deg at low speed. Countersteering into a slide may go further.
 @export var speed_sensitive_steering := true
 @export var steer_lock_margin := 1.0
-@export var steering_assist := false  ## limit front wheel angle to the tyres' peak slip angle
-@export var brake_assist := false  ## ABS: wheels do not lock under the foot brake (the original does not lock them)
+## ABS, only for the AI (AIDriver turns it on; the player drives without, D-053): wheels do not
+## lock under the foot brake.
+@export var brake_assist := false
 @export var abs_slip := 0.8  ## ABS releases a front wheel above this share of the peak slip ratio (keeps steering)
 @export var abs_slip_rear := 1.2  ## same for the rear, past the peak: the unloaded rear slides and steps out but does not lock
-@export var assist_margin := 1.1  ## allowed front slip angle, times the peak slip angle
 @export var steer_rate := 4.0  ## rad/s, how fast the front wheels follow the (filtered) steering input
 @export_group("Keyboard input")
 ## Keys are on/off: like the arcade racers of the time, the pedals and the steering wheel move
@@ -107,7 +107,7 @@ var wheel: WheelInput = null
 var downforce_front := 0.0  ## Cl*A, m2 (front axle)
 var downforce_rear := 0.0
 @export_group("Driver aids and drivetrain")
-## Traction control: cuts a driven wheel's torque as its combined slip (normalised: 1 = the
+## Traction control, only for the AI like ABS: cuts a driven wheel's torque as its combined slip (normalised: 1 = the
 ## tyre's peak) goes from tc_slip_start to tc_slip_full, so wheelspin stays at the grip peak.
 @export var traction_control := false
 @export var tc_slip_start := 0.8
@@ -133,7 +133,7 @@ var launch_rpm := 2400.0
 @export_group("")
 ## Driving model of the original (D-046, OriginalHandling): grip model in the original's ticks,
 ## Jolt only carries the car and handles collisions. Off: the physical model below. Set with
-## set_original_handling(); the driver aids map to the original's ABS and traction control.
+## set_original_handling(); the AI's ABS and traction control map to the original's.
 var original_handling := false
 var original: OriginalHandling = null
 var _original_time := 0.0
@@ -703,8 +703,6 @@ func _read_input(delta: float) -> void:
 	var target := steer_input * lock
 	if speed_sensitive_steering:
 		target = clampf(target, -_speed_lock(lock, -1.0), _speed_lock(lock, 1.0))
-	if steering_assist:
-		target = _assisted_steer(target, lock)
 	steer = move_toward(steer, target, steer_rate * delta)
 
 
@@ -736,19 +734,6 @@ func _front_travel() -> float:
 	if -v.z < 0.5:
 		return 0.0
 	return atan2(-v.x, -v.z)
-
-
-## Steering assist: keeps the front wheels within assist_margin x peak slip angle of the
-## direction the front axle actually travels, so full lock means "as much grip as there is"
-## and countersteering in a slide still works. Fades in between 2 and 6 m/s.
-func _assisted_steer(target: float, lock: float) -> float:
-	if forward_speed < 0.5:
-		return target  # standing or reversing
-	var travel := _front_travel()
-	var window := peak_slip_angle * assist_margin
-	var assisted := clampf(target, travel - window, travel + window)
-	var blend := clampf((forward_speed - 2.0) / 4.0, 0.0, 1.0)
-	return clampf(lerpf(target, assisted, blend), -lock, lock)
 
 
 ## Share of the drive torque for one wheel (two wheels per axle).
@@ -1120,7 +1105,6 @@ func _update_telemetry(delta: float) -> void:
 		"throttle": snappedf(throttle, 0.01),
 		"brake": snappedf(brake, 0.01),
 		"steer_deg": snappedf(rad_to_deg(steer), 0.1),
-		"assist": steering_assist,
 		"abs": brake_assist,
 		"damage": _damage_summary(),
 		"lat_g": snappedf(local.x / GRAVITY, 0.001),

@@ -181,8 +181,8 @@ Logika:
 | Co efekt mění: `AIDriver.pace`, `AIDriver.throttle_share`, `Car.power_scale` | `_apply()` |
 
 ### Menu
-- `scripts/game_settings.gd`: výchozí hodnoty voleb, `"opponents"` (počet, výchozí 3) a `"rubber_band"` v `DEFAULT_OPTIONS`, nejvyšší počet v menu `MENU_MAX_OPPONENTS`.
-- `scripts/menu.gd`: posuvník OPPONENTS pod zaškrtávátky (`_add_opponents_slider()`), popisek RUBBER BAND v `OPTION_LABELS`.
+- `scripts/game_settings.gd`: výchozí hodnoty voleb, `"opponents"` (počet, výchozí 3) v `DEFAULT_OPTIONS`, nejvyšší počet v menu `MENU_MAX_OPPONENTS`.
+- `scripts/menu.gd`: posuvník OPPONENTS pod zaškrtávátky (`_add_opponents_slider()`). Gumička přepínač nemá, ve hře je vždy zapnutá (D-053).
 
 ### Data
 - Stopy: `decomposed/GameData/Track/<trať>/<trať>_ai.json`. Vyrábí je `tools/ai_lines.py` z `.lsp` originálu.

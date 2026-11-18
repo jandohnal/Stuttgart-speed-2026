@@ -1,8 +1,10 @@
 extends Control
 ## Main menu (D-009, look D-032): race setup panel on the left (car, parts Stock / Sport via CarParts,
-## paint colour, tyres and track dropdowns, then option checkboxes: night (checked and disabled on the
-## original's night tracks, Main.is_night_track: they always run at night), driver aids, sound,
-## rubber band, low quality graphics; the OPPONENTS slider 0..4) and PLAY; a porthole with an archive photo (ui/photos/porthole_*, else a
+## paint colour, tyres and track dropdowns, the OPPONENTS slider 0..4, SOUND and the GAME MODE switch
+## (D-054): PURE plays like the original, EXPERIMENTAL shows a panel of checkboxes for the extras
+## (GameSettings.EXPERIMENTAL_OPTIONS and NIGHT MODE, checked and disabled on the original's night
+## tracks, Main.is_night_track: they always run at night), all off until checked; back to PURE
+## turns them off and hides them) and PLAY; a porthole with an archive photo (ui/photos/porthole_*, else a
 ## placeholder) with the selected car turning in it (CarShowcase, one turn a minute) above a caption
 ## naming the car; top right the selected track's outline from the original menu (TRACK_ART); a footer with credits (a dialog: tribute, how it was made, CREDITS_STATS) and exit. The lists come from
 ## main.gd (CARS, TRACKS); entries whose data is missing in decomposed/ are disabled. The choice
@@ -11,8 +13,9 @@ extends Control
 ## untinted. The options are set only here, not in game.
 ## Layout: 1920x1080 design pixels (root content scale while the menu is up), wider or taller
 ## windows grow the background and keep the panel left and the porthole bottom-centre.
-## Keyboard / gamepad: arrows or D-pad move the focus (dropdowns -> options -> PLAY -> wheel -> credits ->
-## OPPONENTS -> exit -> back to the top; left / right move the slider), Space / A opens a list or toggles, Enter (anywhere) or Start plays,
+## Keyboard / gamepad: arrows or D-pad move the focus (dropdowns -> OPPONENTS -> SOUND -> GAME MODE
+## -> the shown checkboxes -> PLAY -> wheel -> credits ->
+## exit -> back to the top; left / right move the slider), Space / A opens a list or toggles, Enter (anywhere) or Start plays,
 ## Esc asks to quit.
 
 signal race_requested(config: Dictionary)
@@ -55,20 +58,21 @@ const COLOR_NAMES := {
 const TUNE_LABELS := {"stock": "Stock", "sport": "Sport"}
 const TYRE_LABELS := {"stock": "Stock", "slick": "Racing slick", "rain": "Rain"}
 const NIGHT := "night"
-## Checkbox key -> label, in grid order (2 columns). "night" is the time of day, the rest are
-## GameSettings options.
+## EXPERIMENTAL checkbox key -> label, in grid order (2 columns). "night" is the time of day, the
+## rest are GameSettings.EXPERIMENTAL_OPTIONS.
 const OPTION_LABELS := {
-	NIGHT: "NIGHT RACE",
-	"steering_assist": "DRIVING ASSIST",
-	"brake_assist": "ABS",
-	"traction_control": "TRACTION CONTROL",
-	"sound": "SOUND",
-	"rubber_band": "RUBBER BAND",
-	"low_quality": "LOW QUALITY",
-	"original_sky": "ORIGINAL SKY",
-	"original_handling": "ORIGINAL HANDLING",
+	"advanced_graphics": "ADVANCED GRAPHICS",
+	"advanced_physics": "ADVANCED PHYSICS",
+	"hdri_sky": "HDRI SKY",
+	NIGHT: "NIGHT MODE",
+	"diagnostics": "DIAGNOSTICS",
 }
-## The slider under the checkboxes: GameSettings option -> label (a count, 0..MENU_MAX_OPPONENTS).
+## SOUND: a checkbox above GAME MODE, in every mode.
+const SOUND := "sound"
+const SOUND_LABEL := "SOUND"
+## GAME MODE: GameSettings option, true = EXPERIMENTAL.
+const EXPERIMENTAL := "experimental"
+## The slider above SOUND: GameSettings option -> label (a count, 0..MENU_MAX_OPPONENTS).
 const OPPONENTS := "opponents"
 const OPPONENTS_LABEL := "OPPONENTS"
 ## Track outlines of the original menu (yellow line with shadow, docs/formats/trackart.md): first
@@ -89,6 +93,10 @@ const CREDITS_STATS := "res://ui/credits_stats.json"
 @onready var play_button: Button = %PlayButton
 @onready var note: Label = %Note
 @onready var options_grid: GridContainer = %Options
+@onready var experimental_panel: PanelContainer = %Experimental
+@onready var mode_row: HBoxContainer = %ModeRow
+@onready var pure_button: Button = %PureButton
+@onready var experimental_button: Button = %ExperimentalButton
 @onready var caption: Label = %CaptionLabel
 @onready var exit_dialog: ConfirmationDialog = %ExitDialog
 @onready var credits_dialog: AcceptDialog = %CreditsDialog
@@ -98,8 +106,8 @@ var track_names: Array[String] = []
 var colors: Array[String] = []  ## color_option items: "" (original) or "#rrggbb"
 var car_colors: Variant  ## Main.CAR_COLORS, null when missing
 var parts: Variant  ## CarParts.FILE, null when missing
-var option_toggles := {}  ## key of OPTION_LABELS -> CheckBox
-## The player's NIGHT RACE choice for day tracks; a night track shows the box checked without changing it.
+var option_toggles := {}  ## key of OPTION_LABELS and SOUND -> CheckBox
+## The player's NIGHT MODE choice for day tracks; a night track shows the box checked without changing it.
 var night_choice := false
 var opponents_slider: HSlider
 var wheel_setup: WheelSetup
@@ -140,23 +148,26 @@ func _ready() -> void:
 	tyre_option.select(maxi(CarParts.TYRES.find(last["tyres"]), 0))
 	_update_parts()
 	_preselect(track_option, track_names.find(last["track"]))
+	var experimental := bool(GameSettings.options[EXPERIMENTAL])
 	for key: String in OPTION_LABELS:
-		var toggle := CheckBox.new()
-		toggle.theme_type_variation = &"SetupCheckBox"
-		toggle.text = OPTION_LABELS[key]
-		toggle.custom_minimum_size.y = 38
-		toggle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		toggle.button_pressed = last["time"] == NIGHT if key == NIGHT else GameSettings.options[key]
-		if key == "original_handling" and not OriginalHandling.available():
-			toggle.disabled = true  # the original's constants are missing (tools/handling_exe.py)
-			toggle.button_pressed = false
-		toggle.toggled.connect(_update_caption.unbind(1))
-		options_grid.add_child(toggle)
-		option_toggles[key] = toggle
-	night_choice = last["time"] == NIGHT
+		var toggle := _add_toggle(key, OPTION_LABELS[key], options_grid)
+		toggle.button_pressed = experimental and (last["time"] == NIGHT if key == NIGHT else GameSettings.options[key])
+		if key == "advanced_physics" and not OriginalHandling.available():
+			toggle.disabled = true  # the original's constants are missing (tools/handling_exe.py):
+			toggle.button_pressed = true  # the physical model either way
+	night_choice = experimental and last["time"] == NIGHT
 	(option_toggles[NIGHT] as CheckBox).toggled.connect(_on_night_toggled)
 	_update_night()
 	_add_opponents_slider()
+	var sound := _add_toggle(SOUND, SOUND_LABEL, mode_row.get_parent())
+	mode_row.get_parent().move_child(sound, mode_row.get_index())
+	sound.button_pressed = GameSettings.options[SOUND]
+	var mode_group := ButtonGroup.new()
+	pure_button.button_group = mode_group
+	experimental_button.button_group = mode_group
+	(experimental_button if experimental else pure_button).button_pressed = true
+	experimental_panel.visible = experimental
+	experimental_button.toggled.connect(_set_experimental)
 	car_option.item_selected.connect(_on_car_selected)
 	for option: OptionButton in [tune_option, color_option, tyre_option, track_option]:
 		option.item_selected.connect(_on_item_selected)
@@ -214,9 +225,35 @@ func _add_opponents_slider() -> void:
 	count.text = str(int(opponents_slider.value))
 	row.add_child(count)
 	opponents_slider.value_changed.connect(func(v: float) -> void: count.text = str(int(v)))
-	var rows := options_grid.get_parent()
+	var rows := mode_row.get_parent()
 	rows.add_child(row)
-	rows.move_child(row, options_grid.get_index() + 1)
+	rows.move_child(row, mode_row.get_index())
+
+
+func _add_toggle(key: String, label: String, parent: Node) -> CheckBox:
+	var toggle := CheckBox.new()
+	toggle.theme_type_variation = &"SetupCheckBox"
+	toggle.text = label
+	toggle.custom_minimum_size.y = 38
+	toggle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	toggle.toggled.connect(_update_caption.unbind(1))
+	parent.add_child(toggle)
+	option_toggles[key] = toggle
+	return toggle
+
+
+## GAME MODE: EXPERIMENTAL shows the checkboxes; PURE turns them off (the ones the data forces stay)
+## and hides them, so the game runs like the original.
+func _set_experimental(on: bool) -> void:
+	experimental_panel.visible = on
+	if not on:
+		for key: String in OPTION_LABELS:
+			var toggle := option_toggles[key] as CheckBox
+			if not toggle.disabled:
+				toggle.set_pressed_no_signal(false)
+		night_choice = false
+		_update_night()
+	_link_focus()
 
 
 ## Background pattern, top shade, play icon and the porthole photo.
@@ -266,32 +303,39 @@ static func _photo() -> Texture2D:
 	return null
 
 
-## D-pad / arrows top to bottom: 5 dropdowns -> option grid (2 columns) -> PLAY -> wheel -> credits -> exit,
-## wrapping to the first dropdown; Tab goes the same way.
+## D-pad / arrows top to bottom: 5 dropdowns -> OPPONENTS -> SOUND -> GAME MODE (left / right between
+## PURE and EXPERIMENTAL) -> the EXPERIMENTAL grid when shown (2 columns) -> PLAY -> wheel -> credits
+## -> exit, wrapping to the first dropdown; Tab goes the same way. Linked again when the mode changes.
 func _link_focus() -> void:
-	var toggles: Array = option_toggles.values()
-	var chain: Array[Control] = [car_option, tune_option, color_option, tyre_option, track_option]
+	var toggles: Array = []
+	if experimental_panel.visible:
+		for key: String in OPTION_LABELS:
+			toggles.append(option_toggles[key])
+	var mode: Button = experimental_button if experimental_button.button_pressed else pure_button
+	var chain: Array[Control] = [car_option, tune_option, color_option, tyre_option, track_option,
+		opponents_slider, option_toggles[SOUND], mode]
 	chain.append_array(toggles)
-	chain.append_array([opponents_slider, play_button, %WheelButton, %CreditsButton, %ExitButton])
+	chain.append_array([play_button, %WheelButton, %CreditsButton, %ExitButton])
 	for i in chain.size():
 		var c: Control = chain[i]
 		c.focus_next = c.get_path_to(chain[(i + 1) % chain.size()])
 		c.focus_previous = c.get_path_to(chain[i - 1])
 		c.focus_neighbor_bottom = c.focus_next
 		c.focus_neighbor_top = c.focus_previous
+	for b: Button in [pure_button, experimental_button]:
+		b.focus_neighbor_top = b.get_path_to(option_toggles[SOUND])
+		b.focus_neighbor_bottom = b.get_path_to(toggles[0] if not toggles.is_empty() else play_button)
+		b.focus_neighbor_left = b.get_path_to(pure_button)
+		b.focus_neighbor_right = b.get_path_to(experimental_button)
+		b.focus_next = mode.focus_next
+		b.focus_previous = mode.focus_previous
 	for i in toggles.size():
 		var t: Control = toggles[i]
-		t.focus_neighbor_top = t.get_path_to(toggles[i - 2] if i >= 2 else track_option)
-		t.focus_neighbor_bottom = t.get_path_to(toggles[i + 2] if i + 2 < toggles.size() else opponents_slider)
+		t.focus_neighbor_top = t.get_path_to(toggles[i - 2] if i >= 2 else mode)
+		t.focus_neighbor_bottom = t.get_path_to(toggles[i + 2] if i + 2 < toggles.size() else play_button)
 		var other: Control = toggles[i ^ 1] if (i ^ 1) < toggles.size() else t
 		t.focus_neighbor_left = t.get_path_to(other)
 		t.focus_neighbor_right = t.get_path_to(other)
-	opponents_slider.focus_neighbor_top = opponents_slider.get_path_to(toggles[toggles.size() - 1])
-	play_button.focus_neighbor_top = play_button.get_path_to(opponents_slider)
-	%WheelButton.focus_neighbor_right = %WheelButton.get_path_to(%CreditsButton)
-	%CreditsButton.focus_neighbor_left = %CreditsButton.get_path_to(%WheelButton)
-	%CreditsButton.focus_neighbor_right = %CreditsButton.get_path_to(%ExitButton)
-	%ExitButton.focus_neighbor_left = %ExitButton.get_path_to(%CreditsButton)
 
 
 func _on_car_selected(_index: int) -> void:
@@ -367,7 +411,7 @@ func _on_night_toggled(on: bool) -> void:
 		night_choice = on
 
 
-## NIGHT RACE: on a night track of the original checked and disabled, elsewhere the player's choice.
+## NIGHT MODE: on a night track of the original checked and disabled, elsewhere the player's choice.
 func _update_night() -> void:
 	var toggle := option_toggles[NIGHT] as CheckBox
 	var night_track := _selected_night_track()
@@ -513,7 +557,7 @@ func get_config() -> Dictionary:
 	var config := {
 		"car": car_keys[car_option.selected],
 		"track": track_names[track_option.selected],
-		"time": NIGHT if night_choice else "day",  ## the NIGHT RACE choice; a night track runs at night anyway
+		"time": NIGHT if night_choice else "day",  ## the NIGHT MODE choice; a night track runs at night anyway
 		"color": colors[color_option.selected] if color_option.selected >= 0 else "",
 		"tune": CarParts.TUNES[maxi(tune_option.selected, 0)],
 		"tyres": CarParts.TYRES[maxi(tyre_option.selected, 0)],
@@ -521,6 +565,7 @@ func get_config() -> Dictionary:
 	for key: String in option_toggles:
 		if key != NIGHT:
 			config[key] = (option_toggles[key] as CheckBox).button_pressed
+	config[EXPERIMENTAL] = experimental_button.button_pressed
 	config[OPPONENTS] = int(opponents_slider.value)
 	return config
 

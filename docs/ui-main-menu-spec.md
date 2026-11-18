@@ -287,15 +287,16 @@ const TRACKS := ["Solitude ring", "Schwarzwald pass", "Neckar valley", "Killesbe
 | Tires | Sport |
 | Track | Solitude ring |
 
+Above the switch: the OPPONENTS slider (`opponents`, 0..4, default 3) and the SOUND checkbox (`sound`, on).
+GAME MODE switch (D-054): PURE (default, `experimental` off) / EXPERIMENTAL. EXPERIMENTAL shows an inset panel with these checkboxes, all off by default; switching back to PURE clears and hides them.
+
 | Checkbox (label) | Key | Default |
 |---|---|---|
-| NIGHT RACE (unchecked = day) | `night` | off |
-| DRIVING ASSIST | `assist` | on |
-| ABS | `abs` | on |
-| TRACTION CONTROL | `traction` | on |
-| SOUND | `sound` | on |
-| DIAGNOSTICS | `diag` | off |
-| OPPONENTS | `opponents` | on |
+| ADVANCED GRAPHICS | `advanced_graphics` | off |
+| ADVANCED PHYSICS | `advanced_physics` | off |
+| HDRI SKY | `hdri_sky` | off |
+| NIGHT MODE (unchecked = day) | `night` | off |
+| DIAGNOSTICS | `diagnostics` | off |
 
 Car colour dropdown: each item gets a 20×20 swatch icon (2 px `#1E1C18` border). Generate it at runtime:
 

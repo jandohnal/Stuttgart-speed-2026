@@ -73,8 +73,8 @@ func _physics_process(delta: float) -> void:
 				phase = "brake_turn"
 				t = 0.0
 				Input.action_release("accelerate")
-				print("BRAKE IN CORNER: %.0f km/h, brake %.2f, steering %s %.2f, keyboard %s, assist %s, ABS %s, overrides %s" % [
-					speed, brake, "left" if turn_sign > 0.0 else "right", steer_input, car.digital_input, car.steering_assist, car.brake_assist, overrides])
+				print("BRAKE IN CORNER: %.0f km/h, brake %.2f, steering %s %.2f, keyboard %s, ABS %s, overrides %s" % [
+					speed, brake, "left" if turn_sign > 0.0 else "right", steer_input, car.digital_input, car.brake_assist, overrides])
 		"brake_turn":
 			Input.action_release("steer_left")
 			Input.action_release("steer_right")

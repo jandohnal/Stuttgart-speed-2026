@@ -1,6 +1,7 @@
 class_name Hud
 extends CanvasLayer
-## Rev counter and speedometer dials, the road map bottom left, the FPS top left and the race stopwatch. With
+## Rev counter and speedometer dials, the road map bottom left, the FPS top left (the menu's
+## DIAGNOSTICS) and the race stopwatch. With
 ## RaceStandings: the player's place and every car's gap to the player under the stopwatch while
 ## racing, and the results (place, time, gap) under the finish banner once the player is in
 ## (the cars behind with an estimated time, marked ~).
@@ -67,6 +68,8 @@ func _ready() -> void:
 	_diag.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT, Control.PRESET_MODE_MINSIZE, int(MARGIN))
 	_diag.position.y += 28.0
 	add_child(_diag)
+	_fps.visible = bool(GameSettings.options.get("diagnostics", false))  # the menu's DIAGNOSTICS
+	_diag.visible = _fps.visible
 	_stopwatch.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, int(MARGIN))
 	_stopwatch.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_stopwatch.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT

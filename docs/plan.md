@@ -189,6 +189,8 @@ Mimo pořadí fází. Webová verze je výstup tohoto repozitáře, desktopová 
 - [x] Veřejný repozitář jako webová verze, desktopová hra v samostatném repozitáři (D-042)
 - [x] Volba nízké kvality pro slabší počítače, i z adresy `?quality=low` (D-043)
 - [x] Nízká kvalita kreslí jako originál, bez stínů za běhu (D-048)
+- [x] Výchozí nastavení jako originál, zaškrtávátka ADVANCED GRAPHICS, ADVANCED PHYSICS a HDRI SKY, bez asistentů hráče, gumička vždy zapnutá (D-053)
+- [x] Menu s přepínačem PURE / EXPERIMENTAL, zaškrtávátko DIAGNOSTICS (D-054)
 - [x] Počet soupeřů posuvníkem v menu v každé kvalitě, nízká kvalita bez lamp trati, reflektorů soupeřů, obtisků a s malou radiance oblohy (D-049)
 - [x] Soupeři v nízké kvalitě jezdí po stopě jako v originálu, plná fyzika jen po nárazu (D-052)
 - [ ] Změřit nízkou kvalitu na slabých počítačích v prohlížeči

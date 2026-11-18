@@ -204,7 +204,7 @@ Závěry:
 
 ## Model originálu (D-046, 17. 11. 2026)
 
-Model originálu je teď ve hře jako volba ORIGINAL HANDLING (`original_handling.gd`, popis v [formats/sim.md](formats/sim.md#jízdní-model-originálu)). Fyzikální model zůstává výchozí a jeho čísla se nezměnila (`straight_test` 993 Turbo před a po: 0–100 5,5 s, 285 km/h, 100–0 37 m).
+Model originálu je teď ve hře výchozí (fyzikální model zapne zaškrtávátko ADVANCED PHYSICS, D-053) (`original_handling.gd`, popis v [formats/sim.md](formats/sim.md#jízdní-model-originálu)). Fyzikální model zůstává výchozí a jeho čísla se nezměnila (`straight_test` 993 Turbo před a po: 0–100 5,5 s, 285 km/h, 100–0 37 m).
 
 `original_handling_test` (rovná plocha, klávesy):
 
