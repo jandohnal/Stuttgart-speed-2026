@@ -6,7 +6,7 @@ extends Control
 ## tracks, Main.is_night_track: they always run at night), all off until checked; back to PURE
 ## turns them off and hides them) and PLAY; a porthole with an archive photo (ui/photos/porthole_*, else a
 ## placeholder) with the selected car turning in it (CarShowcase, one turn a minute) above a caption
-## naming the car; top right the selected track's outline from the original menu (TRACK_ART); a footer with credits (a dialog: tribute, how it was made, CREDITS_STATS) and exit. The lists come from
+## naming the car; top right the selected track's outline from the original menu (TRACK_ART); a footer with controls (a dialog: the keys, CONTROLS), wheel setup, credits (a dialog: tribute, how it was made, CREDITS_STATS) and exit. The lists come from
 ## main.gd (CARS, TRACKS); entries whose data is missing in decomposed/ are disabled. The choice
 ## goes to the GameSettings autoload and user://settings.cfg, then the game scene takes over.
 ## Colours: the car's original palette (Main.car_palette), first entry "original" = the texture
@@ -14,7 +14,7 @@ extends Control
 ## Layout: 1920x1080 design pixels (root content scale while the menu is up), wider or taller
 ## windows grow the background and keep the panel left and the porthole bottom-centre.
 ## Keyboard / gamepad: arrows or D-pad move the focus (dropdowns -> OPPONENTS -> SOUND -> GAME MODE
-## -> the shown checkboxes -> PLAY -> wheel -> credits ->
+## -> the shown checkboxes -> PLAY -> controls -> wheel -> credits ->
 ## exit -> back to the top; left / right move the slider), Space / A opens a list or toggles, Enter (anywhere) or Start plays,
 ## Esc asks to quit.
 
@@ -79,6 +79,23 @@ const OPPONENTS_LABEL := "OPPONENTS"
 ## image of FEData/TrackArt/<track>/ (folder name in any case), none for tracks without art.
 const TRACK_ART := "FEData/TrackArt"
 const CREDITS_CAPTION := "Credits — the people behind Stuttgart Speed"
+## The controls dialog: game actions (Main.ACTIONS, keys named from there) -> what they do, in table
+## order; several actions in one entry share a row. Telemetry is left out on the web (no file to write).
+const CONTROLS: Array[Array] = [
+	[["accelerate", "brake"], "Throttle / brake (hold brake when stopped to reverse)"],
+	[["steer_left", "steer_right"], "Steer"],
+	[["handbrake"], "Handbrake"],
+	[["horn"], "Horn (hold)"],
+	[["lights"], "Lights on / off"],
+	[["reset_car"], "Back onto the road"],
+	[["restart_race"], "Restart the race"],
+	[["repair"], "Repair the car"],
+	[["pause"], "Pause (drag the mouse to look around the car)"],
+	[["telemetry"], "Record telemetry"],
+	[["fullscreen"], "Full screen / window"],
+	[["menu"], "Back to the menu"],
+]
+const KEY_NAMES := {KEY_UP: "↑", KEY_DOWN: "↓", KEY_LEFT: "←", KEY_RIGHT: "→", KEY_SPACE: "Space", KEY_ESCAPE: "Esc"}
 ## How the game was made (tools/credits_stats.py: git history and Claude Code logs).
 const CREDITS_STATS := "res://ui/credits_stats.json"
 
@@ -100,6 +117,7 @@ const CREDITS_STATS := "res://ui/credits_stats.json"
 @onready var caption: Label = %CaptionLabel
 @onready var exit_dialog: ConfirmationDialog = %ExitDialog
 @onready var credits_dialog: AcceptDialog = %CreditsDialog
+@onready var controls_dialog: AcceptDialog = %ControlsDialog
 
 var car_keys: Array[String] = []
 var track_names: Array[String] = []
@@ -179,6 +197,7 @@ func _ready() -> void:
 	play_button.button_up.connect(_shift_play.bind(0))
 	play_button.mouse_entered.connect(_glow.bind(play_button, true))
 	play_button.mouse_exited.connect(_glow.bind(play_button, false))
+	%ControlsButton.pressed.connect(_on_controls)
 	%WheelButton.pressed.connect(_on_wheel)
 	%CreditsButton.pressed.connect(_on_credits)
 	%ExitButton.pressed.connect(_ask_exit)
@@ -186,6 +205,8 @@ func _ready() -> void:
 	exit_dialog.theme = theme
 	exit_dialog.confirmed.connect(_exit)
 	credits_dialog.theme = theme
+	controls_dialog.theme = theme
+	_fill_controls()
 	wheel_setup = WheelSetup.new()
 	wheel_setup.theme = theme
 	add_child(wheel_setup)
@@ -304,8 +325,8 @@ static func _photo() -> Texture2D:
 
 
 ## D-pad / arrows top to bottom: 5 dropdowns -> OPPONENTS -> SOUND -> GAME MODE (left / right between
-## PURE and EXPERIMENTAL) -> the EXPERIMENTAL grid when shown (2 columns) -> PLAY -> wheel -> credits
-## -> exit, wrapping to the first dropdown; Tab goes the same way. Linked again when the mode changes.
+## PURE and EXPERIMENTAL) -> the EXPERIMENTAL grid when shown (2 columns) -> PLAY -> controls -> wheel ->
+## credits -> exit, wrapping to the first dropdown; Tab goes the same way. Linked again when the mode changes.
 func _link_focus() -> void:
 	var toggles: Array = []
 	if experimental_panel.visible:
@@ -315,7 +336,7 @@ func _link_focus() -> void:
 	var chain: Array[Control] = [car_option, tune_option, color_option, tyre_option, track_option,
 		opponents_slider, option_toggles[SOUND], mode]
 	chain.append_array(toggles)
-	chain.append_array([play_button, %WheelButton, %CreditsButton, %ExitButton])
+	chain.append_array([play_button, %ControlsButton, %WheelButton, %CreditsButton, %ExitButton])
 	for i in chain.size():
 		var c: Control = chain[i]
 		c.focus_next = c.get_path_to(chain[(i + 1) % chain.size()])
@@ -482,6 +503,35 @@ func _glow(button: Button, on: bool) -> void:
 	create_tween().tween_property(button, "modulate", Color(1.15, 1.15, 1.15) if lit else Color.WHITE, 0.12)
 
 
+func _on_controls() -> void:
+	controls_dialog.popup_centered()
+	controls_dialog.get_ok_button().grab_focus()
+
+
+## The controls table from CONTROLS: keys (accent) and what they do.
+func _fill_controls() -> void:
+	var grid: GridContainer = %ControlsGrid
+	for row: Array in CONTROLS:
+		var actions: Array = row[0]
+		if actions.has("telemetry") and OS.has_feature("web"):
+			continue
+		var keys := PackedStringArray()
+		for action: String in actions:
+			keys.append(" / ".join(Main.ACTIONS[action].map(_key_name)))
+		var key := Label.new()
+		key.theme_type_variation = &"CreditsValue"
+		key.text = ",  ".join(keys)
+		grid.add_child(key)
+		var what := Label.new()
+		what.theme_type_variation = &"CreditsText"
+		what.text = row[1]
+		grid.add_child(what)
+
+
+static func _key_name(key: int) -> String:
+	return KEY_NAMES.get(key, OS.get_keycode_string(key as Key))
+
+
 func _on_wheel() -> void:
 	wheel_setup.open()
 
@@ -597,7 +647,7 @@ func _play() -> void:
 ## Enter plays even while the focus is on a dropdown (there Enter would open the list; Space or
 ## gamepad A still does). An open list or the exit dialog is a popup window and gets its keys first.
 func _input(event: InputEvent) -> void:
-	if exit_dialog.visible or credits_dialog.visible or wheel_setup.visible:
+	if exit_dialog.visible or credits_dialog.visible or controls_dialog.visible or wheel_setup.visible:
 		return
 	var key := event as InputEventKey
 	var joy := event as InputEventJoypadButton

@@ -444,6 +444,13 @@ vertical_alignment = 1
 layout_mode = 2
 theme_override_constants/separation = 48
 
+[node name="ControlsButton" type="Button" parent="Footer/HBox/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+theme_type_variation = &"FooterButton"
+text = "controls..."
+
 [node name="WheelButton" type="Button" parent="Footer/HBox/Buttons"]
 unique_name_in_owner = true
 layout_mode = 2
@@ -472,6 +479,38 @@ size = Vector2i(420, 160)
 ok_button_text = "exit"
 dialog_text = "Quit Stuttgart Speed?"
 cancel_button_text = "back"
+
+[node name="ControlsDialog" type="AcceptDialog" parent="."]
+unique_name_in_owner = true
+title = "CONTROLS"
+size = Vector2i(620, 400)
+ok_button_text = "close"
+
+[node name="Content" type="VBoxContainer" parent="ControlsDialog"]
+offset_left = 20.0
+offset_top = 16.0
+offset_right = 600.0
+offset_bottom = 340.0
+theme_override_constants/separation = 10
+
+[node name="Header" type="Label" parent="ControlsDialog/Content"]
+layout_mode = 2
+theme_type_variation = &"PanelHeader"
+text = "KEYBOARD"
+
+[node name="ControlsGrid" type="GridContainer" parent="ControlsDialog/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 32
+theme_override_constants/v_separation = 4
+columns = 2
+
+[node name="Note" type="Label" parent="ControlsDialog/Content"]
+custom_minimum_size = Vector2(560, 0)
+layout_mode = 2
+theme_type_variation = &"CreditsNote"
+text = "A wheel or gamepad is set up under wheel... in the menu, its buttons can take the handbrake, horn, lights, reset, restart, pause and back to menu."
+autowrap_mode = 3
 
 [node name="CreditsDialog" type="AcceptDialog" parent="."]
 unique_name_in_owner = true

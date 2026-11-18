@@ -255,7 +255,9 @@ const ACTIONS := {
 	"reset_car": [KEY_R],
 	"restart_race": [KEY_BACKSPACE],
 	"telemetry": [KEY_F2],
-	"repair": [KEY_F5],
+	"repair": [KEY_F],
+	"horn": [KEY_H],
+	"lights": [KEY_L],
 	"fullscreen": [KEY_F11],
 	"menu": [KEY_ESCAPE],
 	"pause": [KEY_P],
@@ -280,6 +282,7 @@ var hdri_sky := false  ## the sky is an HDRI (sky_source == "hdri")
 var sky_source := ""  ## "original", "hdri" or "procedural" (SkyLighting.apply, D-045)
 var original_sky: OriginalSky  ## follows the camera for the weather regions, null without the original's sky
 var lights: Node3D  ## CarLights
+var beam: CarBeam  ## the player's headlight pool in low quality at night, null otherwise
 var track_lights: Node3D  ## TrackLights
 var light_decals: LightDecals  ## the original's light decals on the cars (D-044), null = none
 var road := Road.new()
@@ -455,7 +458,8 @@ func _build_car(target: Car, key: String, color: String, cars: Variant, player: 
 		var shadow := CarShadow.new()
 		shadow.setup(target, model)
 		if player and time_of_day == "night":  # the unshaded track ignores the headlights
-			CarBeam.new().setup(target, shadow.front_reach)
+			beam = CarBeam.new()
+			beam.setup(target, shadow.front_reach)
 	if light_decals != null:
 		light_decals.add_car(target, model)
 	var car_lights := CarLights.new()
@@ -1011,7 +1015,9 @@ func _vec(a: Array) -> Vector3:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("pause"):
+	if event.is_action_released("horn"):
+		_set_horn(false)
+	elif event.is_action_pressed("pause"):
 		_set_paused(not get_tree().paused)
 	elif event.is_action_pressed("menu"):
 		_set_paused(false)
@@ -1026,9 +1032,30 @@ func _unhandled_input(event: InputEvent) -> void:
 		_toggle_log()
 	elif event.is_action_pressed("repair"):
 		car.repair()
+	elif event.is_action_pressed("horn") and not event.is_echo():
+		_set_horn(true)
+	elif event.is_action_pressed("lights") and not event.is_echo():
+		toggle_lights()
 	elif event.is_action_pressed("fullscreen"):
 		var full := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if full else DisplayServer.WINDOW_MODE_FULLSCREEN)
+
+
+## The player's horn sounds while the key is held (CarAudio.set_horn).
+func _set_horn(on: bool) -> void:
+	var audio := car.get_node_or_null("Audio") as CarAudio
+	if audio != null:
+		audio.set_horn(on)
+
+
+## L: the player's headlights and tail lamps on / off (CarLights.set_night, on by default at night),
+## with the low quality pool of light on the track (CarBeam).
+func toggle_lights() -> void:
+	if lights == null:
+		return
+	lights.set_night(not lights.night)
+	if beam != null:
+		beam.visible = lights.night
 
 
 ## Pause freezes the simulation, sounds and HUD; the camera then orbits the car with the mouse.

@@ -59,6 +59,9 @@ func _ready() -> void:
 	var exit: Control = menu.get_node("%ExitButton")
 	_expect(exit.get_node(exit.focus_neighbor_bottom) == menu.car_option, "focus wraps from exit to the car")
 	_expect(menu.get_config().size() == 6 + GameSettings.DEFAULT_OPTIONS.size(), "config keys")
+	var controls: GridContainer = menu.get_node("%ControlsGrid")
+	_expect(controls.get_child_count() == 2 * menu.CONTROLS.size() and (controls.get_child(0) as Label).text == "W / ↑,  S / ↓",
+		"controls table %d cells" % controls.get_child_count())
 	_check_colors(menu)
 	_expect(not Main.track_available("no_such_track"), "missing track detected")
 	_expect(not Main.car_available("no_such_car", {}), "missing car detected")

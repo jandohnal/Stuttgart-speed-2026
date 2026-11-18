@@ -52,7 +52,7 @@ func setup(car: Car, _front := 0.0) -> void:
 
 
 func _process(_delta: float) -> void:
-	if _car == null or _car.wheels.is_empty():
+	if _car == null or _car.wheels.is_empty() or not visible:
 		return
 	global_transform = Transform3D.IDENTITY
 	var frame := CarShadow.ground_frame(_car)

@@ -5,11 +5,14 @@ extends Node3D
 ##   (equal power, on a log rpm scale) between the two nearest; "load" loops on throttle, "coast"
 ##   loops (with idle) off throttle, blended by the throttle;
 ## - tyres squeal with slip beyond the grip peak, wind grows with speed, the body scrapes;
-## - impacts (CarDamage.impacted) and parts coming off or loose (CarDamage.part_changed).
+## - impacts (CarDamage.impacted) and parts coming off or loose (CarDamage.part_changed);
+## - the horn while the player holds H (set_horn): SND_coll 11, picked by its signal (an attack, then
+##   a steady loop at about 390 Hz from the bank's own loop points), not confirmed by ear.
 ## The collision bank sounds are picked by their signal (docs/formats/bnk.md), confirmed by ear.
 
 const SFX := {  ## SND_coll.bnk indices
 	"squeal": 46, "wind": 42, "scrape": 99,
+	"horn": 11,
 	"hit_light": [52, 56], "hit_heavy": [49, 51, 55], "glass": [119, 120], "part_off": [61], "part_loose": [52],
 }
 const GLASS_KINDS := ["headlight", "front_light", "tail_light"]
@@ -25,6 +28,7 @@ var _load := 0.0  ## smoothed throttle share
 var _squeal: AudioStreamPlayer3D
 var _wind: AudioStreamPlayer3D
 var _scrape: AudioStreamPlayer3D
+var _horn: AudioStreamPlayer3D
 var _sfx_dir := ""
 var _streams := {}  ## path -> AudioStreamWAV
 
@@ -48,6 +52,7 @@ func setup(car: Car, engine: Dictionary, engine_dir: String, sfx_dir: String) ->
 	_squeal = _sfx_loop(SFX["squeal"])
 	_wind = _sfx_loop(SFX["wind"])
 	_scrape = _sfx_loop(SFX["scrape"])
+	_horn = _bank_loop(SFX["horn"])
 	if car.damage != null:
 		car.damage.impacted.connect(_on_impact)
 		car.damage.part_changed.connect(_on_part)
@@ -167,6 +172,39 @@ func _sfx_loop(index: int) -> AudioStreamPlayer3D:
 	var p := _player(stream, "Sfx")
 	p.volume_db = -80.0
 	return p
+
+
+## A bank sound with its own loop points (index.json), stopped until started.
+func _bank_loop(index: int) -> AudioStreamPlayer3D:
+	var bank: Variant = OriginalAssets.load_json(_sfx_dir.path_join("index.json")) if OriginalAssets.exists(_sfx_dir.path_join("index.json")) else null
+	var start := 0
+	var end := -2
+	if bank is Dictionary:
+		for s: Dictionary in bank.get("sounds", []):
+			if int(s.get("index", -1)) == index and int(s.get("loop_end", 0)) > 0:
+				start = int(s["loop_start"])
+				end = int(s["loop_end"])
+	var stream := _load_stream(_sfx_dir.path_join("%03d.wav" % index), start, end)
+	if stream == null:
+		return null
+	var p := _player(stream, "Sfx")
+	p.stop()
+	p.volume_db = sfx_db + master_db
+	return p
+
+
+## Horn on (from the start of the sound, then its loop) or off.
+func set_horn(on: bool) -> void:
+	if _horn == null or on == _horn.playing:
+		return
+	if on:
+		_horn.play()
+	else:
+		_horn.stop()
+
+
+func is_horn_on() -> bool:
+	return _horn != null and _horn.playing
 
 
 func _player(stream: AudioStreamWAV, bus: String) -> AudioStreamPlayer3D:

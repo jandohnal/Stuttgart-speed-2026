@@ -15,6 +15,8 @@ const BUTTON_ACTIONS := {
 	"reset_car": "RESET CAR",
 	"restart_race": "RESTART RACE",
 	"pause": "PAUSE",
+	"horn": "HORN",
+	"lights": "LIGHTS",
 	"menu": "BACK TO MENU",
 }
 const DEFAULT_STEER_RANGE := 0.35  ## guess for a 900 degree wheel: full lock at about 160 degrees
