@@ -104,7 +104,7 @@ func _report() -> void:
 		var e: RaceStandings.Entry = standings.entries[k]
 		var d := e.car.get_node("AIDriver") as AIDriver
 		var damage: float = e.car.damage.total() if e.car.damage != null else 0.0
-		print("  %s: furthest ahead %.1f s, behind %.1f s, slide %.1f deg, damage %.3f, resets %d %s" % [e.name, max_ahead[e], max_behind[e], max_slide[e], damage, d.resets, d.reset_reason])
+		print("  %s: furthest ahead %.1f s, behind %.1f s, slide %.1f deg, damage %.3f, resets %d %s" % [e.name, max_ahead[e], max_behind[e], max_slide[e], damage, d.resets, d.reset_reason + (", off the rail %d times" % d.rail.hits if d.rail != null else "")])
 		if rubber:
 			_expect(max_ahead[e] <= MAX_AHEAD, "%s at most %.0f s ahead" % [e.name, MAX_AHEAD])
 			_expect(max_behind[e] <= MAX_BEHIND, "%s at most %.0f s behind" % [e.name, MAX_BEHIND])

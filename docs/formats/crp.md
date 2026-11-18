@@ -57,6 +57,15 @@ Za tabulkou článků následují rovnou položky misc.
 
 Úrovně: 1–2 model do menu („fe“), 3–7 herní LOD („ig1–ig5“). GeomIndex je slot dílu, TypeIndex jeho varianta; kterou variantu slotu auto ukazuje, určuje styl z `.tpg` (viz [Styly](#styly-varianty-modelu)). LevelIndex >> 4 & 8 je řidič.
 
+### Úrovně detailu aut
+
+Každé auto (i policejní a provozní `cop*`, `eas*`, `eden*`) má jeden model se všemi úrovněmi, zvláštní zjednodušené modely pro soupeře originál nemá. Díl nemusí mít všechny úrovně: chybějící úroveň se bere z nejbližší hrubší. Počet trojúhelníků se s každou úrovní zhruba půlí. Příklad 356 A (výchozí varianty slotů, bez řidiče): úroveň 1 ≈ 3 100, 2 ≈ 2 000, 3 ≈ 1 150, 4 ≈ 690, 5 ≈ 370, 6 ≈ 110, 7 ≈ 30 trojúhelníků. Ostatní auta jsou ve stejném řádu.
+
+- Motor, vnitřní strany dveří, kapoty a víka, strop a skla interiéru mají jen úrovně 1–2. Interiér a okna dveří končí úrovní 5, úroveň 7 tvoří jen karoserie, spodek a kola.
+- Tabulka úrovní v `Base` (0x64 + 12 × i: i32, pak `pr` od, `pr` do, úroveň, −1) neobsahuje vzdálenosti přepnutí, první hodnota je u všech dílů 1. Vzdálenosti jsou nejspíš v kódu `R3DCarLOD` (vtable 0x5B36AC) a zatím nejsou rozluštěné.
+- **Volba CAR DETAIL** (`CARDETAIL`, číslo 0x46, proměnná 0x657D68; kód tabulky voleb okolo 0x4B1260 zapisuje záznamy jméno, číslo, proměnná posunuté o jednu: číslo a proměnná za jménem patří k dalšímu záznamu). Funkce 0x44ED10 ji převede na 0x6197C4 (0, 1, 2). Při načtení auta (okolí 0x43A060) se z tabulky 0x5CD5B8 `{3, 3, 2, 2}` podle volby vezme počet přeskočených nejpodrobnějších úrovní a při méně než 40 MB paměti (0x2800000) jedna navíc. Na nejvyšší volbě tedy hra začíná úrovní 3, úrovně 1–2 jsou jen pro menu. Příznaky auta +0x52C bit 0x08 přidá jednu hrubší úroveň a bit 0x10 nastaví plný detail; nejspíš „cizí auto“ a „auto v menu“, neověřeno. Při CAR DETAIL 0 se nekreslí řidič (díly s LevelIndex & 8, kód 0x43C595 a 0x43E3E2).
+- Volba SPECIAL FX (0x657D6C) s detailem aut nesouvisí: řídí rozpočet částic (kouř a prach od kol, déšť, sníh).
+
 ### Díl (`pr`)
 
 | Offset | Typ | Význam |

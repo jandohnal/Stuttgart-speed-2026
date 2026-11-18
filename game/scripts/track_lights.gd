@@ -34,6 +34,8 @@ const LIGHT_PICK_INTERVAL := 0.25  ## s between re-picking the nearest flares
 ## LIT_TEXTURES): at night they get the lamp treatment described above.
 const LAMPS := {
 	"monaco": ["lamp", "lmpy", "strg", "stry"],
+	## Lamp posts, wall lamps (ippl brackets, lpol) and lamps on objects, all with lyte glass.
+	"industrial": ["strg", "stry", "lpol", "strb"],
 }
 const LAMP_WARM := Color(1.0, 0.7, 0.42)  ## about 2700 K, mixed into the flare colour
 const LAMP_WARMTH := 0.6
@@ -64,9 +66,11 @@ const LAMP_SPRITE_FADE := Vector2(8.0, 30.0)  ## m: sprite invisible nearer, ful
 const LIT_TEXTURES := {
 	"monaco": {"win1": 0.6, "win4": 0.6, "win5": 0.6, "neo1": 0.6, "neo2": 0.6, "neo5": 0.6, "neo6": 0.6,
 		"inlp": 4.0, "trl4": 4.0, "lmp1": 4.0, "lyte": 3.0},
+	## lwin lit factory windows, lyte lamp glass, ns05 / ns06 the neon signs on BigNeonSign.
+	"industrial": {"lwin": 0.6, "lyte": 3.0},
 }
 const LIT_THRESHOLD := Vector2(0.9, 1.0)  ## luminance ramp of the emission mask
-## Lit windows (texture names starting with "win"): the whole texture glows through a contrast
+## Lit windows (texture names containing "win": Monaco win*, Industrial lwin): the whole texture glows through a contrast
 ## curve and a warm tint, so the rooms behind the glass stay visible and only the brightest spots
 ## bloom. The bright-pixel mask let almost the whole pale pane through as flat white.
 const WINDOW_TINT := Color(1.0, 0.72, 0.42)
@@ -174,7 +178,8 @@ func _add_world(id: String, flares: Array) -> void:
 		_track_blink(id, mmi)
 	for f: Dictionary in flares:
 		if lamp:
-			_add_lamp_light(id, _vec(f["position"]))
+			if not GameSettings.is_low_quality():  # unshaded track (D-049): the light would reach only the cars
+				_add_lamp_light(id, _vec(f["position"]))
 		else:
 			_sources.append({"id": id, "position": _vec(f["position"]), "color": _light_color(id)})
 	flare_count += flares.size()
@@ -407,7 +412,7 @@ static func glow_textures(track: Node3D, track_entry: String) -> int:
 			done[m] = true
 			m.emission_enabled = true
 			var energy: float = names[tex_name]
-			if tex_name.begins_with("win"):
+			if tex_name.contains("win"):
 				m.emission = WINDOW_TINT
 				m.emission_energy_multiplier = WINDOW_ENERGY
 				m.emission_texture = _contrast(m.albedo_texture, WINDOW_GAMMA)

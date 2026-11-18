@@ -189,14 +189,14 @@ items:
   - id: textures
     category: unpack
     priority: medium
-    path: ["GameData/CarModel/*.fsh", "FEData/**/*.fsh", "GameData/DashHud/*.fsh", "GameData/Track/*.fsh", "GameData/Track/Sky/*.fsh", "GameData/Render/*.fsh"]
-    count: 553
+    path: ["GameData/CarModel/*.fsh", "FEData/**/*.fsh", "GameData/DashHud/*.fsh", "GameData/Track/*.fsh", "GameData/Track/Sky/*.fsh", "GameData/Render/*.fsh", "GameData/Render/*.psh"]
+    count: 555
     format: fsh
     doc: docs/formats/fsh.md
     tool: tools/fsh2png.py
     output: "decomposed/<cesta bez přípony>/*.png + index.json"
     status: decoded
-    notes: "SHPI, 10 425 obrázků. 8bitové (0x7B) s paletou 0x2A/0x29, 16/24/32bitové. 15 souborů celých v RefPack, 222 obrázků s pixely v RefPack"
+    notes: "SHPI, 10 425 obrázků. 8bitové (0x7B) s paletou 0x2A/0x29, 16/24/32bitové. 15 souborů celých v RefPack, 222 obrázků s pixely v RefPack. Dva soubory SHPP (.psh): night.psh (nght, světlo světlometů v noci, IDEA-015) a license.psh (znaky poznávací značky), typy 0x41 / 0x40 s paletou 0x23"
 
   - id: track_sky
     category: usable_now

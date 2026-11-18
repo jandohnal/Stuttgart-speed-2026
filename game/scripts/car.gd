@@ -180,6 +180,9 @@ var auto_brake := 0.0  ## 0..1
 var steer := 0.0
 var forward_speed := 0.0
 var side_contacts := 0  ## body contacts this tick pushing sideways or lengthways (walls, barriers, cars), not the ground
+var hit_impulse := 0.0  ## N s, the largest of those contacts this tick (or one with a car)
+## Driven on its line by RailDrive (low quality opponents, D-052): no wheels, tyres or gearbox here.
+var on_rail := false
 var odometer_m := 0.0  ## total distance, driven by the driven wheels' rotation like a gearbox-driven odometer
 var telemetry: Dictionary = {}
 var engine_torque_nm := 0.0  ## torque the engine gives this tick (after throttle), for telemetry
@@ -330,20 +333,25 @@ func setup_damage(info: Dictionary) -> void:
 
 
 func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
-	if damage == null:
+	if damage == null and not on_rail:
 		return
 	var contacts := []
 	var to_car := global_basis.inverse()
 	side_contacts = 0
+	hit_impulse = 0.0
 	for i in state.get_contact_count():
 		var impulse := state.get_contact_impulse(i).length()
 		if impulse > 0.0:
 			var normal := to_car * state.get_contact_local_normal(i)
+			var other_car := state.get_contact_collider_object(i) is Car
 			contacts.append({"impulse": impulse, "point": to_local(state.get_contact_local_position(i)),
-				"normal": normal, "car": state.get_contact_collider_object(i) is Car})
+				"normal": normal, "car": other_car})
 			if absf(normal.y) < 0.5:
 				side_contacts += 1
-	damage.add_tick(contacts)
+			if absf(normal.y) < 0.5 or other_car:
+				hit_impulse = maxf(hit_impulse, impulse)
+	if damage != null:
+		damage.add_tick(contacts)
 
 
 func _update_damage() -> void:
@@ -582,6 +590,8 @@ func _physics_process(delta: float) -> void:
 	if wheels.is_empty() or delta <= 0.0:
 		return
 	forward_speed = -global_basis.z.dot(linear_velocity)
+	if on_rail:
+		return  # RailDrive (driven by AIDriver before this) moves the car
 	if original_handling and original != null:
 		_physics_original(delta)
 		return

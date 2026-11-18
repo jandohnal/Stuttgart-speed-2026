@@ -150,7 +150,8 @@ Nejdřív se ověřují rizika (data, jízdní pocit), teprve potom se staví ob
 - [ ] Soupeři E: síla AI v menu
 - [ ] Provoz, policie
 - [x] Noční tratě originálu (Monaco 1–5, Industrial) jedou vždy v noci: příznak z render metod, obloha, jas trati, NIGHT RACE neaktivní (D-050, IDEA-015 kroky 1–4); `night_track_test`
-- [ ] Noční tratě: skvrna světlometů podle `night.psh`, lampy a okna Industrial, jas aut v noci (IDEA-015 kroky 5–7)
+- [x] Noční tratě: světlo světlometů podle `night.psh` a projekce originálu, lampy a okna Industrial (D-051, IDEA-015 kroky 5–6)
+- [ ] Noční tratě: jas aut v noci podle originálu (IDEA-015 krok 7)
 - [ ] Zvuky originálu pro všechny situace (soupeři, provoz, policie, prostředí)
 - [x] Ovládání volantem: kalibrace v menu, plyn, brzda, tlačítka, bez force feedbacku (D-038)
 - [ ] Ověřit volant na skutečném zařízení a doladit výchozí rozsah a křivku řízení
@@ -189,6 +190,7 @@ Mimo pořadí fází. Webová verze je výstup tohoto repozitáře, desktopová 
 - [x] Volba nízké kvality pro slabší počítače, i z adresy `?quality=low` (D-043)
 - [x] Nízká kvalita kreslí jako originál, bez stínů za běhu (D-048)
 - [x] Počet soupeřů posuvníkem v menu v každé kvalitě, nízká kvalita bez lamp trati, reflektorů soupeřů, obtisků a s malou radiance oblohy (D-049)
+- [x] Soupeři v nízké kvalitě jezdí po stopě jako v originálu, plná fyzika jen po nárazu (D-052)
 - [ ] Změřit nízkou kvalitu na slabých počítačích v prohlížeči
 - [ ] Změřit FPS a paměť na všech tratích, ve dne i v noci, s 0, 3 a 7 soupeři
 - [ ] Doladit osvětlení bez HDRI (Farmland je tmavý)

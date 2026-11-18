@@ -4,7 +4,7 @@ id: IDEA-015
 title: "Noční tratě originálu (Monaco 1–5, Industrial) v noci už ve výchozím stavu"
 status: accepted        # idea | accepted | rejected | done
 created: 2026-11-17
-related: [D-019, D-043, D-044, D-045, D-048, D-050, IDEA-009]
+related: [D-019, D-043, D-044, D-045, D-048, D-050, D-051, IDEA-009]
 tags: [night, sky, lighting, low-quality, monaco, industrial]
 ---
 
@@ -59,7 +59,7 @@ Textury obou tratí jsou namalované v noci. Monaco má rozsvícená okna `win*`
 
 ## Kroky
 
-Kroky 1–4 jsou hotové (D-050, 17. 11. 2026). V menu je NIGHT RACE u nočních tratí zaškrtnuté a neaktivní.
+Kroky 1–4 jsou hotové (D-050, 17. 11. 2026), kroky 5 a 6 také (D-051). V menu je NIGHT RACE u nočních tratí zaškrtnuté a neaktivní.
 
 1. **Příznak trati ve hře.** Načíst `night` z `<trať>_lights.json` (soubor se už načítá v `main.gd` a je ve webovém balíčku). Když klíč chybí (starý `decomposed/`), platí den a do logu jde výzva přegenerovat trať (`track2gltf.py`).
 2. **Výchozí denní doba.** Na trati s `night` je denní doba vždy noc, bez ohledu na NIGHT RACE, `--time` a `stuttgart/time`. Originál volbu nemá. Ve hře rozlišit dva druhy noci, třeba `night_source`: `original` (noc trati) a `race` (NIGHT RACE na denní trati). Kód pak na noční trati nedělá umělé ztmavení. V menu u Monaka a Industrial zobrazit NIGHT RACE zaškrtnuté a neaktivní, nebo volbu skrýt (rozhodnout).

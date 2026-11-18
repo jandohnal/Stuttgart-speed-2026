@@ -1,4 +1,4 @@
-"""Convert EA FSH (SHPI) texture archives to PNG.
+"""Convert EA FSH (SHPI) texture archives, and the few SHPP ones (.psh), to PNG.
 
 Format: docs/formats/fsh.md. Each image in an archive becomes one RGBA PNG,
 plus an index.json with entry names, record types, sizes and metadata.
@@ -6,6 +6,9 @@ plus an index.json with entry names, record types, sizes and metadata.
 Usage:
     python3 tools/fsh2png.py sources/GameData/CarModel/356a.fsh decomposed/GameData/CarModel/356a
     python3 tools/fsh2png.py sources decomposed          # whole tree, mirrors folders
+
+SHPP (GameData/Render/night.psh, license.psh) is the same container with PlayStation-style records:
+0x41 8-bit and 0x40 4-bit indexed images, 0x23 palette of 16-bit xBGR 1555 entries (alpha bit unused).
 
 Track light decals (GameData/Track/<track>.env, docs/formats/map.md) are SHPI archives as well; on a whole
 tree they go to decomposed/GameData/Track/<track>/env/.
@@ -21,9 +24,10 @@ from archives import decompress
 from common import source_files
 
 # Image record types: bytes per pixel. Bit 0x80 set = RefPack-compressed pixels.
-IMAGE_BPP = {0x7B: 1, 0x7D: 4, 0x7E: 2, 0x7F: 3, 0x78: 2, 0x6D: 2}
+IMAGE_BPP = {0x7B: 1, 0x7D: 4, 0x7E: 2, 0x7F: 3, 0x78: 2, 0x6D: 2, 0x41: 1, 0x40: 0.5}
+INDEXED = {0x7B, 0x41, 0x40}
 # Palette record types: bytes per entry.
-PALETTE_BPE = {0x29: 2, 0x2A: 4, 0x2D: 2, 0x24: 3, 0x22: 3}
+PALETTE_BPE = {0x29: 2, 0x2A: 4, 0x2D: 2, 0x24: 3, 0x22: 3, 0x23: 2}
 TEXT_TYPES = {0x6F, 0x70}
 
 
@@ -51,6 +55,9 @@ def decode_palette(t, data, count):
         elif t == 0x24:
             r, g, b = data[3 * i:3 * i + 3]
             pal.append((r, g, b, 255))
+        elif t == 0x23:  # SHPP: R in the low bits, no alpha
+            v = struct.unpack_from("<H", data, 2 * i)[0]
+            pal.append(((v & 31) * 255 // 31, (v >> 5 & 31) * 255 // 31, (v >> 10 & 31) * 255 // 31, 255))
         elif t == 0x22:
             r, g, b = (min(255, c * 4) for c in data[3 * i:3 * i + 3])
             pal.append((r, g, b, 255))
@@ -61,7 +68,10 @@ def decode_image(t, w, h, px, palette):
     """Return w*h*4 RGBA bytes."""
     out = bytearray(w * h * 4)
     n = w * h
-    if t == 0x7B:
+    if t == 0x40:  # 4 bits per pixel, low nibble first
+        px = bytes(v for b in px[:(n + 1) // 2] for v in (b & 15, b >> 4))
+        t = 0x7B
+    if t in (0x7B, 0x41):
         if palette is None:
             palette = [(i, i, i, 255) for i in range(256)]
         for i in range(n):
@@ -99,8 +109,8 @@ def parse(d):
     """Yield entries: dict(name, records=[(type, w, h, misc, payload)])."""
     if d[:2] == b"\x10\xfb":
         d = decompress(d)[0]
-    if d[:4] != b"SHPI":
-        raise ValueError("not an SHPI archive")
+    if d[:4] not in (b"SHPI", b"SHPP"):
+        raise ValueError("not an SHPI / SHPP archive")
     n = struct.unpack_from("<I", d, 8)[0]
     dir_id = d[12:16].decode("latin1")
     heads = [(d[16 + 8 * i:20 + 8 * i].decode("latin1"), struct.unpack_from("<I", d, 20 + 8 * i)[0])
@@ -153,11 +163,11 @@ def convert(src, out_dir):
             problems.append(f"{e['name']!r}: no image record")
         else:
             t, w, h, px = image
-            need = w * h * IMAGE_BPP[t]
+            need = int(w * h * IMAGE_BPP[t] + 0.5)
             if len(px) < need:
                 problems.append(f"{e['name']!r}: {len(px)} B < {need} B")
                 px = px + bytes(need - len(px))
-            if t == 0x7B and palette is None:
+            if t in INDEXED and palette is None:
                 problems.append(f"{e['name']!r}: 8-bit without palette, grayscale")
             fn = f"{i:03d}_{safe(e['name'])}.png"
             if w and h:
@@ -175,7 +185,7 @@ def main(src, dst):
     if os.path.isfile(src):
         jobs = [(src, dst)]
     else:
-        jobs = [(path, os.path.join(dst, rel)) for path, rel in source_files(src, [".fsh"])]
+        jobs = [(path, os.path.join(dst, rel)) for path, rel in source_files(src, [".fsh", ".psh"])]
         # Track light decals (.env, tools/light_decals.py): SHPI too, next to the track's textures in env/.
         jobs += [(path, os.path.join(dst, rel, "env")) for path, rel in source_files(src, [".env"])]
     total, bad = 0, 0

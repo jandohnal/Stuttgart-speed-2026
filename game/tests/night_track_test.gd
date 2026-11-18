@@ -4,7 +4,9 @@ extends Node
 ## Main.is_night_track: Monaco 1-5 and Industrial, the rest day. With LOW QUALITY: monaco1 and
 ## industrial asked for day run at night anyway, with the original's sky at full energy (not dimmed
 ## like a day sky at night), fog from the horizon and the track undarkened (painted at night);
-## NIGHT RACE on farmland darkens the track to LOW_TRACK_LIGHT and dims the sky. Missing tracks skip.
+## NIGHT RACE on farmland darkens the track to LOW_TRACK_LIGHT and dims the sky. The player's car
+## lights the track with the original's nght texture (CarBeam), and lamps with glass (TrackLights.LAMPS,
+## Monaco and Industrial) get no lights of their own on the unshaded track. Missing tracks skip.
 
 const Main := preload("res://scripts/main.gd")
 const Materials := preload("res://scripts/materials.gd")
@@ -18,6 +20,12 @@ func _ready() -> void:
 	for track: String in Main.TRACKS:
 		if Main.track_available(track):
 			_expect(Main.is_night_track(track) == (track in NIGHT_TRACKS), "%s: %s" % [track, "night" if Main.is_night_track(track) else "day"])
+	if OriginalAssets.exists(CarBeam.POOL):
+		var pool := CarBeam.pool_texture()
+		_expect(pool.get_width() == 128 and pool.get_image().get_pixel(64, 64).r > 0.9 and pool.get_image().get_pixel(0, 0).r < 0.1,
+			"nght: 128 px, bright in the middle, dark in the corner")
+	else:
+		print("  skip nght: %s missing (tools/fsh2png.py)" % CarBeam.POOL)
 	var saved_low: bool = GameSettings.options.get("low_quality", false)
 	var saved_sky: bool = GameSettings.options.get("original_sky", true)
 	GameSettings.options["low_quality"] = true
@@ -35,6 +43,9 @@ func _ready() -> void:
 		var own_night: bool = track in NIGHT_TRACKS
 		_expect(main.time_of_day == "night" and main.night_track == own_night, "%s asked %s: runs %s" % [track, run[1], main.time_of_day])
 		var env := (main.get_node("WorldEnvironment") as WorldEnvironment).environment
+		_expect(main.find_children("*", "CarBeam", true, false).size() == 1, "%s: the player's headlight light" % track)
+		if own_night and main.track_lights != null:
+			_expect(main.track_lights.lamp_lights.is_empty(), "%s: no lamp lights on the unshaded track" % track)
 		if main.sky_source == "original":
 			var energy: float = (env.sky.sky_material as ShaderMaterial).get_shader_parameter("energy")
 			var expected := OriginalSky.DAY_ENERGY * (1.0 if own_night else OriginalSky.NIGHT_SCALE)

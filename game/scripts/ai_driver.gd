@@ -82,6 +82,7 @@ const UPSIDE_TIME := 2.0  ## s with the roof closer to the ground than the wheel
 const TRACK_WINDOW := 10  ## slices searched ahead for the car's slice every tick
 const LOST_DISTANCE := 30.0  ## m from the line at the tracked slice: search the whole road again
 const OTHER_WINDOW := 40  ## slices ahead along the road another car is looked for
+const RAIL_PLAN_TICKS := 4  ## on the rail (RailDrive) the plan runs every this many physics ticks (120 Hz: 30 Hz)
 const OTHER_OFF_LINE := 12.0  ## m from the line a car may be and still count as on the road ahead
 
 @export var grip_use := 0.8  ## share of the tyres' friction planned for in corners (skill)
@@ -124,8 +125,12 @@ var pass_offset := 0.0  ## m the line is shifted sideways now (+ = right), for p
 var pass_target := 0.0  ## m the line is moving to (pass_offset follows at PASS_RATE)
 var pushing: Car  ## slow car with no room beside it, pushed out of the way; null = none
 var step_length := PackedFloat32Array()  ## m from a slice's line point to the next one's
+## Low quality opponents (D-052): drives the car on the line without wheels and tyres until a hit
+## hands it to the full physics (use_rail()); null = the full physics always.
+var rail: RailDrive = null
 
 var _wheelbase := 2.4
+var _plan_wait := 0  ## ticks until the next plan on the rail
 var _stuck_time := 0.0
 var _off_time := 0.0
 var _upside_time := 0.0
@@ -252,8 +257,22 @@ static func _radius(a: Vector3, b: Vector3, c: Vector3) -> float:
 
 func _physics_process(delta: float) -> void:
 	if not enabled or car == null or road == null or road.size() == 0:
+		if rail != null and rail.active:
+			rail.leave()  # let go (past the finish): the full physics brakes the car
 		return
 	_track(delta)
+	if rail != null and not rail.active and car.held:
+		rail.enter()  # back on the grid
+	if rail != null and rail.active:
+		_plan_wait -= 1
+		if not car.held and _plan_wait <= 0:
+			# The plan (other cars, passing, speed) a few times less often than the car moves.
+			_plan_wait = RAIL_PLAN_TICKS
+			_plan_pass(delta * RAIL_PLAN_TICKS)
+			target_speed = minf(_profile_ahead(car.forward_speed).x, _follow_limit(car.forward_speed))
+		rail.step(delta)
+		if rail.active:
+			return
 	if car.held:
 		# Start line: brakes on, clutch down, engine at the launch revs.
 		car.auto_throttle = 0.6
@@ -263,6 +282,14 @@ func _physics_process(delta: float) -> void:
 	_plan_pass(delta)
 	_steer(delta)
 	_pedals()
+	if rail != null:
+		rail.watch(delta)
+
+
+## Drives the car on its line (RailDrive) from now on, back on it after every hit.
+func use_rail() -> void:
+	rail = RailDrive.new(car, self)
+	rail.enter()
 
 
 func _track(delta: float) -> void:
@@ -307,6 +334,8 @@ func reset_on_line(reason := "") -> void:
 	_off_time = 0.0
 	_upside_time = 0.0
 	resets += 1
+	if rail != null:
+		rail.enter()
 
 
 func _steer(delta: float) -> void:
@@ -371,23 +400,10 @@ func _shifted(i: int) -> Vector3:
 
 func _pedals() -> void:
 	var speed := car.forward_speed
-	# The profile from here to the reaction distance ahead: the lowest speed in it is the target,
-	# its end is where the brake must have brought the car to.
-	var reach := maxf(speed * REACTION, MIN_REACTION)
-	var allowed := speed_limit[slice] * pace * _offset_factor(slice, pass_offset)
-	var dist := 0.0
-	var i := slice
-	while dist < reach:
-		var j := road.ahead(i, 1)
-		if j == i:
-			break
-		dist += step_length[i]
-		i = j
-		allowed = minf(allowed, speed_limit[i] * pace * _offset_factor(i, pass_offset))
-	target_speed = minf(allowed, _follow_limit(speed))
+	var ahead := _profile_ahead(speed)
+	target_speed = minf(ahead.x, _follow_limit(speed))
 	var error := target_speed - speed
-	var end_limit := speed_limit[i] * pace * _offset_factor(i, pass_offset)
-	var need := (speed * speed - end_limit * end_limit) / (2.0 * maxf(dist, 1.0))  # m/s2
+	var need := (speed * speed - ahead.y * ahead.y) / (2.0 * maxf(ahead.z, 1.0))  # m/s2
 	var flat := car.linear_velocity - car.global_basis.y * car.linear_velocity.dot(car.global_basis.y)
 	slide_deg = rad_to_deg(flat.angle_to(-car.global_basis.z)) if flat.length() > 3.0 else 0.0
 	# Grip the cornering already uses is not there for braking or driving the wheels, and a car
@@ -405,6 +421,23 @@ func _pedals() -> void:
 	car.auto_brake = 0.0
 	var throttle := clampf(0.3 + error * speed_gain, 0.0, 1.0) if error >= 0.0 else 0.2
 	car.auto_throttle = minf(throttle, maxf(left, 0.2)) * calm * throttle_share
+
+
+## The profile from here to the reaction distance ahead (at `speed`): x the lowest speed in it (the
+## target), y the speed at its end (where the brake must have brought the car to), z its length in m.
+func _profile_ahead(speed: float) -> Vector3:
+	var reach := maxf(speed * REACTION, MIN_REACTION)
+	var allowed := speed_limit[slice] * pace * _offset_factor(slice, pass_offset)
+	var dist := 0.0
+	var i := slice
+	while dist < reach:
+		var j := road.ahead(i, 1)
+		if j == i:
+			break
+		dist += step_length[i]
+		i = j
+		allowed = minf(allowed, speed_limit[i] * pace * _offset_factor(i, pass_offset))
+	return Vector3(allowed, speed_limit[i] * pace * _offset_factor(i, pass_offset), dist)
 
 
 ## Highest speed that keeps the gap to the nearest car ahead in the lane (INF: none). A car blocks
@@ -565,7 +598,10 @@ func _edges(i: int) -> Vector2:
 	var centre := -line_offsets[i]
 	var half := _half_width(i)
 	if absf(centre) > half:
-		centre = 0.0  # the line runs beside the slices (Monte Carlo): its own road
+		# The line runs beside the slices (Monte Carlo: a street of the layout the SimD slices do not
+		# cover). How wide that street is nobody knows; guessing the slices' width there sent a car
+		# passing into the wall. No room: the driver stays on the line.
+		return Vector2.ZERO
 	return Vector2(centre - half + EDGE_MARGIN, centre + half - EDGE_MARGIN)
 
 

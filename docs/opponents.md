@@ -1,7 +1,7 @@
 ---
 type: analysis
 title: "Soupeři: data originálu, srovnání a plán"
-updated: 2026-10-29
+updated: 2026-11-17
 related: ["formats/lsp.md", "formats/ais.md", "formats/ai-csv.md", "decisions.md#d-026-soupeři-jezdí-stejnou-fyzikou-jako-hráč-po-stopě-z-originálu", "../ideas/llm-opponent-personas.md"]
 ---
 
@@ -20,7 +20,13 @@ AI soupeřů v NFS: Porsche 2000 stojí na čtyřech vrstvách. Všechny jsou v 
 
 Shrnutí: soupeř originálu je **„auto na kolejích“ s osobností**. Jede po předpočítané stopě, tempo mu určují tabulky a gumička ho drží poblíž hráče. Plnou fyziku dostane, až když ho něco vyhodí z kontroly. Na tehdejší procesory to bylo nutné a dávalo designérům přímou kontrolu nad průběhem závodu, ale soupeř nedělá stejné chyby jako hráč a gumička je znát.
 
-Co ještě chybí ověřit v `Porsche.exe` (D-023): význam hodnot `.key`, tabulek `.ais` a rozdíl stop 0/1. Pro náš návrh to není blokující, stopy jsou ověřené.
+**Vykreslení soupeřů:** zvláštní modely nemají. Každé auto má jeden `.crp` se 7 úrovněmi detailu (1–2 menu, 3–7 hra, počet trojúhelníků se s úrovní zhruba půlí, úroveň 7 ≈ 30–50 trojúhelníků). Hra podle volby CAR DETAIL a paměti přeskočí nejpodrobnější úrovně a cizím autům nejspíš přidá ještě jednu hrubší, viz [crp.md](formats/crp.md#úrovně-detailu-aut). Vzdálenosti přepínání úrovní zatím nejsou rozluštěné.
+
+**Stavy AI v exe** (třídy RTTI): `AIHigh_Opponent`, `_Cop`, `_Traffic`, `_Player`, `_Human` a stavy `AIState_Racing`, `_Normal`, `_Chase`, `_Offroad`, `_GotoSlice`, `_Idle`, `_NonActive`, `_Purgatory`. Podle jmen originál vzdálená nebo vyřazená auta uspí, nebo je přesune na řez trati. Kód stavů zatím rozebraný není.
+
+**Ve hře:** v nízké kvalitě jezdí soupeři po stopě podobně jako v originálu (`RailDrive`, D-052): bez kol a pneumatik, s kaskádou regulátorů po vzoru `TRAFCFG` a s plnou fyzikou po nárazu. V plné kvalitě mají stejnou fyziku jako hráč (D-026).
+
+Co ještě chybí ověřit v `Porsche.exe` (D-023): význam hodnot `.key`, tabulek `.ais`, rozdíl stop 0/1, vzdálenosti přepínání LOD a co dělají stavy `NonActive` a `Purgatory`. Pro náš návrh to není blokující, stopy jsou ověřené.
 
 ## 2. Dnešní styly
 

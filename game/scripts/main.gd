@@ -20,7 +20,9 @@ extends Node3D
 ## menu's OPPONENTS slider (GameSettings.options["opponents"], 0..GameSettings.MENU_MAX_OPPONENTS),
 ## the tests with none unless they ask. They are held by the countdown
 ## like the player and set back on the grid on restart. Rubber band (RaceRubberBand, D-035): the
-## menu's option in the game, --rubber=0|1 else, off in the tests unless they ask.
+## menu's option in the game, --rubber=0|1 else, off in the tests unless they ask. Rail (D-052):
+## in low quality the opponents drive on their line without wheels and tyres (RailDrive) until a
+## hit hands them to the full physics; --rail=0|1 overrides it.
 ## Laps: on Monte Carlo's circuits (start = finish line, "source": "lap") the race is --laps=<n>
 ## laps, in the game project setting stuttgart/laps (default DEFAULT_LAPS), in the tests one.
 
@@ -520,6 +522,8 @@ func _add_opponents(road_data: Dictionary, cars: Variant, player_color: String) 
 		opponent.add_child(driver)
 		OpponentProfiles.apply(driver, profile)
 		driver.setup(opponent, road, ai_data, ai_line())
+		if uses_rail():
+			driver.use_rail()
 		opponents.append(opponent)
 		standings.add_car(opponent, profile["name"])
 		($HUD as Hud).minimap.add_car(opponent, color)
@@ -607,6 +611,12 @@ func _on_race_finished(_time: float) -> void:
 	car.auto_drive = true
 	car.auto_throttle = 0.0
 	car.auto_brake = STOP_BRAKE
+
+
+## Opponents drive on their line (RailDrive, D-052): in low quality, or as --rail=0|1 says.
+func uses_rail() -> bool:
+	var arg := _user_arg("rail")
+	return arg == "1" if not arg.is_empty() else GameSettings.is_low_quality()
 
 
 ## The original's racing line the opponents drive on this track (AI_LINES).

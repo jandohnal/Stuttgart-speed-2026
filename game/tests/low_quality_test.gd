@@ -9,7 +9,7 @@ extends Node
 ## and incremental, the camera sees LOW_VIEW_DISTANCE with at least LOW_FOG_DENSITY fog, the
 ## headlights cast no shadows and only the player's car has them, the track has no lamp lights, the
 ## cars no light decals and no leaves fall from the crowns
-## (FallingLeaves).
+## (FallingLeaves); the opponents drive on the rail (RailDrive, D-052), in full quality not.
 ## Then feeds GameSettings' adaptive 3D resolution made-up frame times: slow frames lower it step by step to LOW_MIN_RENDER_HEIGHT, fast ones raise it again.
 
 const Materials := preload("res://scripts/materials.gd")
@@ -65,9 +65,12 @@ func _ready() -> void:
 			_expect(not cars.is_empty() and blobs == cars.size(), "a shadow blob under every car")
 			_expect(beams == 1, "the player's headlight pool")
 			_expect(main.get_node_or_null("FallingLeaves") == null, "no falling leaves")
+			var railed: Array = main.opponents.filter(func(o: Car) -> bool: return (o.get_node("AIDriver") as AIDriver).rail != null)
+			_expect(not main.opponents.is_empty() and railed.size() == main.opponents.size(), "opponents on the rail (RailDrive, D-052)")
 		else:
 			_expect(sun.shadow_enabled and env.glow_enabled, "full quality keeps shadows and glow")
 			_expect(main.find_children("*", "CarShadow", true, false).is_empty(), "no shadow blobs in full quality")
+			_expect(main.opponents.all(func(o: Car) -> bool: return (o.get_node("AIDriver") as AIDriver).rail == null), "full quality opponents with the full physics")
 		main.queue_free()
 		await get_tree().process_frame
 	_test_adaptive()

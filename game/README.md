@@ -42,6 +42,8 @@ Trať určuje nastavení projektu `stuttgart/track` (výchozí `farmland`), z p�
 
 Souboje bok po boku a obrana jsou krok D.
 
+**Soupeři v nízké kvalitě** (D-052, `scripts/rail_drive.gd`, jinak `--rail=0|1`): jezdí po stopě jako v originálu, bez kol, pneumatik a převodovky. `AIDriver` plánuje rychlost a předjíždění (na stopě 30× za sekundu), `RailDrive` vede auto kaskádou regulátorů boční polohy a výšku bere ze dvou paprsků pod nápravami. Po nárazu (karoserie do strany nebo do auta) jede auto s plnou fyzikou a na stopu se vrátí po 1 s klidné jízdy.
+
 **Gumička** (D-035, `scripts/race_rubber_band.gd`, přepínač RUBBER BAND v menu, výchozí zapnutý, jinak `--rubber=0|1`): soupeři zůstávají poblíž hráče podle časového rozdílu. Do 2 s se nic nemění, plný efekt je při 5 s. Soupeř za hráčem jede až na limit přilnavosti a má až o 10 % větší výkon motoru. Soupeř před hráčem zpomalí až na 0,75 profilu a 50 % plynu. Soupeř nezačne předjíždět auto, které čeká na hráče.
 
 **Pořadí** (`scripts/race_standings.gd`, krok C2): každé auto se sleduje po trase závodu (řezy od startu po cílový řez, na okruhu dokola, kolo za kolem) a ukládá se okamžik, kdy poprvé projelo každým řezem. Rozdíl dvou aut je, o kolik později auto vzadu projelo místem, kde je teď (nebo bylo v cíli) auto vpředu, jako na časomíře. Pořadí: dojetá auta podle času, ostatní podle postupu, při shodě kdo tam byl dřív, na startu poloha na roštu. Soupeř dojede, když projede cílovou čárou po ujetí trasy (bez kontrolních bodů, jeho stopa vede po silnici). Za čárou jede dál 50 m (`OPPONENT_STOP_AFTER`), aby neblokoval auta za sebou, pak brzdí jako auto hráče a zastaví u kraje silnice na své straně (1,2 m od okraje). Cílem hráče závod končí: soupeři, kteří ještě jedou, dostanou odhadnutý čas = čas hráče + jejich rozdíl v tu chvíli (zbytek trati by jeli stejně rychle jako hráč) a dojedou do cíle už jen pro podívanou. V HUD je pod stopkami pozice (`P2/4`) a seznam aut s rozdílem proti hráči v sekundách (záporný = před hráčem, řádek hráče žlutě); po cíli hráče je nahoře uprostřed výsledková tabulka (pořadí, čas v cíli, rozdíl), odhadnuté časy mají „~“.
@@ -100,6 +102,7 @@ Hra se spouští rovnou přes celou obrazovku (`display/window/size/mode` = full
 | `scripts/follow_camera.gd`, `scripts/hud.gd` | kamera za autem (úvodní oblet, nevjíždí do trati, náklon `roll_degrees`, auto ve spodní třetině obrazu `car_screen_y`), budíky, FPS vlevo nahoře, stopky a odpočet |
 | `scripts/road.gd` | `Road`: řezy silnice SimD z `_road.json` (polohy a báze řezů, napojení úseků, `ahead`, nejbližší řez, poloha auta na řezu); sdílí `main.gd` a `AIDriver` |
 | `scripts/ai_driver.gd` | `AIDriver`: řidič soupeře (D-026) – ideální stopa originálu, pure pursuit se zpětnou vazbou úhlové rychlosti, rychlostní profil z přilnavosti a brzd (kruh přilnavosti), plyn ubíraný v zatáčce a ve smyku, odstup od auta před sebou, objetí pomalého auta (nebo opatrné vytlačení), návrat na stopu |
+| `scripts/rail_drive.gd` | `RailDrive`: soupeř v nízké kvalitě po stopě bez kol a pneumatik, plná fyzika po nárazu (D-052) |
 | `tests/grid_test.gd` | startovní rošt se soupeři: držení při odpočtu, rozjezd, doteky mezi auty |
 | `tests/pass_test.gd` | soupeř objede zaparkované auto hráče |
 | `scripts/race_rubber_band.gd` | `RaceRubberBand`: tempo soupeřů podle časového rozdílu proti hráči |
@@ -309,6 +312,12 @@ Stopa 0 v Monte Carlu proto test nesplní, dokud se nevyjasní, ke které varian
 ~/Downloads/Godot.app/Contents/MacOS/Godot --headless --fixed-fps 120 --path game res://tests/ai_drive_test.tscn -- --track=monaco1 --car=935race --line=1 --laps=2
 ```
 
+`--rail=1`: auto jede po stopě jako soupeř v nízké kvalitě (`RailDrive`, D-052), bez kol a pneumatik, s plnou fyzikou jen po nárazu. Testy závodu (`standings_test`, `rubber_test`) berou `--rail=1` pro soupeře a u každého vypíšou, kolikrát stopu opustil. Výsledky 18. 11. 2026: farmland 356 A 5:45,6, Monte Carlo 935 stopa 1 2 kola 3:45,2, Monte Carlo 356 A 5:04,3, všude bez doteku a resetu, smyk do 9,8°.
+
+```bash
+~/Downloads/Godot.app/Contents/MacOS/Godot --headless --fixed-fps 120 --path game res://tests/ai_drive_test.tscn -- --rail=1
+```
+
 Počitadlo kilometrů: bez okna ověří polohy válečků a přenos (např. 999,95 → tři válečky v půlce přenosu). S oknem (bez `--headless`) pak 6 s ukazuje rychloměry všech tří ér s přetočením 99 999,5 → 100 000,5 km, ve druhé polovině s chvěním válečků. Jízdní test navíc porovnává počitadlo s ujetou dráhou (17. 10. 2026: +0,9 %, rozdíl dělá prokluz kol).
 
 ```bash
@@ -327,7 +336,7 @@ Den a noc: bez okna ověří hledání HDRI (monaco1–5 → monaco), náhradní
 ~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/lighting_test.tscn
 ```
 
-Noční tratě originálu (D-050, bez okna): `Main.is_night_track` platí pro monaco1–5 a industrial, ostatní tratě jsou denní. S nízkou kvalitou monaco1 a industrial na požadavek „day“ jedou v noci s oblohou originálu s energií 1, mlhou v barvě horizontu a neztmavenou tratí; NIGHT RACE na farmlandu trať ztmaví na `LOW_TRACK_LIGHT` a oblohu ztlumí.
+Noční tratě originálu (D-050, bez okna): `Main.is_night_track` platí pro monaco1–5 a industrial, ostatní tratě jsou denní. S nízkou kvalitou monaco1 a industrial na požadavek „day“ jedou v noci s oblohou originálu s energií 1, mlhou v barvě horizontu a neztmavenou tratí, auto hráče má světlo světlometů s texturou `nght` originálu (D-051) a lampy se sklem nemají vlastní světla; NIGHT RACE na farmlandu trať ztmaví na `LOW_TRACK_LIGHT` a oblohu ztlumí.
 
 ```bash
 ~/Downloads/Godot.app/Contents/MacOS/Godot --headless --path game res://tests/night_track_test.tscn

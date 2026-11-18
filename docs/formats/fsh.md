@@ -77,6 +77,21 @@ Mipmapy se nepřevádějí, bere se jen plné rozlišení.
 
 Světelné obtisky tratí `GameData/Track/<trať>.env` ([map.md](map.md)) jsou také SHPI. Při převodu celého stromu jdou do `decomposed/GameData/Track/<trať>/env/` vedle textur trati (jeden soubor: `python3 tools/fsh2png.py sources/GameData/Track/alps.env decomposed/GameData/Track/alps/env`).
 
+## SHPP (`.psh`)
+
+`GameData/Render/night.psh` a `license.psh` mají stejný kontejner s hlavičkou `SHPP` a jiné typy záznamů (pravděpodobně převzaté z verze pro PlayStation). Pixely nejsou přeházené (swizzle).
+
+| Typ | Obsah |
+| --- | --- |
+| 0x41 | obrázek, 8 bitů, index do palety |
+| 0x40 | obrázek, 4 bity, index do palety (nižší půlbajt první) |
+| 0x23 | paleta 16 bit x B5 G5 R5 (červená v nejnižších bitech, horní bit nepoužitý) |
+
+- `night.psh`: jediný obrázek `nght` 128 × 128 s paletou 256 šedých odstínů (index ≈ jas). Je to světlo světlometů, které originál v noci promítá z auta hráče na trať (IDEA-015, `game/scripts/car_beam.gd`): řádek = vzdálenost před autem × 1,28 (0–99 m), sloupec = 64 + boční vzdálenost × 3,62 (±17 m), světlo vrcholu = (texel − |výška proti autu| · 32) / 256 (`FUN_00452910`).
+- `license.psh`: prázdná poznávací značka `blnk` 48 × 22 a 36 znaků 7 × 12, vše 4 bity s paletou 16 barev.
+
+`tools/fsh2png.py` převádí i `.psh`, výstup je ve stejné podobě (`decomposed/GameData/Render/night/`).
+
 ## Poznámky
 
 - Dva obrázky 0x7D mají alfu všude 0 (`Track/coastal.fsh` `walk`, `Track/Sky/default.fsh` `horz`). Jsou tak uložené ve zdroji, nejde o chybu převodu.

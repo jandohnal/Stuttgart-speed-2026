@@ -1,6 +1,7 @@
 extends Node
 ## Headless test of the opponent driver (AIDriver, D-026) alone on the track:
-##   godot --headless --fixed-fps 120 --path game res://tests/ai_drive_test.tscn [-- --track=monaco1 --car=935race --line=1 --laps=2 --trace=60:80 --grip=0.9]
+##   godot --headless --fixed-fps 120 --path game res://tests/ai_drive_test.tscn [-- --track=monaco1 --car=935race --line=1 --laps=2 --trace=60:80 --grip=0.9 --rail=1]
+## --rail=1 drives the car on its line like a low quality opponent (RailDrive, D-052).
 ## --trace=from:to prints the driver's state every 0.25 s between those simulated seconds.
 ## On a track with start and finish lines (farmland by default) the AI drives the race from the
 ## start line and must cross the finish after every checkpoint; on a lap track without them
@@ -47,6 +48,8 @@ func _ready() -> void:
 	car = main.get_node("Car") as Car
 	var line: String = main._user_arg("line")
 	ai = main.drive_by_ai(line.to_int() if line.is_valid_int() else main.ai_line())
+	if main._user_arg("rail") == "1":
+		ai.use_rail()  # the low quality opponents' rail (RailDrive, D-052)
 	race = main.race
 	if race != null:
 		race.finished.connect(func(time: float) -> void: finish_time = time)

@@ -7,7 +7,7 @@ Python 3, jen standardní knihovna. Čtou ze `sources/`, zapisují do `decompose
 | Nástroj | Vstup → výstup | Formát |
 | --- | --- | --- |
 | `archives.py` | `refpack <in> <out>`: rozbalí EA RefPack (`.crp` …); `bigf <in.viv> <složka>`: rozbalí archiv BIGF | [crp.md](../docs/formats/crp.md), [bnk.md](../docs/formats/bnk.md) |
-| `fsh2png.py` | textury FSH (SHPI) a světelné obtisky tratí `.env` → PNG + `index.json`; jeden soubor nebo celý strom | [fsh.md](../docs/formats/fsh.md) |
+| `fsh2png.py` | textury FSH (SHPI, i SHPP `.psh`) a světelné obtisky tratí `.env` → PNG + `index.json`; jeden soubor nebo celý strom | [fsh.md](../docs/formats/fsh.md) |
 | `sky.py` | obloha originálu `Sky/<Trať>.txt` + `.bin` → `<trať>_sky.json` (vrstvy, kopule, prstenec horizontu, prolnutí oblastí podle řezu); po `fsh2png` a `track2gltf` | [sky.md](../docs/formats/sky.md) |
 | `light_decals.py` | sekce světelných obtisků tratí `.map` → `<trať>_decals.json` (rozsahy řezů, textury z `env/`); po `fsh2png` | [map.md](../docs/formats/map.md) |
 | `crp2gltf.py` | model auta `.crp` → glTF (+ atlasy textur, morph targety poškození `dz0`–`dz9`, oddělené levé a pravé díly) + `<auto>_damage.json` (zóny, odpojitelné díly) + `<auto>_styles.json` (styly z `.tpg`: díly k odebrání a atlasy každé varianty, D-022); vynechá zdvojené díly nižší úrovně detailu, vnitřní panely víek otočí od vnějších, vrstvené díly (světla, obtisky …) zvedne 1 mm nad podklad | [crp.md](../docs/formats/crp.md#styly-varianty-modelu) |

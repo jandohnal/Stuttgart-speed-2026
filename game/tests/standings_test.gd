@@ -112,7 +112,8 @@ func _report() -> void:
 			RaceTimer.format_time(e.finish_time) if e.finish_time >= 0.0 else "  racing", standings.gap_to_player(e),
 			e.progress, standings.route.size() * main.race.laps, ", stands" if e.car.held or e.car.linear_velocity.length() < 0.5 else ""])
 		var d := e.car.get_node_or_null("AIDriver") as AIDriver
-		print("     damage %.3f, resets %d %s" % [e.car.damage.total() if e.car.damage != null else 0.0, d.resets if d != null else 0, d.reset_reason if d != null else ""])
+		print("     damage %.3f, resets %d %s%s" % [e.car.damage.total() if e.car.damage != null else 0.0, d.resets if d != null else 0, d.reset_reason if d != null else "",
+			", off the rail %d times" % d.rail.hits if d != null and d.rail != null else ""])
 	_expect(standings.all_finished(), "every car finished")
 	_expect(order_errors == 0, "order follows progress (%d ticks wrong)" % order_errors)
 	_expect(sign_errors == 0, "gaps negative ahead of the player, positive behind (%d wrong)" % sign_errors)
